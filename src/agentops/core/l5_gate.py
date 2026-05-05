@@ -28,10 +28,14 @@ def evaluate_l5_gate(
 ) -> dict[str, Any]:
     event_types = {event["event_type"] for event in events}
     missing_events = sorted(L5_REQUIRED_EVENTS - event_types)
+    enterprise_events = [
+        event for event in events if event.get("integration_mode") == "enterprise_managed"
+    ]
+    imported_events = [
+        event for event in events if event.get("integration_mode") != "enterprise_managed"
+    ]
     signed = all(
-        event.get("signature")
-        for event in events
-        if event.get("integration_mode") == "enterprise_managed"
+        event.get("signature") for event in enterprise_events
     )
 
     failed_conditions: list[str] = []
@@ -42,6 +46,11 @@ def evaluate_l5_gate(
     if not reporter_enabled or not signed:
         failed_conditions.append("source_signed")
         downgrade_reason = "Reporter is disabled or event source is unsigned."
+        result = "L3"
+
+    if not enterprise_events or imported_events:
+        failed_conditions.append("enterprise_managed")
+        downgrade_reason = "Only enterprise_managed signed events can enter AgentOps L5."
         result = "L3"
 
     if governance_state != "verified_loaded":
@@ -82,6 +91,7 @@ def evaluate_l5_gate(
         "governance_loaded": governance_state == "verified_loaded",
         "schema_valid": True,
         "source_signed": signed,
+        "enterprise_managed": bool(enterprise_events) and not imported_events,
         "identity_confidence": identity_confidence == "verified",
         "session_mapping": True,
         "stage_events_complete": not missing_events,
