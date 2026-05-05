@@ -135,6 +135,22 @@ def test_issued_bootstrap_retry_still_requires_session_identity_match(repository
     assert exc.value.error_code == "BOOTSTRAP_IDENTITY_MISMATCH"
 
 
+@pytest.mark.parametrize(
+    ("section", "field"),
+    [("installation_assertion", "nonce"), ("device_proof", "nonce")],
+)
+def test_issued_bootstrap_retry_still_requires_nonce_proof(repository, section, field):
+    repository.add_bootstrap_session(bootstrap_session())
+    issue_credentials(credential_request(), repository)
+    request = credential_request()
+    request[section].pop(field)
+
+    with pytest.raises(AgentOpsError) as exc:
+        issue_credentials(request, repository)
+
+    assert exc.value.error_code == "BOOTSTRAP_NONCE_REQUIRED"
+
+
 def test_artifact_mismatch_returns_contract_error(repository):
     repository.add_bootstrap_session(bootstrap_session())
 

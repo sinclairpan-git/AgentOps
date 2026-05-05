@@ -62,12 +62,15 @@ def issue_credentials(request: dict[str, Any], repository: InMemoryRepository, n
     if not assertion.get("key_id") or not device_proof.get("key_id"):
         raise AgentOpsError("BOOTSTRAP_KEY_ID_REQUIRED", "Bootstrap assertion and device proof require key_id.")
 
+    assertion_nonce = assertion.get("nonce")
+    device_nonce = device_proof.get("nonce")
+    if not assertion_nonce or not device_nonce:
+        raise AgentOpsError("BOOTSTRAP_NONCE_REQUIRED", "Bootstrap assertion and device proof require nonces.")
+
     existing = repository.credentials_by_bootstrap.get(bootstrap_id)
     if existing:
         return dict(existing)
 
-    assertion_nonce = assertion["nonce"]
-    device_nonce = device_proof["nonce"]
     if assertion_nonce in repository.used_bootstrap_nonces or device_nonce in repository.used_bootstrap_nonces:
         raise AgentOpsError("BOOTSTRAP_REPLAY_DETECTED", "Bootstrap nonce has already been used.")
 
