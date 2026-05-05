@@ -99,6 +99,42 @@ def test_same_bootstrap_retry_returns_same_credential_state(repository):
     assert first == second
 
 
+def test_issued_bootstrap_retry_still_requires_signed_assertion(repository):
+    repository.add_bootstrap_session(bootstrap_session())
+    issue_credentials(credential_request(), repository)
+    request = credential_request()
+    request["installation_assertion"]["signature"] = ""
+
+    with pytest.raises(AgentOpsError) as exc:
+        issue_credentials(request, repository)
+
+    assert exc.value.error_code == "BOOTSTRAP_SIGNATURE_REQUIRED"
+
+
+def test_issued_bootstrap_retry_still_requires_device_proof(repository):
+    repository.add_bootstrap_session(bootstrap_session())
+    issue_credentials(credential_request(), repository)
+    request = credential_request()
+    request.pop("device_proof")
+
+    with pytest.raises(AgentOpsError) as exc:
+        issue_credentials(request, repository)
+
+    assert exc.value.error_code == "BOOTSTRAP_DEVICE_PROOF_REQUIRED"
+
+
+def test_issued_bootstrap_retry_still_requires_session_identity_match(repository):
+    repository.add_bootstrap_session(bootstrap_session())
+    issue_credentials(credential_request(), repository)
+    request = credential_request()
+    request["installation_assertion"]["installation_id"] = "inst_2"
+
+    with pytest.raises(AgentOpsError) as exc:
+        issue_credentials(request, repository)
+
+    assert exc.value.error_code == "BOOTSTRAP_IDENTITY_MISMATCH"
+
+
 def test_artifact_mismatch_returns_contract_error(repository):
     repository.add_bootstrap_session(bootstrap_session())
 

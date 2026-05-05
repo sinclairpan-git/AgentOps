@@ -112,9 +112,9 @@ T11 规格与契约基线已完成，可进入实现批次 T12 起。当前项�
 
 #### 2.10 验证结果
 
-- 全量测试：36 passed。
+- 全量测试：39 passed。
 - Ruff：All checks passed。
-- 契约测试：AO-CT-001 到 AO-CT-006 均通过；新增 enterprise source/credential/device 状态校验、BootstrapSession 状态/过期、installation/user/session 绑定、device proof 过期/签名约束、timestamp skew 和 nonce replay 测试。
+- 契约测试：AO-CT-001 到 AO-CT-006 均通过；新增 enterprise source/credential/device 状态校验、BootstrapSession 状态/过期、installation/user/session 绑定、幂等重试仍需 assertion/device proof 校验、device proof 过期/签名约束、timestamp skew 和 nonce replay 测试。
 - 单元测试：L5 Gate 与管理员 view model 均通过；新增 standalone/imported evidence 不得进入 L5 或 pending L5 的回归测试。
 - AI-SDLC 约束：no BLOCKERs。
 

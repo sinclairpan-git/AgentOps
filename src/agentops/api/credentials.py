@@ -20,12 +20,13 @@ def issue_credentials(request: dict[str, Any], repository: InMemoryRepository, n
         raise AgentOpsError("BOOTSTRAP_EXPIRED", "Bootstrap session is expired.")
     if session.get("status") not in {"authenticated", "credential_issued", "verified"}:
         raise AgentOpsError("BOOTSTRAP_STATE_INVALID", "Bootstrap session is not eligible for credential issue.")
-    existing = repository.credentials_by_bootstrap.get(bootstrap_id)
-    if existing:
-        return dict(existing)
 
-    assertion = request["installation_assertion"]
-    device_proof = request["device_proof"]
+    assertion = request.get("installation_assertion")
+    if not isinstance(assertion, dict):
+        raise AgentOpsError("BOOTSTRAP_ASSERTION_REQUIRED", "Bootstrap installation assertion is required.")
+    device_proof = request.get("device_proof")
+    if not isinstance(device_proof, dict):
+        raise AgentOpsError("BOOTSTRAP_DEVICE_PROOF_REQUIRED", "Bootstrap device proof is required.")
 
     expires_at = _parse_time(assertion["expires_at"])
     if expires_at <= now:
@@ -60,6 +61,10 @@ def issue_credentials(request: dict[str, Any], repository: InMemoryRepository, n
 
     if not assertion.get("key_id") or not device_proof.get("key_id"):
         raise AgentOpsError("BOOTSTRAP_KEY_ID_REQUIRED", "Bootstrap assertion and device proof require key_id.")
+
+    existing = repository.credentials_by_bootstrap.get(bootstrap_id)
+    if existing:
+        return dict(existing)
 
     assertion_nonce = assertion["nonce"]
     device_nonce = device_proof["nonce"]

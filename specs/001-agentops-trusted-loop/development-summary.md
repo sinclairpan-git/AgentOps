@@ -11,7 +11,7 @@
 - 实现 Ingestion 批量接入、event_id/idempotency_key 防重、in-memory Raw Event 存储。
 - 实现 L5 Eligibility Gate 纯函数 evaluator，覆盖完整 L5、governance degraded、缺 fresh verification、outbox pending。
 - 实现 Evidence Summary 默认脱敏摘要、raw access denial、source_trust/completeness/freshness/downgrade_reason。
-- 实现 Bootstrap Credential API 语义，校验 assertion、artifact_hash、issuer、installation/user/session 绑定、device proof、timestamp skew、nonce replay，并保证同 bootstrap 幂等。
+- 实现 Bootstrap Credential API 语义，校验 assertion、artifact_hash、issuer、installation/user/session 绑定、device proof、timestamp skew、nonce replay，并保证只有通过校验的同 bootstrap 重试可幂等返回。
 - 实现 PolicyDecision 阶段 1 降级口径，高风险缺 scope 报错，高风险策略不可用默认 block/require_online。
 - 实现 Agent Store Summary，强制返回 score_template_id、risk_state、approval_state、deep links，不返回原文。
 - 实现管理员页面 view model，覆盖 Overview、Runs、Evidence Explorer、Risk Triage、Approval Center、Policy Center、Quality Center、Connector Status 的状态快照。
@@ -19,7 +19,7 @@
 
 ## 验证结果
 
-- `uv run pytest tests -q`：36 passed。
+- `uv run pytest tests -q`：39 passed。
 - `ai-sdlc gate refine`：PASS。
 - `ai-sdlc gate design`：PASS。
 - `ai-sdlc verify constraints`：no BLOCKERs。
