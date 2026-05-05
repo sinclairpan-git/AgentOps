@@ -227,3 +227,67 @@
 - 已完成 git 提交：是
 - 提交哈希：见本批次 Git 提交
 - 是否继续下一批：是，进入 Batch 4。
+
+### Batch 2026-05-05-004 | T41
+
+#### 5.1 批次范围
+
+- 覆盖任务：`T41`
+- 覆盖阶段：Batch 4 Evidence Vault summary and raw access state
+- 预读范围：AO2-CT-004、Evidence Vault schema、UX P1 redaction_failed 修复记录
+
+#### 5.2 任务记录
+
+##### T41 | 实现 Evidence Vault 摘要访问控制
+
+- 改动范围：
+  - `src/agentops/models/evidence_vault.py`
+  - `src/agentops/core/evidence_vault.py`
+  - `src/agentops/api/evidence_vault.py`
+  - `src/agentops/storage/repository.py`
+  - `tests/contract/test_ao2_ct_004_evidence_vault.py`
+  - `tests/unit/test_evidence_vault.py`
+- 改动内容：
+  - 实现 EvidenceVaultSummary builder，默认只返回脱敏摘要、hash、raw_access_state 和 audit。
+  - 实现 RawAccessRequest 和 RawAccessGrant 的 in-memory 状态。
+  - request_raw 未授权返回 `RAW_ACCESS_DENIED`，过期返回 `RAW_ACCESS_EXPIRED`。
+  - redaction_failed 返回 safe_empty/hash/告警动作，不返回 raw_payload 或不可信 redacted_summary。
+- 新增/调整的测试：
+  - summary 不含 raw_payload。
+  - 无 grant 请求 raw access 返回 RAW_ACCESS_DENIED。
+  - approved raw grant 返回 approved access state 但仍不返回 raw_payload。
+  - expired raw grant 返回 RAW_ACCESS_EXPIRED。
+  - redaction_failed 不返回 redacted_summary/raw_payload。
+
+#### 5.3 执行命令
+
+- `uv run pytest tests/contract/test_ao2_ct_004_evidence_vault.py tests/unit/test_evidence_vault.py -q`
+- `uv run ruff check src/agentops/core/evidence_vault.py src/agentops/api/evidence_vault.py src/agentops/models/evidence_vault.py src/agentops/storage/repository.py tests/contract/test_ao2_ct_004_evidence_vault.py tests/unit/test_evidence_vault.py`
+
+#### 5.4 测试结果
+
+- 定向测试：7 passed。
+- Ruff：All checks passed。
+
+#### 5.5 代码审查结论（Mandatory）
+
+- 宪章/规格对齐：T41 对齐 AO2-CT-004、FR-018 和 Evidence Vault schema。
+- 代码质量：Vault 逻辑集中在 core，API 保持薄 wrapper，repository 只存储 raw access 申请和授权状态。
+- 测试质量：覆盖摘要、权限拒绝、限时授权、过期和脱敏失败隐私红线。
+- 结论：T41 可进入全量回归和 Store/CLI/SLO/admin models。
+
+#### 5.6 任务/计划同步状态（Mandatory）
+
+- `tasks.md` 同步状态：T41 已完成。
+- `related_plan` 同步状态：Phase 3 Evidence Vault 已完成。
+- 关联 branch/worktree disposition 计划：继续使用 `feature/002-agentops-policy-approval-vault-docs`。
+
+#### 5.7 批次结论
+
+- Evidence Vault 摘要访问控制已落地，可进入阶段 2 可解释摘要和管理员模型。
+
+#### 5.8 归档后动作
+
+- 已完成 git 提交：是
+- 提交哈希：见本批次 Git 提交
+- 是否继续下一批：是，进入 Batch 5。

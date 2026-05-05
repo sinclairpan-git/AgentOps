@@ -23,6 +23,8 @@ class InMemoryRepository:
     approval_decisions: dict[str, dict[str, Any]] = field(default_factory=dict)
     grants: dict[str, dict[str, Any]] = field(default_factory=dict)
     grant_consumptions: dict[str, dict[str, Any]] = field(default_factory=dict)
+    raw_access_requests: dict[str, dict[str, Any]] = field(default_factory=dict)
+    raw_access_grants: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     def write_event(self, event: dict[str, Any], evidence_mode: str = "managed") -> str:
         event_id = event["event_id"]
@@ -80,3 +82,15 @@ class InMemoryRepository:
     def store_grant_consumption(self, consumption: dict[str, Any]) -> dict[str, Any]:
         self.grant_consumptions[consumption["consumption_id"]] = dict(consumption)
         return dict(consumption)
+
+    def store_raw_access_request(self, request: dict[str, Any]) -> dict[str, Any]:
+        self.raw_access_requests[request["request_id"]] = dict(request)
+        return dict(request)
+
+    def get_raw_access_request(self, request_id: str) -> dict[str, Any] | None:
+        request = self.raw_access_requests.get(request_id)
+        return dict(request) if request else None
+
+    def store_raw_access_grant(self, grant: dict[str, Any]) -> dict[str, Any]:
+        self.raw_access_grants[grant["raw_grant_id"]] = dict(grant)
+        return dict(grant)
