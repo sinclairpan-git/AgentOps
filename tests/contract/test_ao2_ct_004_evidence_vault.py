@@ -45,7 +45,7 @@ def test_approved_raw_access_returns_limited_access_state(repository):
     )
     grant = approve_raw_access(request["request_id"], repository)
 
-    summary = get_evidence_vault_summary(**summary_kwargs(raw_access_grant=grant, request_raw=True))
+    summary = get_evidence_vault_summary(**summary_kwargs(raw_access_grant=grant, requester="user_1", request_raw=True))
 
     assert summary["raw_access_state"] == "approved"
     assert summary["redaction_state"] == "ok"
@@ -64,9 +64,26 @@ def test_expired_raw_access_grant_returns_contract_error(repository):
     grant = approve_raw_access(request["request_id"], repository)
 
     with pytest.raises(AgentOpsError) as exc:
-        get_evidence_vault_summary(**summary_kwargs(raw_access_grant=grant, request_raw=True))
+        get_evidence_vault_summary(**summary_kwargs(raw_access_grant=grant, requester="user_1", request_raw=True))
 
     assert exc.value.error_code == "RAW_ACCESS_EXPIRED"
+
+
+def test_raw_access_grant_must_match_evidence_and_requester(repository):
+    request = request_raw_access(
+        repository,
+        evidence_id="ev_other",
+        requester="user_other",
+        reason="incident review",
+        approver_scope="iam.security",
+        ttl_seconds=300,
+    )
+    grant = approve_raw_access(request["request_id"], repository)
+
+    with pytest.raises(AgentOpsError) as exc:
+        get_evidence_vault_summary(**summary_kwargs(raw_access_grant=grant, requester="user_1", request_raw=True))
+
+    assert exc.value.error_code == "RAW_ACCESS_DENIED"
 
 
 def test_redaction_failed_returns_safe_empty_without_summary_or_raw():

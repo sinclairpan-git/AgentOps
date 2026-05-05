@@ -16,6 +16,22 @@ def test_low_risk_action_allows_without_grant():
     assert decision["fallback_action"] == "allow"
 
 
+def test_low_risk_policy_unavailable_is_not_known_safe_allow():
+    decision = evaluate_policy_check(
+        policy_request(
+            action="read",
+            risk_level="low",
+            resource_scope=None,
+            skill_id="read.skill",
+        ),
+        service_available=False,
+    )
+
+    assert decision["decision"] == "warn"
+    assert decision["policy_state_known"] is False
+    assert decision["denied_scope"] == "policy.service_unavailable"
+
+
 def test_grant_requires_exact_scope_match():
     decision = evaluate_policy_check(
         policy_request(resource_scope={"repo": "AgentOps", "env": "prod", "path": "/secure"}),

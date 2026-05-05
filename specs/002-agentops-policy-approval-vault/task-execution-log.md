@@ -358,3 +358,14 @@
 - 已完成 git 提交：是
 - 提交哈希：见本批次 Git 提交
 - 是否继续下一批：是，进入 T53。
+
+#### 6.9 实现级对抗评审 P1 修复记录
+
+- AI-Native/UX P1：Policy Service 不可用时低风险动作返回 allow 且 `policy_state_known=true`。已改为 `warn`、`fallback_action=warn`、`policy_state_known=false`，并新增回归测试。
+- UX P1：RawAccessGrant 未校验 evidence_id/requester，可把其它 evidence/user 的 grant 显示为 approved。已在 Evidence Vault summary 中校验 evidence_id 和 requester，并新增回归测试。
+- UX P1：Stage2 页面模型只覆盖 SLO 健康状态，缺 Approval/Evidence/Risk 业务状态。已新增 Approval Center、Evidence Explorer、Risk Triage 的业务状态、白话解释和主动作，并新增回归测试。
+- 修复后验证：
+  - `uv run pytest tests/unit/test_policy_engine.py tests/contract/test_ao2_ct_004_evidence_vault.py tests/contract/test_ao2_ct_006_stage2_slo_admin.py tests/unit/test_admin_view_models.py -q`：16 passed。
+  - `uv run pytest tests -q`：81 passed。
+  - `uv run ruff check`：All checks passed。
+  - `uv run ai-sdlc verify constraints`：no BLOCKERs。

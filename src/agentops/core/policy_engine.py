@@ -51,6 +51,16 @@ def evaluate_policy_check(
             denied_scope="policy.service_unavailable",
         )
 
+    if not service_available:
+        return _decision(
+            decision="warn",
+            fallback_action="warn",
+            policy_state_known=False,
+            reason="Policy service unavailable; low-risk action is not fully verified.",
+            policy_version=policy_version,
+            denied_scope="policy.service_unavailable",
+        )
+
     if grant and _grant_matches_request(grant, request, now):
         return _decision(
             decision="conditional_allow",

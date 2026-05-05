@@ -27,6 +27,23 @@ def test_stage2_admin_models_are_actionable_and_safe():
     )
 
     assert set(models) == set(STAGE2_PAGES)
+    assert {state["state"] for state in models["Approval Center"]} >= {
+        "pending",
+        "needs_more_info",
+        "approved",
+        "rejected",
+        "expired",
+        "revoked",
+        "escalated",
+    }
+    assert {state["state"] for state in models["Evidence Explorer"]} >= {
+        "summary_only",
+        "pending_approval",
+        "approved_limited",
+        "expired",
+        "redaction_failed",
+    }
+    assert {state["state"] for state in models["Risk Triage"]} >= {"policy_block", "approval_overdue", "evidence_failed", "quality_drop"}
     for states in models.values():
         for state in states:
             assert state["display_name"]

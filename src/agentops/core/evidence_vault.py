@@ -16,6 +16,7 @@ def build_evidence_vault_summary(
     payload_hash: str,
     redacted_summary: dict[str, Any] | None = None,
     raw_access_grant: dict[str, Any] | None = None,
+    requester: str | None = None,
     redaction_state: str = "ok",
     request_raw: bool = False,
     now: datetime | None = None,
@@ -41,7 +42,7 @@ def build_evidence_vault_summary(
         )
         return base
 
-    raw_state = _raw_access_state(raw_access_grant, now)
+    raw_state = _raw_access_state(raw_access_grant, evidence_id=evidence_id, requester=requester, now=now)
     if request_raw and raw_state != "approved":
         error_code = "RAW_ACCESS_EXPIRED" if raw_state == "expired" else "RAW_ACCESS_DENIED"
         raise AgentOpsError(
@@ -109,10 +110,20 @@ def approve_raw_access_request(
     return repository.store_raw_access_grant(grant)
 
 
-def _raw_access_state(raw_access_grant: dict[str, Any] | None, now: datetime) -> str:
+def _raw_access_state(
+    raw_access_grant: dict[str, Any] | None,
+    *,
+    evidence_id: str,
+    requester: str | None,
+    now: datetime,
+) -> str:
     if not raw_access_grant:
         return "summary_only"
     if raw_access_grant.get("status") != "active":
+        return "denied"
+    if raw_access_grant.get("evidence_id") != evidence_id:
+        return "denied"
+    if requester is not None and raw_access_grant.get("requester") != requester:
         return "denied"
     if _parse_time(raw_access_grant["expires_at"]) <= now:
         return "expired"
