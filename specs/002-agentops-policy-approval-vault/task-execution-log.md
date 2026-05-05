@@ -364,8 +364,10 @@
 - AI-Native/UX P1：Policy Service 不可用时低风险动作返回 allow 且 `policy_state_known=true`。已改为 `warn`、`fallback_action=warn`、`policy_state_known=false`，并新增回归测试。
 - UX P1：RawAccessGrant 未校验 evidence_id/requester，可把其它 evidence/user 的 grant 显示为 approved。已在 Evidence Vault summary 中校验 evidence_id 和 requester，并新增回归测试。
 - UX P1：Stage2 页面模型只覆盖 SLO 健康状态，缺 Approval/Evidence/Risk 业务状态。已新增 Approval Center、Evidence Explorer、Risk Triage 的业务状态、白话解释和主动作，并新增回归测试。
+- UX 复审 P1：RawAccessGrant 主体绑定仍可通过省略 requester 绕过。已改为 raw grant 路径必须提供 requester 且匹配 grant.requester，否则 `RAW_ACCESS_DENIED`，并新增回归测试。
 - 修复后验证：
   - `uv run pytest tests/unit/test_policy_engine.py tests/contract/test_ao2_ct_004_evidence_vault.py tests/contract/test_ao2_ct_006_stage2_slo_admin.py tests/unit/test_admin_view_models.py -q`：16 passed。
-  - `uv run pytest tests -q`：81 passed。
+  - `uv run pytest tests/contract/test_ao2_ct_004_evidence_vault.py tests/unit/test_evidence_vault.py -q`：9 passed。
+  - `uv run pytest tests -q`：82 passed。
   - `uv run ruff check`：All checks passed。
   - `uv run ai-sdlc verify constraints`：no BLOCKERs。

@@ -86,6 +86,23 @@ def test_raw_access_grant_must_match_evidence_and_requester(repository):
     assert exc.value.error_code == "RAW_ACCESS_DENIED"
 
 
+def test_raw_access_requester_is_required_for_grant_binding(repository):
+    request = request_raw_access(
+        repository,
+        evidence_id="ev_1",
+        requester="user_other",
+        reason="incident review",
+        approver_scope="iam.security",
+        ttl_seconds=300,
+    )
+    grant = approve_raw_access(request["request_id"], repository)
+
+    with pytest.raises(AgentOpsError) as exc:
+        get_evidence_vault_summary(**summary_kwargs(raw_access_grant=grant, request_raw=True))
+
+    assert exc.value.error_code == "RAW_ACCESS_DENIED"
+
+
 def test_redaction_failed_returns_safe_empty_without_summary_or_raw():
     summary = get_evidence_vault_summary(**summary_kwargs(redaction_state="failed"))
 

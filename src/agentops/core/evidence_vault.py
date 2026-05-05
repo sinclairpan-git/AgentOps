@@ -123,7 +123,7 @@ def _raw_access_state(
         return "denied"
     if raw_access_grant.get("evidence_id") != evidence_id:
         return "denied"
-    if requester is not None and raw_access_grant.get("requester") != requester:
+    if not requester or raw_access_grant.get("requester") != requester:
         return "denied"
     if _parse_time(raw_access_grant["expires_at"]) <= now:
         return "expired"

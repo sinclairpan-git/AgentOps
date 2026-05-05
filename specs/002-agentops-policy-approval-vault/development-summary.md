@@ -18,7 +18,7 @@
 
 ## 验证结果
 
-- `uv run pytest tests -q`：81 passed。
+- `uv run pytest tests -q`：82 passed。
 - `uv run ruff check`：All checks passed。
 - `uv run ai-sdlc verify constraints`：no BLOCKERs。
 
