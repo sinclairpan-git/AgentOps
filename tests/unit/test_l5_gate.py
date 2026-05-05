@@ -63,3 +63,21 @@ def test_standalone_or_imported_events_cannot_be_l5():
 
     assert result["evidence_level"] == "L3"
     assert "enterprise_managed" in result["failed_conditions"]
+
+
+def test_standalone_or_imported_events_cannot_be_pending_l5():
+    events = [
+        dict(
+            event,
+            integration_mode="standalone",
+            enterprise_state="not_detected",
+            signature=None,
+        )
+        for event in complete_events()
+    ]
+
+    result = evaluate_l5_gate(events, outbox_status="pending")
+
+    assert result["evidence_level"] == "L3"
+    assert "enterprise_managed" in result["failed_conditions"]
+    assert "outbox_delivered" in result["failed_conditions"]

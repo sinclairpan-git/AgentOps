@@ -79,7 +79,8 @@ def evaluate_l5_gate(
     if outbox_status != "delivered":
         failed_conditions.append("outbox_delivered")
         downgrade_reason = "Outbox delivery is pending."
-        result = "pending"
+        if "enterprise_managed" not in failed_conditions:
+            result = "pending"
 
     if not policy_state_known:
         failed_conditions.append("policy_state_known")

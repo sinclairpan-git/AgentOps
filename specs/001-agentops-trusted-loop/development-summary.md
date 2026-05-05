@@ -19,7 +19,7 @@
 
 ## 验证结果
 
-- `uv run pytest tests -q`：29 passed。
+- `uv run pytest tests -q`：30 passed。
 - `ai-sdlc gate refine`：PASS。
 - `ai-sdlc gate design`：PASS。
 - `ai-sdlc verify constraints`：no BLOCKERs。

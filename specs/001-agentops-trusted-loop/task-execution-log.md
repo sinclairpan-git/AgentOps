@@ -112,10 +112,10 @@ T11 规格与契约基线已完成，可进入实现批次 T12 起。当前项�
 
 #### 2.10 验证结果
 
-- 全量测试：29 passed。
+- 全量测试：30 passed。
 - Ruff：All checks passed。
 - 契约测试：AO-CT-001 到 AO-CT-006 均通过；新增 enterprise source/credential/device 状态校验与 device proof 过期/签名约束测试。
-- 单元测试：L5 Gate 与管理员 view model 均通过；新增 standalone/imported evidence 不得进入 L5 的回归测试。
+- 单元测试：L5 Gate 与管理员 view model 均通过；新增 standalone/imported evidence 不得进入 L5 或 pending L5 的回归测试。
 - AI-SDLC 约束：no BLOCKERs。
 
 #### 2.11 代码审查结论
