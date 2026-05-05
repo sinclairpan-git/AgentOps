@@ -1,1 +1,10 @@
-"""Unit test fixtures live in individual test modules for now."""
+"""Unit test fixtures."""
+
+import pytest
+
+from agentops.storage.repository import InMemoryRepository
+
+
+@pytest.fixture
+def repository() -> InMemoryRepository:
+    return InMemoryRepository()

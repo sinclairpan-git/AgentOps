@@ -27,8 +27,8 @@ Batch 5: Store/CLI summary, SLO, admin models and close
 |---|---|---|
 | T11 | 已完成 | `uv run ai-sdlc verify constraints` |
 | T21 | 已完成 | `uv run pytest tests/contract/test_ao2_ct_001_policy_check.py tests/unit/test_policy_engine.py -q` |
-| T31 | 待执行 | - |
-| T32 | 待执行 | - |
+| T31 | 已完成 | `uv run pytest tests/contract/test_ao2_ct_002_approval_lifecycle.py tests/unit/test_approval_state_machine.py -q` |
+| T32 | 已完成 | `uv run pytest tests/contract/test_ao2_ct_003_capability_grant.py tests/unit/test_grant_scope.py -q` |
 | T41 | 待执行 | - |
 | T51 | 待执行 | - |
 | T52 | 待执行 | - |

@@ -154,3 +154,76 @@
 - 已完成 git 提交：是
 - 提交哈希：见本批次 Git 提交
 - 是否继续下一批：是，进入 Batch 3。
+
+### Batch 2026-05-05-003 | T31-T32
+
+#### 4.1 批次范围
+
+- 覆盖任务：`T31`、`T32`
+- 覆盖阶段：Batch 3 Approval lifecycle and Capability Grant
+- 预读范围：`spec.md`、`data-model.md`、`contracts/stage2-contracts.schema.yaml`、T21 Policy Check 实现
+
+#### 4.2 任务记录
+
+##### T31 | 实现 Approval 状态机
+
+- 改动范围：
+  - `src/agentops/models/approvals.py`
+  - `src/agentops/core/approvals.py`
+  - `src/agentops/api/approvals.py`
+  - `src/agentops/storage/repository.py`
+  - `tests/contract/test_ao2_ct_002_approval_lifecycle.py`
+  - `tests/unit/test_approval_state_machine.py`
+- 改动内容：
+  - 实现 approval_required 到 ApprovalRequest 的创建。
+  - 实现 approve、reject、request_more_info、expire、escalate、revoke 状态流转。
+  - 阻止 requester 自批和终态回退。
+- 新增/调整的测试：创建审批、self approval 拒绝、approved 后可签发 Grant、expired approval 不签发、终态不可迁移、more_info 非终态。
+
+##### T32 | 实现 Capability Grant 生命周期
+
+- 改动范围：
+  - `src/agentops/models/grants.py`
+  - `src/agentops/core/grants.py`
+  - `src/agentops/api/grants.py`
+  - `src/agentops/storage/repository.py`
+  - `tests/contract/test_ao2_ct_003_capability_grant.py`
+  - `tests/unit/test_grant_scope.py`
+- 改动内容：
+  - 只有 approved Approval 可签发 Grant。
+  - Grant 必须绑定 Approval 原始 policy_check_id/action/requester/agent/skill/scope/policy_version，不得扩大 scope。
+  - 实现 Grant consume、revoke、expired/scope mismatch 拒绝。
+- 新增/调整的测试：active Grant 消费审计、revoked/expired/scope mismatch 拒绝、action/requester 替换拒绝、scope expansion 拒绝。
+
+#### 4.3 执行命令
+
+- `uv run pytest tests/contract/test_ao2_ct_002_approval_lifecycle.py tests/contract/test_ao2_ct_003_capability_grant.py tests/unit/test_approval_state_machine.py tests/unit/test_grant_scope.py -q`
+- `uv run ruff check src/agentops/core/approvals.py src/agentops/api/approvals.py src/agentops/core/grants.py src/agentops/api/grants.py src/agentops/models/approvals.py src/agentops/models/grants.py src/agentops/storage/repository.py tests/contract/test_ao2_ct_002_approval_lifecycle.py tests/contract/test_ao2_ct_003_capability_grant.py tests/unit/test_approval_state_machine.py tests/unit/test_grant_scope.py tests/unit/conftest.py`
+
+#### 4.4 测试结果
+
+- 定向测试：13 passed。
+- Ruff：All checks passed。
+
+#### 4.5 代码审查结论（Mandatory）
+
+- 宪章/规格对齐：T31/T32 对齐 AO2-CT-002/003、FR-010a 和 schema binding_must_match_approval。
+- 代码质量：Approval 与 Grant 各自放在 core 状态机，API 层保持薄 wrapper，repository 只存储阶段 2 事实。
+- 测试质量：覆盖审批创建、状态流转、self approval、Grant 绑定、撤销、过期和 scope mismatch。
+- 结论：T31/T32 可进入全量回归和 Evidence Vault。
+
+#### 4.6 任务/计划同步状态（Mandatory）
+
+- `tasks.md` 同步状态：T31、T32 已完成。
+- `related_plan` 同步状态：Phase 2 Approval 与 Capability Grant 已完成。
+- 关联 branch/worktree disposition 计划：继续使用 `feature/002-agentops-policy-approval-vault-docs`。
+
+#### 4.7 批次结论
+
+- Approval -> Grant 的强绑定闭环已落地，可进入 Evidence Vault 摘要访问控制。
+
+#### 4.8 归档后动作
+
+- 已完成 git 提交：是
+- 提交哈希：见本批次 Git 提交
+- 是否继续下一批：是，进入 Batch 4。
