@@ -5,7 +5,12 @@ from __future__ import annotations
 from typing import Any
 
 from agentops.core.errors import AgentOpsError
+from agentops.core.policy_engine import evaluate_policy_check as _evaluate_policy_check
 from agentops.models.policy import HIGH_RISK_ACTIONS
+
+
+def evaluate_policy_check(request: dict[str, Any], **kwargs: Any) -> dict[str, Any]:
+    return _evaluate_policy_check(request, **kwargs)
 
 
 def evaluate_policy_decision(

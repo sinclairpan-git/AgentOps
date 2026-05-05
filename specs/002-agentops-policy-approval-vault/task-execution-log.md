@@ -97,3 +97,60 @@
 - 当前批次 branch disposition 状态：待 close
 - 当前批次 worktree disposition 状态：待 close
 - 是否继续下一批：是，进入 Batch 2 Policy Check v2。
+
+### Batch 2026-05-05-002 | T21
+
+#### 3.1 批次范围
+
+- 覆盖任务：`T21`
+- 覆盖阶段：Batch 2 Policy Check v2
+- 预读范围：`spec.md`、`plan.md`、`tasks.md`、`contracts/contract-tests.md`、`contracts/stage2-contracts.schema.yaml`
+
+#### 3.2 任务记录
+
+##### T21 | 实现强 Policy Check 与裁决优先级
+
+- 改动范围：
+  - `src/agentops/models/policy.py`
+  - `src/agentops/core/policy_engine.py`
+  - `src/agentops/api/policy.py`
+  - `tests/contract/test_ao2_ct_001_policy_check.py`
+  - `tests/unit/test_policy_engine.py`
+- 改动内容：
+  - 新增 Policy Check v2 evaluator，覆盖高风险 resource_scope、service unavailable、active Grant、裁决优先级。
+  - 保留阶段 1 `evaluate_policy_decision` 兼容入口。
+  - 增加 POLICY_PRIORITY_DENIES、决策和 fallback 常量。
+- 新增/调整的测试：
+  - AO2-CT-001：active Grant conditional_allow、缺 scope、service unavailable block。
+  - Priority deny 红线：global_deny、IAM/security deny、project_scope_deny、agent disabled、policy_block 均覆盖 active Grant。
+  - Unit：低风险 allow、Grant 精确 scope/requester/policy_version 匹配。
+- 执行的命令：
+  - `uv run pytest tests/contract/test_ao2_ct_001_policy_check.py tests/unit/test_policy_engine.py -q`
+  - `uv run ruff check src/agentops/core/policy_engine.py src/agentops/api/policy.py src/agentops/models/policy.py tests/contract/test_ao2_ct_001_policy_check.py tests/unit/test_policy_engine.py`
+- 测试结果：
+  - 定向测试：11 passed。
+  - Ruff：All checks passed。
+- 是否符合任务目标：是。
+
+#### 3.3 代码审查结论（Mandatory）
+
+- 宪章/规格对齐：T21 对齐 AO2-CT-001、FR-003a 和 schema priority_order。
+- 代码质量：Policy Check v2 放在 core evaluator，API 层只做 wrapper，阶段 1 API 兼容保留。
+- 测试质量：覆盖正例、反例、优先级和 Grant 匹配红线。
+- 结论：T21 可进入全量回归和下一批 Approval/Grant。
+
+#### 3.4 任务/计划同步状态（Mandatory）
+
+- `tasks.md` 同步状态：T21 已完成。
+- `related_plan` 同步状态：Phase 1 Policy Check v2 已完成。
+- 关联 branch/worktree disposition 计划：继续使用 `feature/002-agentops-policy-approval-vault-docs`。
+
+#### 3.5 批次结论
+
+- Policy Check v2 最小强治理红线已落地，可进入 Approval lifecycle。
+
+#### 3.6 归档后动作
+
+- 已完成 git 提交：是
+- 提交哈希：见本批次 Git 提交
+- 是否继续下一批：是，进入 Batch 3。
