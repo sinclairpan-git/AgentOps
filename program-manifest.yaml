@@ -5,35 +5,38 @@ specs:
 - id: 001-agentops-trusted-loop
   path: specs/001-agentops-trusted-loop
   depends_on: []
+- id: 002-agentops-policy-approval-vault
+  path: specs/002-agentops-policy-approval-vault
+  depends_on: []
 truth_snapshot:
-  generated_at: '2026-05-05T09:20:09Z'
+  generated_at: '2026-05-05T11:24:46Z'
   generated_by: ai-sdlc program truth sync
   generator_version: program_truth_snapshot_v1
-  repo_revision: ''
-  authoring_hash: 7488c73b7748c2deca03a1221253139b08fbc7e79e89f5272ee8a065a6d9d1d4
+  repo_revision: 91e02d4
+  authoring_hash: 803d9fcb668f7cb0cab63df9aa54b497e66d9f04867fcd7c475b90d21e139d17
   source_hashes: {}
-  snapshot_hash: dd5b463b48d030611f6e6c518efad805919988b28a69c1e326147b742cd8db79
+  snapshot_hash: 0b1e0973edf6060e56973464e2758921069cbbf6359d1f6b79a76b174c7f8194
   computed_capabilities: []
   source_inventory:
     state: complete
-    total_sources: 5
-    mapped_sources: 5
+    total_sources: 10
+    mapped_sources: 10
     unmapped_sources: 0
-    missing_sources: 0
-    phase_signal_count: 9
-    deferred_signal_count: 16
-    non_goal_signal_count: 1
+    missing_sources: 1
+    phase_signal_count: 29
+    deferred_signal_count: 46
+    non_goal_signal_count: 3
     layer_totals:
-      spec: 1
-      plan: 1
-      tasks: 1
-      execution: 1
-      close: 1
+      spec: 2
+      plan: 2
+      tasks: 2
+      execution: 2
+      close: 2
     layer_materialized:
-      spec: 1
-      plan: 1
-      tasks: 1
-      execution: 1
+      spec: 2
+      plan: 2
+      tasks: 2
+      execution: 2
       close: 1
     entries:
     - path: specs/001-agentops-trusted-loop/spec.md
@@ -80,6 +83,51 @@ truth_snapshot:
       mapping_ref: 001-agentops-trusted-loop
       phase_signal_count: 0
       deferred_signal_count: 2
+      non_goal_signal_count: 0
+    - path: specs/002-agentops-policy-approval-vault/spec.md
+      source_type: spec_doc
+      truth_layer: spec
+      mapped: true
+      exists: true
+      mapping_ref: 002-agentops-policy-approval-vault
+      phase_signal_count: 3
+      deferred_signal_count: 6
+      non_goal_signal_count: 0
+    - path: specs/002-agentops-policy-approval-vault/plan.md
+      source_type: plan_doc
+      truth_layer: plan
+      mapped: true
+      exists: true
+      mapping_ref: 002-agentops-policy-approval-vault
+      phase_signal_count: 3
+      deferred_signal_count: 6
+      non_goal_signal_count: 1
+    - path: specs/002-agentops-policy-approval-vault/tasks.md
+      source_type: tasks_doc
+      truth_layer: tasks
+      mapped: true
+      exists: true
+      mapping_ref: 002-agentops-policy-approval-vault
+      phase_signal_count: 3
+      deferred_signal_count: 3
+      non_goal_signal_count: 1
+    - path: specs/002-agentops-policy-approval-vault/task-execution-log.md
+      source_type: execution_log
+      truth_layer: execution
+      mapped: true
+      exists: true
+      mapping_ref: 002-agentops-policy-approval-vault
+      phase_signal_count: 11
+      deferred_signal_count: 15
+      non_goal_signal_count: 0
+    - path: specs/002-agentops-policy-approval-vault/development-summary.md
+      source_type: development_summary
+      truth_layer: close
+      mapped: true
+      exists: false
+      mapping_ref: 002-agentops-policy-approval-vault
+      phase_signal_count: 0
+      deferred_signal_count: 0
       non_goal_signal_count: 0
     unmapped_paths: []
   state: ready

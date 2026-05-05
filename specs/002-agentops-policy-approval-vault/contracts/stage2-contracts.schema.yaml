@@ -1,0 +1,526 @@
+schema_version: agentops.stage2.contracts.v1
+owner: AgentOps Policy/Evidence Registry
+compatibility: minor_versions_backward_compatible
+
+enums:
+  policy_decision:
+    - block
+    - approval_required
+    - warn
+    - conditional_allow
+    - allow
+  fallback_action:
+    - allow
+    - warn
+    - require_online
+    - block
+  risk_level:
+    - low
+    - medium
+    - high
+    - critical
+  approval_status:
+    - pending
+    - approved
+    - rejected
+    - needs_more_info
+    - expired
+    - escalated
+    - revoked
+  grant_status:
+    - active
+    - expired
+    - revoked
+  raw_access_state:
+    - summary_only
+    - pending_approval
+    - approved
+    - expired
+    - denied
+    - redaction_failed
+  slo_status:
+    - healthy
+    - degraded
+    - unknown
+  stage2_page:
+    - Approval Center
+    - Policy Center
+    - Evidence Explorer
+    - Risk Triage
+
+priority_order:
+  - global_deny
+  - iam_or_security_deny
+  - project_scope_deny
+  - agent_or_version_disabled
+  - policy_block
+  - approval_required
+  - warn
+  - conditional_allow
+  - allow
+
+definitions:
+  PolicyCheckRequest:
+    type: object
+    required:
+      - action
+      - risk_level
+      - requester
+      - agent_id
+      - agent_version
+      - session_id
+      - run_id
+      - policy_version
+      - enforcement_mode
+    high_risk_required:
+      - resource_scope
+    properties:
+      action:
+        type: string
+      risk_level:
+        enum_ref: risk_level
+      resource_scope:
+        type: object
+      requester:
+        type: string
+      agent_id:
+        type: string
+      agent_version:
+        type: string
+      skill_id:
+        type: string
+      session_id:
+        type: string
+      run_id:
+        type: string
+      policy_version:
+        type: string
+      enforcement_mode:
+        enum:
+          - monitor
+          - warn
+          - enforce
+      grant_id:
+        type: string
+
+  PolicyDecisionV2:
+    type: object
+    required:
+      - decision
+      - fallback_action
+      - policy_state_known
+      - decision_reason
+      - policy_version
+      - audit_id
+    properties:
+      decision:
+        enum_ref: policy_decision
+      fallback_action:
+        enum_ref: fallback_action
+      policy_state_known:
+        type: boolean
+      decision_reason:
+        type: string
+      required_approval_id:
+        type: string
+      grant_id:
+        type: string
+      policy_version:
+        type: string
+      valid_until:
+        type: string
+        format: date-time
+      denied_scope:
+        type: string
+      audit_id:
+        type: string
+
+  ApprovalRequest:
+    type: object
+    required:
+      - approval_id
+      - policy_check_id
+      - action
+      - requester
+      - approver_scope
+      - reason
+      - affected_actions
+      - resource_scope
+      - status
+      - sla_due_at
+      - audit_id
+    properties:
+      approval_id:
+        type: string
+      policy_check_id:
+        type: string
+      action:
+        type: string
+      requester:
+        type: string
+      approver_scope:
+        type: string
+      reason:
+        type: string
+      affected_actions:
+        type: array
+      resource_scope:
+        type: object
+      status:
+        enum_ref: approval_status
+      sla_due_at:
+        type: string
+        format: date-time
+      audit_id:
+        type: string
+
+  CapabilityGrant:
+    type: object
+    required:
+      - grant_id
+      - approval_id
+      - policy_check_id
+      - action
+      - requester
+      - agent_id
+      - resource_scope
+      - policy_version
+      - issued_at
+      - expires_at
+      - status
+      - audit_id
+    properties:
+      grant_id:
+        type: string
+      approval_id:
+        type: string
+      policy_check_id:
+        type: string
+      action:
+        type: string
+      requester:
+        type: string
+      agent_id:
+        type: string
+      skill_id:
+        type: string
+      resource_scope:
+        type: object
+      policy_version:
+        type: string
+      issued_at:
+        type: string
+        format: date-time
+      expires_at:
+        type: string
+        format: date-time
+      status:
+        enum_ref: grant_status
+      revoked_at:
+        type: string
+        format: date-time
+      audit_id:
+        type: string
+    binding_must_match_approval:
+      - policy_check_id
+      - action
+      - requester
+      - agent_id
+      - skill_id
+      - resource_scope
+      - policy_version
+
+  EvidenceVaultSummary:
+    type: object
+    required:
+      - evidence_id
+      - run_id
+      - payload_hash
+      - raw_access_state
+      - access_policy
+      - retention_policy
+      - redaction_state
+      - audit_id
+    properties:
+      evidence_id:
+        type: string
+      run_id:
+        type: string
+      redacted_summary:
+        type: object
+        condition: required_when_redaction_state_ok_forbidden_when_failed
+      safe_empty:
+        type: boolean
+        condition: required_true_when_redaction_state_failed
+      payload_hash:
+        type: string
+      raw_access_state:
+        enum_ref: raw_access_state
+      access_policy:
+        type: string
+      retention_policy:
+        type: string
+      redaction_state:
+        enum:
+          - ok
+          - failed
+      audit_id:
+        type: string
+    forbidden:
+      - raw_payload
+
+  RawAccessRequest:
+    type: object
+    required:
+      - request_id
+      - evidence_id
+      - requester
+      - reason
+      - approver_scope
+      - ttl_seconds
+      - status
+      - audit_id
+    properties:
+      request_id:
+        type: string
+      evidence_id:
+        type: string
+      requester:
+        type: string
+      reason:
+        type: string
+      approver_scope:
+        type: string
+      ttl_seconds:
+        type: integer
+      status:
+        enum:
+          - pending
+          - approved
+          - rejected
+          - expired
+      audit_id:
+        type: string
+
+  RawAccessGrant:
+    type: object
+    required:
+      - raw_grant_id
+      - request_id
+      - evidence_id
+      - requester
+      - issued_at
+      - expires_at
+      - status
+      - audit_id
+    properties:
+      raw_grant_id:
+        type: string
+      request_id:
+        type: string
+      evidence_id:
+        type: string
+      requester:
+        type: string
+      issued_at:
+        type: string
+        format: date-time
+      expires_at:
+        type: string
+        format: date-time
+      status:
+        enum_ref: grant_status
+      audit_id:
+        type: string
+
+  PolicyRequirementSummary:
+    type: object
+    required:
+      - required_by
+      - source
+      - issuer
+      - policy_owner
+      - policy_version
+      - can_ignore
+      - affected_actions
+      - deep_links
+      - plain_language
+      - primary_action
+      - secondary_action
+      - audit_id
+    properties:
+      required_by:
+        type: string
+      source:
+        type: string
+      issuer:
+        type: string
+      policy_owner:
+        type: string
+      policy_version:
+        type: string
+      can_ignore:
+        type: boolean
+      affected_actions:
+        type: array
+      deep_links:
+        type: object
+        required:
+          - approval_url
+          - policy_url
+          - evidence_url
+          - return_url
+      plain_language:
+        type: string
+      primary_action:
+        type: string
+      secondary_action:
+        type: string
+      audit_id:
+        type: string
+
+  SloSnapshot:
+    type: object
+    required:
+      - snapshot_id
+      - service
+      - status
+      - degrade_action
+      - review_required
+      - owner
+      - request_id
+      - captured_at
+    properties:
+      snapshot_id:
+        type: string
+      service:
+        enum:
+          - policy_check
+          - approval_service
+          - evidence_query
+      p95_ms:
+        type: integer
+      error_rate:
+        type: number
+      status:
+        enum_ref: slo_status
+      degrade_action:
+        type: string
+      review_required:
+        type: boolean
+      owner:
+        type: string
+      request_id:
+        type: string
+      captured_at:
+        type: string
+        format: date-time
+
+  Stage2ViewModel:
+    type: object
+    required:
+      - page
+      - state
+      - display_name
+      - plain_language
+      - severity
+      - primary_action
+      - secondary_action
+      - owner_hint
+      - degrade_action
+    one_of_required:
+      - audit_id
+      - request_id
+    properties:
+      page:
+        enum_ref: stage2_page
+      state:
+        type: string
+      display_name:
+        type: string
+      plain_language:
+        type: string
+      severity:
+        enum:
+          - info
+          - warning
+          - critical
+      primary_action:
+        type: string
+      secondary_action:
+        type: string
+      owner_hint:
+        type: string
+      audit_id:
+        type: string
+      request_id:
+        type: string
+      denied_scope:
+        type: string
+        condition: required_when_state_permission_denied
+      degrade_action:
+        type: string
+
+error_responses:
+  POLICY_SCOPE_REQUIRED:
+    required:
+      - error_code
+      - message
+      - denied_scope
+      - audit_id
+  GRANT_SCOPE_ESCALATION_DENIED:
+    required:
+      - error_code
+      - message
+      - audit_id
+  GRANT_APPROVAL_BINDING_MISMATCH:
+    required:
+      - error_code
+      - message
+      - audit_id
+  GRANT_SCOPE_MISMATCH:
+    required:
+      - error_code
+      - message
+      - denied_scope
+      - audit_id
+  GRANT_REVOKED:
+    required:
+      - error_code
+      - message
+      - denied_scope
+      - audit_id
+  GRANT_EXPIRED:
+    required:
+      - error_code
+      - message
+      - denied_scope
+      - audit_id
+  APPROVAL_SELF_APPROVAL_DENIED:
+    required:
+      - error_code
+      - message
+      - denied_scope
+      - audit_id
+  RAW_ACCESS_DENIED:
+    required:
+      - error_code
+      - message
+      - denied_scope
+      - audit_id
+  RAW_ACCESS_EXPIRED:
+    required:
+      - error_code
+      - message
+      - denied_scope
+      - audit_id
+  EVIDENCE_REDACTION_FAILED:
+    required:
+      - error_code
+      - message
+      - audit_id
+  POLICY_SUMMARY_SCHEMA_UNSUPPORTED:
+    required:
+      - error_code
+      - message
+      - request_id

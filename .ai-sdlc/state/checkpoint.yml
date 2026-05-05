@@ -1,5 +1,5 @@
 pipeline_started_at: '2026-05-04T06:14:47+00:00'
-pipeline_last_updated: '2026-05-05T09:47:39+00:00'
+pipeline_last_updated: '2026-05-05T11:15:35+00:00'
 current_stage: close
 feature:
   id: 001-agentops-trusted-loop
@@ -51,6 +51,6 @@ completed_stages:
 execute_progress: null
 ai_decisions_count: 0
 execution_mode: auto
-linked_wi_id: 001-agentops-trusted-loop
-linked_plan_uri: specs/001-agentops-trusted-loop/plan.md
-last_synced_at: '2026-05-05T08:26:56+00:00'
+linked_wi_id: 002-agentops-policy-approval-vault
+linked_plan_uri: specs/002-agentops-policy-approval-vault/plan.md
+last_synced_at: '2026-05-05T11:15:35+00:00'
