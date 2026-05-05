@@ -32,7 +32,7 @@ Batch 5: Store/CLI summary, SLO, admin models and close
 | T41 | 已完成 | `uv run pytest tests/contract/test_ao2_ct_004_evidence_vault.py tests/unit/test_evidence_vault.py -q` |
 | T51 | 已完成 | `uv run pytest tests/contract/test_ao2_ct_005_policy_summary.py -q` |
 | T52 | 已完成 | `uv run pytest tests/contract/test_ao2_ct_006_stage2_slo_admin.py tests/unit/test_admin_view_models.py -q` |
-| T53 | 执行中 | `uv run pytest tests -q` |
+| T53 | 已完成 | `ai-sdlc workitem close-check --wi specs/002-agentops-policy-approval-vault --json` |
 
 ---
 
