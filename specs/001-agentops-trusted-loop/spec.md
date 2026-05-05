@@ -142,7 +142,7 @@
 ## 4. 功能需求
 
 - **FR-001**：系统必须提供 EventEnvelope v1 schema，覆盖 event_id、schema_version、event_type、event_type_version、timestamp、integration_mode、enterprise_state、user_id、identity_confidence、agent_id、agent_version、installation_id、device_id、session_id、run_id、trace_id、sequence_no、idempotency_key、signature、data_classification、redaction_policy、payload。
-- **FR-001a**：EventEnvelope v1 必须覆盖调用链字段 span_id、parent_span_id；enterprise_managed 事件必须包含 user_id、identity_confidence、agent_id、agent_version、installation_id、device_id、signature，缺失任一可信绑定不得进入 L5；standalone 使用 local_subject、local_workspace_hash、local_report_uri，不得伪造企业身份；custom_sink 使用 sink_id、sink_capability_id、external_subject。
+- **FR-001a**：EventEnvelope v1 必须覆盖调用链字段 span_id、parent_span_id；enterprise_managed 事件必须包含 user_id、identity_confidence、agent_id、agent_version、installation_id、device_id、signature、source_trust_level、ingestion_token、credential_status、device_key_status，缺失任一可信绑定或 active 状态不得进入 managed/L5；standalone 使用 local_subject、local_workspace_hash、local_report_uri，不得伪造企业身份；custom_sink 使用 sink_id、sink_capability_id、external_subject。
 - **FR-002**：系统必须维护统一 Event Catalog，区分 raw event、domain event、derived fact，derived fact 必须保留来源 event_id 列表。
 - **FR-002a**：L5 核心事件必须至少包含 stage_started、stage_completed、gate_result、verification_result、violation_scan_completed、artifact_generated、generation_snapshot、l5_eligibility_input；gate_failed 与 violation_detected 是失败/发现分支事件，成功 run 不要求出现。
 - **FR-003**：系统必须实现 Ingestion API 批量接收，并校验 schema_version、event_type_version、signature、token、idempotency_key、sequence_no。

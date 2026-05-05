@@ -15,6 +15,9 @@ def issue_credentials(request: dict[str, Any], repository: InMemoryRepository, n
     session = repository.get_bootstrap_session(bootstrap_id)
     if not session:
         raise AgentOpsError("BOOTSTRAP_NOT_FOUND", "Bootstrap session does not exist.")
+    existing = repository.credentials_by_bootstrap.get(bootstrap_id)
+    if existing:
+        return dict(existing)
 
     assertion = request["installation_assertion"]
     device_proof = request["device_proof"]
@@ -31,6 +34,22 @@ def issue_credentials(request: dict[str, Any], repository: InMemoryRepository, n
 
     if assertion["device_id"] != device_proof["device_id"] or assertion["device_id"] != session["device_id"]:
         raise AgentOpsError("BOOTSTRAP_DEVICE_MISMATCH", "Device proof does not match bootstrap assertion.")
+
+    proof_expires_at = _parse_time(device_proof["expires_at"])
+    if proof_expires_at <= now:
+        raise AgentOpsError("BOOTSTRAP_DEVICE_PROOF_EXPIRED", "Device proof is expired.")
+
+    if not assertion.get("signature") or not device_proof.get("signature"):
+        raise AgentOpsError("BOOTSTRAP_SIGNATURE_REQUIRED", "Bootstrap assertion and device proof require signatures.")
+
+    if assertion.get("canonicalization") != "json-canonical-form" or device_proof.get("canonicalization") != "json-canonical-form":
+        raise AgentOpsError("BOOTSTRAP_CANONICALIZATION_UNSUPPORTED", "Unsupported canonicalization.")
+
+    if assertion.get("algorithm") != device_proof.get("algorithm"):
+        raise AgentOpsError("BOOTSTRAP_ALGORITHM_MISMATCH", "Assertion and device proof algorithms must match.")
+
+    if not assertion.get("key_id") or not device_proof.get("key_id"):
+        raise AgentOpsError("BOOTSTRAP_KEY_ID_REQUIRED", "Bootstrap assertion and device proof require key_id.")
 
     credentials = {
         "credential_id": f"cred_{bootstrap_id}",

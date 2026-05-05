@@ -106,6 +106,14 @@ properties:
     enum: [L1, L2, L3, L4, L5, pending, unknown]
   signature:
     type: string
+  ingestion_token:
+    type: string
+  credential_status:
+    type: string
+    enum: [active, rotating, expired, revoked]
+  device_key_status:
+    type: string
+    enum: [active, rotating, lost, revoked]
   data_classification:
     type: string
     enum: [public, internal, confidential, restricted]
@@ -133,6 +141,9 @@ allOf:
         - run_id
         - signature
         - source_trust_level
+        - ingestion_token
+        - credential_status
+        - device_key_status
       properties:
         identity_confidence:
           const: verified
@@ -140,6 +151,10 @@ allOf:
           enum: [activating, active, degraded, disabled]
         source_trust_level:
           const: verified
+        credential_status:
+          const: active
+        device_key_status:
+          const: active
   - if:
       properties:
         integration_mode:

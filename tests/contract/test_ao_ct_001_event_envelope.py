@@ -38,3 +38,11 @@ def test_l5_core_payload_missing_required_field_is_invalid(repository):
     result = ingest_events_batch([event], repository)
 
     assert result["rejected"][0]["error_code"] == "EVENT_PAYLOAD_INVALID"
+
+
+def test_enterprise_event_requires_verified_source_and_active_credential(repository):
+    event = base_event("stage_started", credential_status="revoked")
+
+    result = ingest_events_batch([event], repository)
+
+    assert result["rejected"][0]["error_code"] == "EVENT_CREDENTIAL_INACTIVE"

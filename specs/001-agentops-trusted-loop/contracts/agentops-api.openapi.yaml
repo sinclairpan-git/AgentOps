@@ -235,6 +235,7 @@ components:
         - public_key_hash
         - key_id
         - algorithm
+        - canonicalization
         - nonce
         - signature
         - issued_at
@@ -248,6 +249,9 @@ components:
           type: string
         algorithm:
           type: string
+        canonicalization:
+          type: string
+          enum: [json-canonical-form]
         nonce:
           type: string
         signature:

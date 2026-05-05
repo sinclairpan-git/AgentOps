@@ -111,6 +111,10 @@ ENTERPRISE_REQUIRED_FIELDS = {
     "session_id",
     "run_id",
     "signature",
+    "source_trust_level",
+    "ingestion_token",
+    "credential_status",
+    "device_key_status",
 }
 
 STANDALONE_REQUIRED_FIELDS = {"local_subject", "local_workspace_hash", "local_report_uri"}
@@ -155,6 +159,12 @@ def _validate_enterprise_event(event: dict[str, Any]) -> None:
     _require_fields(event, ENTERPRISE_REQUIRED_FIELDS, "EVENT_SCHEMA_INVALID")
     if event.get("identity_confidence") != "verified":
         raise AgentOpsError("EVENT_IDENTITY_NOT_VERIFIED", "enterprise_managed events require verified identity.")
+    if event.get("source_trust_level") != "verified":
+        raise AgentOpsError("EVENT_SOURCE_NOT_VERIFIED", "enterprise_managed events require verified source trust.")
+    if event.get("credential_status") != "active":
+        raise AgentOpsError("EVENT_CREDENTIAL_INACTIVE", "enterprise_managed events require active credential.")
+    if event.get("device_key_status") != "active":
+        raise AgentOpsError("EVENT_DEVICE_KEY_INACTIVE", "enterprise_managed events require active device key.")
 
 
 def _validate_l5_payload(event: dict[str, Any]) -> None:

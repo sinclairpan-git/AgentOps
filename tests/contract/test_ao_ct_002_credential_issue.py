@@ -43,6 +43,7 @@ def credential_request(expires_at=None, artifact_hash="sha256:artifact"):
             "public_key_hash": "sha256:device",
             "key_id": "device-key-1",
             "algorithm": "ed25519",
+            "canonicalization": "json-canonical-form",
             "nonce": "nonce_device",
             "signature": "sig_device",
             "issued_at": past_time(),
@@ -87,3 +88,25 @@ def test_artifact_mismatch_returns_contract_error(repository):
         issue_credentials(credential_request(artifact_hash="sha256:other"), repository)
 
     assert exc.value.error_code == "BOOTSTRAP_ARTIFACT_MISMATCH"
+
+
+def test_expired_device_proof_returns_contract_error(repository):
+    repository.add_bootstrap_session(bootstrap_session())
+    request = credential_request()
+    request["device_proof"]["expires_at"] = past_time()
+
+    with pytest.raises(AgentOpsError) as exc:
+        issue_credentials(request, repository)
+
+    assert exc.value.error_code == "BOOTSTRAP_DEVICE_PROOF_EXPIRED"
+
+
+def test_device_proof_signature_and_canonicalization_are_required(repository):
+    repository.add_bootstrap_session(bootstrap_session())
+    request = credential_request()
+    request["device_proof"]["signature"] = ""
+
+    with pytest.raises(AgentOpsError) as exc:
+        issue_credentials(request, repository)
+
+    assert exc.value.error_code == "BOOTSTRAP_SIGNATURE_REQUIRED"
