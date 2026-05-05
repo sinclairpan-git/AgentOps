@@ -1,0 +1,85 @@
+schema_version: '2'
+program:
+  goal: ''
+specs:
+- id: 001-agentops-trusted-loop
+  path: specs/001-agentops-trusted-loop
+  depends_on: []
+truth_snapshot:
+  generated_at: '2026-05-05T09:20:09Z'
+  generated_by: ai-sdlc program truth sync
+  generator_version: program_truth_snapshot_v1
+  repo_revision: ''
+  authoring_hash: 7488c73b7748c2deca03a1221253139b08fbc7e79e89f5272ee8a065a6d9d1d4
+  source_hashes: {}
+  snapshot_hash: dd5b463b48d030611f6e6c518efad805919988b28a69c1e326147b742cd8db79
+  computed_capabilities: []
+  source_inventory:
+    state: complete
+    total_sources: 5
+    mapped_sources: 5
+    unmapped_sources: 0
+    missing_sources: 0
+    phase_signal_count: 9
+    deferred_signal_count: 16
+    non_goal_signal_count: 1
+    layer_totals:
+      spec: 1
+      plan: 1
+      tasks: 1
+      execution: 1
+      close: 1
+    layer_materialized:
+      spec: 1
+      plan: 1
+      tasks: 1
+      execution: 1
+      close: 1
+    entries:
+    - path: specs/001-agentops-trusted-loop/spec.md
+      source_type: spec_doc
+      truth_layer: spec
+      mapped: true
+      exists: true
+      mapping_ref: 001-agentops-trusted-loop
+      phase_signal_count: 2
+      deferred_signal_count: 2
+      non_goal_signal_count: 1
+    - path: specs/001-agentops-trusted-loop/plan.md
+      source_type: plan_doc
+      truth_layer: plan
+      mapped: true
+      exists: true
+      mapping_ref: 001-agentops-trusted-loop
+      phase_signal_count: 3
+      deferred_signal_count: 4
+      non_goal_signal_count: 0
+    - path: specs/001-agentops-trusted-loop/tasks.md
+      source_type: tasks_doc
+      truth_layer: tasks
+      mapped: true
+      exists: true
+      mapping_ref: 001-agentops-trusted-loop
+      phase_signal_count: 4
+      deferred_signal_count: 4
+      non_goal_signal_count: 0
+    - path: specs/001-agentops-trusted-loop/task-execution-log.md
+      source_type: execution_log
+      truth_layer: execution
+      mapped: true
+      exists: true
+      mapping_ref: 001-agentops-trusted-loop
+      phase_signal_count: 0
+      deferred_signal_count: 4
+      non_goal_signal_count: 0
+    - path: specs/001-agentops-trusted-loop/development-summary.md
+      source_type: development_summary
+      truth_layer: close
+      mapped: true
+      exists: true
+      mapping_ref: 001-agentops-trusted-loop
+      phase_signal_count: 0
+      deferred_signal_count: 2
+      non_goal_signal_count: 0
+    unmapped_paths: []
+  state: ready

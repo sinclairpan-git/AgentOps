@@ -1,0 +1,329 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://agentops.local/schemas/event-envelope.v1.schema.json"
+title: EventEnvelope v1
+type: object
+additionalProperties: false
+required:
+  - event_id
+  - schema_version
+  - event_type
+  - event_type_version
+  - timestamp
+  - integration_mode
+  - enterprise_state
+  - trace_id
+  - span_id
+  - sequence_no
+  - idempotency_key
+  - data_classification
+  - redaction_policy
+  - payload_hash
+  - payload
+properties:
+  event_id:
+    type: string
+    minLength: 1
+  schema_version:
+    type: string
+    const: event-envelope.v1
+  event_type:
+    type: string
+    minLength: 1
+  event_type_version:
+    type: string
+    pattern: "^[0-9]+\\.[0-9]+$"
+  timestamp:
+    type: string
+    format: date-time
+  integration_mode:
+    type: string
+    enum: [standalone, enterprise_managed, custom_sink, unknown]
+  enterprise_state:
+    type: string
+    enum: [not_detected, inactive, activating, active, degraded, disabled]
+  organization:
+    type: string
+  project:
+    type: string
+  repo:
+    type: string
+  branch:
+    type: string
+  commit:
+    type: string
+  user_id:
+    type: string
+  identity_confidence:
+    type: string
+    enum: [verified, ambiguous, missing]
+  local_subject:
+    type: string
+  local_workspace_hash:
+    type: string
+    pattern: "^sha256:"
+  local_report_uri:
+    type: string
+  external_subject:
+    type: string
+  sink_id:
+    type: string
+  sink_capability_id:
+    type: string
+  agent_id:
+    type: string
+  agent_version:
+    type: string
+  installation_id:
+    type: string
+  device_id:
+    type: string
+  session_id:
+    type: string
+  run_id:
+    type: string
+  step_id:
+    type: string
+  trace_id:
+    type: string
+  span_id:
+    type: string
+  parent_span_id:
+    type: [string, "null"]
+  sequence_no:
+    type: integer
+    minimum: 0
+  idempotency_key:
+    type: string
+    minLength: 1
+  source_type:
+    type: string
+    enum: [reporter, sdk, wrapper, connector, imported]
+  source_trust_level:
+    type: string
+    enum: [verified, declared, ai_suggested, imported, suspected]
+  evidence_level:
+    type: string
+    enum: [L1, L2, L3, L4, L5, pending, unknown]
+  signature:
+    type: string
+  data_classification:
+    type: string
+    enum: [public, internal, confidential, restricted]
+  redaction_policy:
+    type: string
+  payload_hash:
+    type: string
+    pattern: "^sha256:"
+  payload:
+    type: object
+allOf:
+  - if:
+      properties:
+        integration_mode:
+          const: enterprise_managed
+    then:
+      required:
+        - user_id
+        - identity_confidence
+        - agent_id
+        - agent_version
+        - installation_id
+        - device_id
+        - session_id
+        - run_id
+        - signature
+        - source_trust_level
+      properties:
+        identity_confidence:
+          const: verified
+        enterprise_state:
+          enum: [activating, active, degraded, disabled]
+        source_trust_level:
+          const: verified
+  - if:
+      properties:
+        integration_mode:
+          const: standalone
+    then:
+      required:
+        - local_subject
+        - local_workspace_hash
+        - local_report_uri
+      properties:
+        enterprise_state:
+          const: not_detected
+        source_trust_level:
+          enum: [declared, imported]
+  - if:
+      properties:
+        integration_mode:
+          const: custom_sink
+    then:
+      required:
+        - sink_id
+        - sink_capability_id
+        - external_subject
+      properties:
+        source_trust_level:
+          enum: [imported, declared]
+  - if:
+      properties:
+        event_type:
+          const: stage_started
+    then:
+      properties:
+        payload:
+          $ref: "#/$defs/stage_started_payload"
+  - if:
+      properties:
+        event_type:
+          const: stage_completed
+    then:
+      properties:
+        payload:
+          $ref: "#/$defs/stage_completed_payload"
+  - if:
+      properties:
+        event_type:
+          const: gate_result
+    then:
+      properties:
+        payload:
+          $ref: "#/$defs/gate_result_payload"
+  - if:
+      properties:
+        event_type:
+          const: verification_result
+    then:
+      properties:
+        payload:
+          $ref: "#/$defs/verification_result_payload"
+  - if:
+      properties:
+        event_type:
+          const: violation_scan_completed
+    then:
+      properties:
+        payload:
+          $ref: "#/$defs/violation_scan_completed_payload"
+  - if:
+      properties:
+        event_type:
+          const: artifact_generated
+    then:
+      properties:
+        payload:
+          $ref: "#/$defs/artifact_generated_payload"
+  - if:
+      properties:
+        event_type:
+          const: generation_snapshot
+    then:
+      properties:
+        payload:
+          $ref: "#/$defs/generation_snapshot_payload"
+  - if:
+      properties:
+        event_type:
+          const: l5_eligibility_input
+    then:
+      properties:
+        payload:
+          $ref: "#/$defs/l5_eligibility_input_payload"
+$defs:
+  stage_started_payload:
+    type: object
+    additionalProperties: true
+    required: [stage_id, stage_name, stage_order, session_id, run_id, workitem, repo, started_at, adapter_state]
+    properties:
+      stage_id: {type: string}
+      stage_name: {type: string}
+      stage_order: {type: integer}
+      session_id: {type: string}
+      run_id: {type: string}
+      workitem: {type: string}
+      repo: {type: string}
+      started_at: {type: string, format: date-time}
+      adapter_state: {type: string}
+  stage_completed_payload:
+    type: object
+    additionalProperties: true
+    required: [stage_id, status, completed_at, duration_ms, artifacts, verification_refs, violation_count]
+    properties:
+      stage_id: {type: string}
+      status: {type: string}
+      completed_at: {type: string, format: date-time}
+      duration_ms: {type: integer, minimum: 0}
+      artifacts: {type: array, items: {type: string}}
+      verification_refs: {type: array, items: {type: string}}
+      violation_count: {type: integer, minimum: 0}
+  gate_result_payload:
+    type: object
+    additionalProperties: true
+    required: [gate_id, gate_name, result, evaluated_at, blocking, rule_results, suggested_action]
+    properties:
+      gate_id: {type: string}
+      gate_name: {type: string}
+      result: {type: string}
+      evaluated_at: {type: string, format: date-time}
+      blocking: {type: boolean}
+      rule_results: {type: array, items: {type: object}}
+      suggested_action: {type: string}
+  verification_result_payload:
+    type: object
+    additionalProperties: true
+    required: [verification_id, verification_type, command_or_job, status, commit, artifact_hash, freshness, logs_ref]
+    properties:
+      verification_id: {type: string}
+      verification_type: {type: string}
+      command_or_job: {type: string}
+      status: {type: string}
+      commit: {type: string}
+      artifact_hash: {type: string}
+      freshness: {type: string}
+      logs_ref: {type: string}
+  violation_scan_completed_payload:
+    type: object
+    additionalProperties: true
+    required: [scan_id, stage_id, status, violation_count, ruleset_version, completed_at]
+    properties:
+      scan_id: {type: string}
+      stage_id: {type: string}
+      status: {type: string}
+      violation_count: {type: integer, minimum: 0}
+      ruleset_version: {type: string}
+      completed_at: {type: string, format: date-time}
+  artifact_generated_payload:
+    type: object
+    additionalProperties: true
+    required: [artifact_id, artifact_type, uri_or_hash, data_classification, retention_policy, linked_commit]
+    properties:
+      artifact_id: {type: string}
+      artifact_type: {type: string}
+      uri_or_hash: {type: string}
+      data_classification: {type: string}
+      retention_policy: {type: string}
+      linked_commit: {type: string}
+  generation_snapshot_payload:
+    type: object
+    additionalProperties: true
+    required: [snapshot_id, input_hash, output_hash, patch_hash, redaction_policy, model_ref, prompt_template_version]
+    properties:
+      snapshot_id: {type: string}
+      input_hash: {type: string}
+      output_hash: {type: string}
+      patch_hash: {type: string}
+      redaction_policy: {type: string}
+      model_ref: {type: string}
+      prompt_template_version: {type: string}
+  l5_eligibility_input_payload:
+    type: object
+    additionalProperties: true
+    required: [run_id, conditions, outbox_status, policy_state_known, enforcement_mode, failed_conditions]
+    properties:
+      run_id: {type: string}
+      conditions: {type: object}
+      outbox_status: {type: string}
+      policy_state_known: {type: boolean}
+      enforcement_mode: {type: string}
+      failed_conditions: {type: array, items: {type: string}}

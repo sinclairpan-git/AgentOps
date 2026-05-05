@@ -1,0 +1,9 @@
+.DS_Store
+.pytest_cache/
+.venv/
+.ai-sdlc/local/
+__pycache__/
+*.py[cod]
+*.egg-info/
+ai-sdlc-offline-*.tar.gz
+ai-sdlc-offline-*/
