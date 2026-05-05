@@ -401,6 +401,13 @@
 - `uv run ai-sdlc verify constraints`
 - `ai-sdlc workitem close-check --wi specs/002-agentops-policy-approval-vault --json`
 
+#### 7.3.1 统一验证命令
+
+- **验证画像**：code-change
+- `uv run pytest tests -q`
+- `uv run ruff check`
+- `uv run ai-sdlc verify constraints`
+
 #### 7.4 测试结果
 
 - 全量测试：82 passed。
@@ -435,3 +442,8 @@
 - 已完成 git 提交：是
 - 提交哈希：见本批次 Git 提交
 - 是否继续下一批：否，等待 close-check 和正式 close。
+
+#### 7.8.1 Git close-out
+
+- **已完成 git 提交**：是
+- **提交哈希**：见当前 Git HEAD
