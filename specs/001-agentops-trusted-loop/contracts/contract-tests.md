@@ -14,7 +14,7 @@
 ## AO-CT-002 Credential Issue API
 
 - **正例**：active bootstrap session + 有效 signed_installation_assertion 签发 ReporterCredential、IngestionToken、DeviceKey。
-- **反例**：过期 bootstrap 返回 `BOOTSTRAP_EXPIRED`；artifact_hash 不一致返回 `BOOTSTRAP_ARTIFACT_MISMATCH`。
+- **反例**：过期 bootstrap 返回 `BOOTSTRAP_EXPIRED`；artifact_hash 不一致返回 `BOOTSTRAP_ARTIFACT_MISMATCH`；installation_id 或 user_id 与 BootstrapSession 不一致返回 `BOOTSTRAP_IDENTITY_MISMATCH`。
 - **幂等**：同 bootstrap_id 重试返回同 credential 状态。
 - **兼容**：Credential status 旧值可解释为 degraded，不静默 allow。
 - **签名约束**：canonicalization、algorithm、key_id、issued_at、nonce、timestamp skew 和 replay window 必须参与校验。

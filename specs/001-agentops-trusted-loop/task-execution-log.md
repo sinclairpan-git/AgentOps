@@ -112,9 +112,9 @@ T11 规格与契约基线已完成，可进入实现批次 T12 起。当前项�
 
 #### 2.10 验证结果
 
-- 全量测试：34 passed。
+- 全量测试：36 passed。
 - Ruff：All checks passed。
-- 契约测试：AO-CT-001 到 AO-CT-006 均通过；新增 enterprise source/credential/device 状态校验、BootstrapSession 状态/过期、device proof 过期/签名约束、timestamp skew 和 nonce replay 测试。
+- 契约测试：AO-CT-001 到 AO-CT-006 均通过；新增 enterprise source/credential/device 状态校验、BootstrapSession 状态/过期、installation/user/session 绑定、device proof 过期/签名约束、timestamp skew 和 nonce replay 测试。
 - 单元测试：L5 Gate 与管理员 view model 均通过；新增 standalone/imported evidence 不得进入 L5 或 pending L5 的回归测试。
 - AI-SDLC 约束：no BLOCKERs。
 
@@ -129,15 +129,14 @@ T11 规格与契约基线已完成，可进入实现批次 T12 起。当前项�
 
 - `tasks.md` 同步状态：已同步，T11-T43 均标记为已完成。
 - `related_plan` 同步状态：`plan.md`、`research.md`、`data-model.md`、`contracts/*` 与实现范围一致。
-- 关联 branch/worktree disposition 计划：本项目原先不是 Git 仓库；本批按 close-check 要求初始化本地 Git 并提交受控文件。
+- 关联 branch/worktree disposition 计划：本批按 close-check 要求初始化本地 Git 并提交受控文件。
 - 说明：未纳管 `.venv/`、`.pytest_cache/`、`*.egg-info/`、离线安装包和 Python 缓存。
 
 #### 2.11.2 Git close-out
 
 - **已完成 git 提交**：是
-- **提交哈希**：self-contained-closeout-record
+- **提交哈希**：见当前 Git HEAD
 
 #### 2.12 已知限制
 
-- 当前项目目录不是 Git 仓库，因此没有执行 git commit；这会限制 AI-SDLC git commit 型 close gate 的完全自动通过。
 - 当前 repository 为 in-memory stage-1 验证实现，后续生产化需要替换为 PostgreSQL 兼容实现。

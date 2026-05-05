@@ -38,6 +38,9 @@ def issue_credentials(request: dict[str, Any], repository: InMemoryRepository, n
     if assertion["issuer"] != session["issuer"]:
         raise AgentOpsError("BOOTSTRAP_ISSUER_MISMATCH", "Issuer does not match bootstrap session.")
 
+    if assertion["installation_id"] != session["installation_id"] or assertion["user_id"] != session["user_id"]:
+        raise AgentOpsError("BOOTSTRAP_IDENTITY_MISMATCH", "Assertion identity does not match bootstrap session.")
+
     if assertion["device_id"] != device_proof["device_id"] or assertion["device_id"] != session["device_id"]:
         raise AgentOpsError("BOOTSTRAP_DEVICE_MISMATCH", "Device proof does not match bootstrap assertion.")
 

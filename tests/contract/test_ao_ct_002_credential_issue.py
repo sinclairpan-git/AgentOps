@@ -108,6 +108,18 @@ def test_artifact_mismatch_returns_contract_error(repository):
     assert exc.value.error_code == "BOOTSTRAP_ARTIFACT_MISMATCH"
 
 
+@pytest.mark.parametrize(("field", "value"), [("installation_id", "inst_2"), ("user_id", "user_2")])
+def test_identity_mismatch_returns_contract_error(repository, field, value):
+    repository.add_bootstrap_session(bootstrap_session())
+    request = credential_request()
+    request["installation_assertion"][field] = value
+
+    with pytest.raises(AgentOpsError) as exc:
+        issue_credentials(request, repository)
+
+    assert exc.value.error_code == "BOOTSTRAP_IDENTITY_MISMATCH"
+
+
 def test_expired_device_proof_returns_contract_error(repository):
     repository.add_bootstrap_session(bootstrap_session())
     request = credential_request()
