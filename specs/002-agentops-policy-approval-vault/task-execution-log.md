@@ -291,3 +291,70 @@
 - 已完成 git 提交：是
 - 提交哈希：见本批次 Git 提交
 - 是否继续下一批：是，进入 Batch 5。
+
+### Batch 2026-05-05-005 | T51-T52
+
+#### 6.1 批次范围
+
+- 覆盖任务：`T51`、`T52`
+- 覆盖阶段：Batch 5 Store/CLI summary, SLO and admin models
+- 预读范围：AO2-CT-005、AO2-CT-006、UX P1 可行动契约修复记录
+
+#### 6.2 任务记录
+
+##### T51 | 实现 Policy Requirement Summary
+
+- 改动范围：
+  - `src/agentops/api/policy.py`
+  - `tests/contract/test_ao2_ct_005_policy_summary.py`
+- 改动内容：
+  - 新增 Store/CLI 可消费的 PolicyRequirement Summary。
+  - 输出 required_by、source、issuer、policy_owner、policy_version、can_ignore、affected_actions、deep_links、plain_language、primary_action、secondary_action。
+  - consumer schema 不兼容返回 `POLICY_SUMMARY_SCHEMA_UNSUPPORTED`。
+- 新增/调整的测试：summary 必填字段、deep_links 结构、warn can_ignore、schema unsupported。
+
+##### T52 | 实现阶段 2 SLO 和管理员模型
+
+- 改动范围：
+  - `src/agentops/api/view_models.py`
+  - `tests/contract/test_ao2_ct_006_stage2_slo_admin.py`
+  - `tests/unit/test_admin_view_models.py`
+- 改动内容：
+  - 新增 Policy Check、Approval Service、Evidence Query SLO Snapshot。
+  - 新增阶段 2 Approval Center、Policy Center、Evidence Explorer、Risk Triage 页面模型。
+  - 缺 SLO 数据显示 unknown，不得 healthy；degraded 显示降级动作和 review_required。
+  - permission_denied 包含 denied_scope 且不暴露 raw evidence。
+- 新增/调整的测试：缺 SLO unknown、Policy Check over threshold degraded、页面模型可行动字段和权限失败。
+
+#### 6.3 执行命令
+
+- `uv run pytest tests/contract/test_ao2_ct_005_policy_summary.py tests/contract/test_ao2_ct_006_stage2_slo_admin.py tests/unit/test_admin_view_models.py -q`
+- `uv run ruff check src/agentops/api/policy.py src/agentops/api/view_models.py tests/contract/test_ao2_ct_005_policy_summary.py tests/contract/test_ao2_ct_006_stage2_slo_admin.py tests/unit/test_admin_view_models.py`
+
+#### 6.4 测试结果
+
+- 定向测试：9 passed。
+- Ruff：All checks passed。
+
+#### 6.5 代码审查结论（Mandatory）
+
+- 宪章/规格对齐：T51/T52 对齐 AO2-CT-005/006、FR-019a 和 FR-023a。
+- 代码质量：Policy summary 保持在 policy API；view model 扩展保持阶段 1 兼容函数不变。
+- 测试质量：覆盖 Store/CLI 字段、schema unsupported、SLO unknown/degraded 和页面权限失败。
+- 结论：T51/T52 可进入全量验证和 close 批次。
+
+#### 6.6 任务/计划同步状态（Mandatory）
+
+- `tasks.md` 同步状态：T51、T52 已完成。
+- `related_plan` 同步状态：Phase 4 Store/CLI Summary、SLO 与管理员模型已完成。
+- 关联 branch/worktree disposition 计划：继续使用 `feature/002-agentops-policy-approval-vault-docs`。
+
+#### 6.7 批次结论
+
+- 阶段 2 可解释摘要、SLO 和管理员模型已落地，可进入 T53 close。
+
+#### 6.8 归档后动作
+
+- 已完成 git 提交：是
+- 提交哈希：见本批次 Git 提交
+- 是否继续下一批：是，进入 T53。

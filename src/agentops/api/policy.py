@@ -43,3 +43,50 @@ def evaluate_policy_decision(
         "decision_reason": reason,
         "audit_id": "audit_policy_decision",
     }
+
+
+def build_policy_requirement_summary(
+    policy_decision: dict[str, Any],
+    *,
+    affected_actions: list[str],
+    consumer_schema_version: str = "policy-summary.v1",
+    return_url: str = "/agent-store",
+) -> dict[str, Any]:
+    if not consumer_schema_version.startswith("policy-summary.v1"):
+        raise AgentOpsError(
+            "POLICY_SUMMARY_SCHEMA_UNSUPPORTED",
+            "Policy requirement summary schema is unsupported.",
+            request_id="req_policy_summary_schema",
+        )
+
+    decision = policy_decision["decision"]
+    can_ignore = decision == "warn"
+    return {
+        "required_by": "AgentOps Policy Service",
+        "source": "agentops.policy_check",
+        "issuer": "AgentOps",
+        "policy_owner": "Security/IAM",
+        "policy_version": policy_decision["policy_version"],
+        "can_ignore": can_ignore,
+        "affected_actions": affected_actions,
+        "deep_links": {
+            "approval_url": f"/agentops/approvals/{policy_decision.get('required_approval_id', 'new')}",
+            "policy_url": f"/agentops/policies/{policy_decision['policy_version']}",
+            "evidence_url": "/agentops/evidence",
+            "return_url": return_url,
+        },
+        "plain_language": _policy_plain_language(decision),
+        "primary_action": "处理审批" if decision == "approval_required" else "查看策略",
+        "secondary_action": "返回 Agent Store",
+        "audit_id": policy_decision["audit_id"],
+    }
+
+
+def _policy_plain_language(decision: str) -> str:
+    return {
+        "block": "该动作被策略阻断，需要联系安全/IAM 负责人。",
+        "approval_required": "该动作属于高风险操作，需要完成审批后才能继续。",
+        "warn": "该动作存在风险提示，可以继续但会留下审计记录。",
+        "conditional_allow": "该动作已通过限时授权，可以在授权范围内继续。",
+        "allow": "该动作已通过策略检查。",
+    }[decision]
