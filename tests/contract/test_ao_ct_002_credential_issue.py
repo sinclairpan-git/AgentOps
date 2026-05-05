@@ -35,7 +35,7 @@ def credential_request(expires_at=None, artifact_hash="sha256:artifact"):
             "user_id": "user_1",
             "device_id": "dev_1",
             "nonce": "nonce_1",
-            "issued_at": past_time(),
+            "issued_at": past_time(1),
             "expires_at": expires_at,
         },
         "device_proof": {
@@ -46,7 +46,7 @@ def credential_request(expires_at=None, artifact_hash="sha256:artifact"):
             "canonicalization": "json-canonical-form",
             "nonce": "nonce_device",
             "signature": "sig_device",
-            "issued_at": past_time(),
+            "issued_at": past_time(1),
             "expires_at": expires_at,
         },
     }
@@ -110,3 +110,29 @@ def test_device_proof_signature_and_canonicalization_are_required(repository):
         issue_credentials(request, repository)
 
     assert exc.value.error_code == "BOOTSTRAP_SIGNATURE_REQUIRED"
+
+
+def test_stale_issued_at_returns_timestamp_skew_error(repository):
+    repository.add_bootstrap_session(bootstrap_session())
+    request = credential_request()
+    request["installation_assertion"]["issued_at"] = past_time(10)
+
+    with pytest.raises(AgentOpsError) as exc:
+        issue_credentials(request, repository)
+
+    assert exc.value.error_code == "BOOTSTRAP_TIMESTAMP_SKEW"
+
+
+def test_nonce_replay_window_blocks_second_bootstrap(repository):
+    repository.add_bootstrap_session(bootstrap_session())
+    issue_credentials(credential_request(), repository)
+
+    second_session = dict(bootstrap_session(), bootstrap_id="boot_2")
+    repository.add_bootstrap_session(second_session)
+    request = credential_request()
+    request["bootstrap_id"] = "boot_2"
+
+    with pytest.raises(AgentOpsError) as exc:
+        issue_credentials(request, repository)
+
+    assert exc.value.error_code == "BOOTSTRAP_REPLAY_DETECTED"

@@ -18,6 +18,7 @@ class InMemoryRepository:
     imported_events: dict[str, dict[str, Any]] = field(default_factory=dict)
     bootstrap_sessions: dict[str, dict[str, Any]] = field(default_factory=dict)
     credentials_by_bootstrap: dict[str, dict[str, Any]] = field(default_factory=dict)
+    used_bootstrap_nonces: set[str] = field(default_factory=set)
 
     def write_event(self, event: dict[str, Any], evidence_mode: str = "managed") -> str:
         event_id = event["event_id"]
@@ -44,3 +45,6 @@ class InMemoryRepository:
         if bootstrap_id not in self.credentials_by_bootstrap:
             self.credentials_by_bootstrap[bootstrap_id] = dict(credentials)
         return dict(self.credentials_by_bootstrap[bootstrap_id])
+
+    def mark_bootstrap_nonces(self, *nonces: str) -> None:
+        self.used_bootstrap_nonces.update(nonces)
