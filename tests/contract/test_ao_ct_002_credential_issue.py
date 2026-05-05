@@ -72,6 +72,24 @@ def test_expired_bootstrap_returns_contract_error(repository):
     assert exc.value.error_code == "BOOTSTRAP_EXPIRED"
 
 
+def test_expired_bootstrap_session_returns_contract_error(repository):
+    repository.add_bootstrap_session(dict(bootstrap_session(), expires_at=past_time()))
+
+    with pytest.raises(AgentOpsError) as exc:
+        issue_credentials(credential_request(), repository)
+
+    assert exc.value.error_code == "BOOTSTRAP_EXPIRED"
+
+
+def test_failed_bootstrap_session_cannot_issue_credentials(repository):
+    repository.add_bootstrap_session(dict(bootstrap_session(), status="failed"))
+
+    with pytest.raises(AgentOpsError) as exc:
+        issue_credentials(credential_request(), repository)
+
+    assert exc.value.error_code == "BOOTSTRAP_STATE_INVALID"
+
+
 def test_same_bootstrap_retry_returns_same_credential_state(repository):
     repository.add_bootstrap_session(bootstrap_session())
 

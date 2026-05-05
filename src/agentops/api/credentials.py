@@ -15,6 +15,11 @@ def issue_credentials(request: dict[str, Any], repository: InMemoryRepository, n
     session = repository.get_bootstrap_session(bootstrap_id)
     if not session:
         raise AgentOpsError("BOOTSTRAP_NOT_FOUND", "Bootstrap session does not exist.")
+    session_expires_at = _parse_time(session["expires_at"])
+    if session_expires_at <= now:
+        raise AgentOpsError("BOOTSTRAP_EXPIRED", "Bootstrap session is expired.")
+    if session.get("status") not in {"authenticated", "credential_issued", "verified"}:
+        raise AgentOpsError("BOOTSTRAP_STATE_INVALID", "Bootstrap session is not eligible for credential issue.")
     existing = repository.credentials_by_bootstrap.get(bootstrap_id)
     if existing:
         return dict(existing)
