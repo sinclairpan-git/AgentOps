@@ -35,36 +35,40 @@ specs:
   path: specs/009-console-triage-action-detail
   depends_on:
   - 008-console-ops-hub
+- id: 010-console-audit-timeline
+  path: specs/010-console-audit-timeline
+  depends_on:
+  - 009-console-triage-action-detail
 truth_snapshot:
-  generated_at: '2026-05-06T15:39:48Z'
+  generated_at: '2026-05-06T16:56:23Z'
   generated_by: ai-sdlc program truth sync
   generator_version: program_truth_snapshot_v1
-  repo_revision: 0b704bd
-  authoring_hash: 2b382a722a607fe4a6e11342a1aa3758c86772d7c3e60cdc4d10abb07ba4d7f4
+  repo_revision: 330a544
+  authoring_hash: 578dd1ec515412f70702d0390db25d50070a2cdd3ba95f1bc96e39fdbd7c6ff1
   source_hashes: {}
-  snapshot_hash: 534699e2a0dd399a33ba2015780081c5e2b9e1e940515632024e8a863b3da267
+  snapshot_hash: 74eb29a1cdbef6d9a040b729382d4ae072f2f33b4c6db1694084a2b242136a95
   computed_capabilities: []
   source_inventory:
     state: complete
-    total_sources: 45
-    mapped_sources: 45
+    total_sources: 50
+    mapped_sources: 50
     unmapped_sources: 0
     missing_sources: 2
-    phase_signal_count: 80
-    deferred_signal_count: 108
-    non_goal_signal_count: 13
+    phase_signal_count: 84
+    deferred_signal_count: 112
+    non_goal_signal_count: 15
     layer_totals:
-      spec: 9
-      plan: 9
-      tasks: 9
-      execution: 9
-      close: 9
+      spec: 10
+      plan: 10
+      tasks: 10
+      execution: 10
+      close: 10
     layer_materialized:
-      spec: 9
-      plan: 9
-      tasks: 9
-      execution: 7
-      close: 9
+      spec: 10
+      plan: 10
+      tasks: 10
+      execution: 8
+      close: 10
     entries:
     - path: specs/001-agentops-trusted-loop/spec.md
       source_type: spec_doc
@@ -459,8 +463,8 @@ truth_snapshot:
       mapped: true
       exists: true
       mapping_ref: 009-console-triage-action-detail
-      phase_signal_count: 0
-      deferred_signal_count: 0
+      phase_signal_count: 2
+      deferred_signal_count: 2
       non_goal_signal_count: 1
     - path: specs/009-console-triage-action-detail/development-summary.md
       source_type: development_summary
@@ -468,6 +472,51 @@ truth_snapshot:
       mapped: true
       exists: true
       mapping_ref: 009-console-triage-action-detail
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 0
+    - path: specs/010-console-audit-timeline/spec.md
+      source_type: spec_doc
+      truth_layer: spec
+      mapped: true
+      exists: true
+      mapping_ref: 010-console-audit-timeline
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 1
+    - path: specs/010-console-audit-timeline/plan.md
+      source_type: plan_doc
+      truth_layer: plan
+      mapped: true
+      exists: true
+      mapping_ref: 010-console-audit-timeline
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 0
+    - path: specs/010-console-audit-timeline/tasks.md
+      source_type: tasks_doc
+      truth_layer: tasks
+      mapped: true
+      exists: true
+      mapping_ref: 010-console-audit-timeline
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 0
+    - path: specs/010-console-audit-timeline/task-execution-log.md
+      source_type: execution_log
+      truth_layer: execution
+      mapped: true
+      exists: true
+      mapping_ref: 010-console-audit-timeline
+      phase_signal_count: 2
+      deferred_signal_count: 2
+      non_goal_signal_count: 1
+    - path: specs/010-console-audit-timeline/development-summary.md
+      source_type: development_summary
+      truth_layer: close
+      mapped: true
+      exists: true
+      mapping_ref: 010-console-audit-timeline
       phase_signal_count: 0
       deferred_signal_count: 0
       non_goal_signal_count: 0

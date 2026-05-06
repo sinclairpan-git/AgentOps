@@ -134,6 +134,9 @@ export function validateSnapshot(snapshot) {
   if (!snapshotShapeIsSafe(snapshot.consoleData)) {
     return false;
   }
+  if (!actionDetailsAreComplete(snapshot.consoleData)) {
+    return false;
+  }
   if (containsForbiddenKey(snapshot, "raw_payload")) {
     return false;
   }
@@ -226,6 +229,7 @@ export function statesAreKnown(consoleData) {
     ...(consoleData.operationCenter?.todos || []).map((item) => item.status),
     ...(consoleData.operationCenter?.searchIndex || []).map((item) => item.status),
     ...(consoleData.actionWorkbench?.details || []).map((item) => item.status),
+    ...(consoleData.actionWorkbench?.details || []).flatMap((item) => (item.timeline || []).map((node) => node.status)),
     ...(consoleData.connectors || []).map((item) => item.status),
     ...(consoleData.sdlcRuns || []).flatMap((item) => [item.adapter_status, item.dry_run_status, item.verified_loaded])
   ].filter(Boolean);
@@ -241,6 +245,55 @@ export function operationActionsResolve(consoleData) {
     ...(consoleData.operationCenter?.searchIndex || [])
   ];
   return operationItems.every((item) => !item.action_id || detailIds.has(item.action_id));
+}
+
+export function actionDetailsAreComplete(consoleData) {
+  const details = consoleData.actionWorkbench?.details || [];
+  return details.every((detail) => {
+    const timeline = detail.timeline;
+    const auditPacket = detail.audit_packet;
+    if (containsUnsafeAuditReference(detail)) {
+      return false;
+    }
+    return Array.isArray(timeline) &&
+      timeline.length >= 3 &&
+      timeline.every((node) =>
+        node &&
+        node.id &&
+        node.stage &&
+        node.occurred_at &&
+        node.title &&
+        node.body &&
+        node.owner &&
+        node.status
+      ) &&
+      auditPacket &&
+      auditPacket.packet_id &&
+      auditPacket.summary &&
+      auditPacket.export_state &&
+      Array.isArray(auditPacket.evidence_refs) &&
+      Array.isArray(auditPacket.echo_targets) &&
+      auditPacket.echo_targets.length > 0 &&
+      auditPacket.retention_policy &&
+      auditPacket.safety_note &&
+      !auditPacket.download_url &&
+      !auditPacket.raw_url;
+  });
+}
+
+export function containsUnsafeAuditReference(value) {
+  const forbiddenKeys = new Set(["raw_payload", "download_url", "raw_url", "original_url", "raw_access_url"]);
+  if (typeof value === "string") {
+    return /https?:\/\//i.test(value);
+  }
+  if (Array.isArray(value)) {
+    return value.some(containsUnsafeAuditReference);
+  }
+  if (value && typeof value === "object") {
+    return Object.keys(value).some((key) => forbiddenKeys.has(key)) ||
+      Object.values(value).some(containsUnsafeAuditReference);
+  }
+  return false;
 }
 
 export function verifiedLoadedProofIsSafe(consoleData) {

@@ -124,3 +124,64 @@ export const consoleData = {
     { id: "sdlc_003", command: "governance load probe", adapter_status: "materialized", dry_run_status: "dry_run_passed", proof_source: "待接入治理加载探针", captured_at: "待采集", verified_loaded: "unverified" }
   ]
 };
+
+const slug = (value) => String(value).replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "unknown";
+
+const echoTargets = (actionId) => {
+  if (actionId.startsWith("action_gap_")) {
+    return ["Agent Store 审计", "风险处置", "通知中心"];
+  }
+  if (actionId.startsWith("action_approval_")) {
+    return ["审批中心", "待办中心", "审计详情"];
+  }
+  if (actionId.startsWith("action_evidence_")) {
+    return ["证据检索", "风险处置", "审计详情"];
+  }
+  return ["风险处置", "通知中心", "审计详情"];
+};
+
+const timelineFor = (detail) => [
+  {
+    id: `tl_${slug(detail.id)}_detected`,
+    stage: "发现",
+    occurred_at: "快照生成时",
+    title: "治理信号进入处置队列",
+    body: detail.summary,
+    owner: detail.owner,
+    status: detail.status
+  },
+  {
+    id: `tl_${slug(detail.id)}_triage`,
+    stage: "研判",
+    occurred_at: "快照生成时",
+    title: "已生成建议动作",
+    body: `建议动作：${detail.primary_action}。`,
+    owner: detail.owner,
+    status: detail.status
+  },
+  {
+    id: `tl_${slug(detail.id)}_close`,
+    stage: "关闭",
+    occurred_at: "待完成",
+    title: "等待关闭证明",
+    body: detail.close_condition,
+    owner: detail.owner,
+    status: "pending"
+  }
+];
+
+const auditPacketFor = (detail) => ({
+  packet_id: `packet_${slug(detail.id)}`,
+  summary: `只读复核包：${detail.title}。${detail.summary}`,
+  export_state: "只读摘要已生成",
+  evidence_refs: [detail.audit_ref, detail.evidence_ref, detail.related_ref].filter(Boolean),
+  echo_targets: echoTargets(detail.id),
+  retention_policy: "仅保留摘要、哈希和审计引用；不包含 Evidence Vault 原文。",
+  safety_note: "只读复核包仅用于审计复核，不提供原文下载或生产写操作。"
+});
+
+consoleData.actionWorkbench.details = consoleData.actionWorkbench.details.map((detail) => ({
+  ...detail,
+  timeline: timelineFor(detail),
+  audit_packet: auditPacketFor(detail)
+}));

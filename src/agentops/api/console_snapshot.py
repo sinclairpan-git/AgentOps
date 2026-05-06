@@ -439,7 +439,8 @@ def _action_detail(
     audit_ref: str,
     evidence_ref: str,
     related_ref: str,
-) -> dict[str, str]:
+) -> dict[str, Any]:
+    safety_note = "当前为只读处置预案，不执行生产写操作。"
     return {
         "id": action_id,
         "title": title,
@@ -453,8 +454,116 @@ def _action_detail(
         "audit_ref": audit_ref,
         "evidence_ref": evidence_ref,
         "related_ref": related_ref,
-        "safety_note": "当前为只读处置预案，不执行生产写操作。",
+        "safety_note": safety_note,
+        "timeline": _action_timeline(
+            action_id,
+            summary=summary,
+            status=status,
+            owner=owner,
+            primary_action=primary_action,
+            close_condition=close_condition,
+        ),
+        "audit_packet": _audit_packet(
+            action_id,
+            title=title,
+            summary=summary,
+            audit_ref=audit_ref,
+            evidence_ref=evidence_ref,
+            related_ref=related_ref,
+        ),
     }
+
+
+def _action_timeline(
+    action_id: str,
+    *,
+    summary: str,
+    status: str,
+    owner: str,
+    primary_action: str,
+    close_condition: str,
+) -> list[dict[str, str]]:
+    timeline_id = _slug(action_id)
+    return [
+        _timeline_node(
+            f"tl_{timeline_id}_detected",
+            "发现",
+            "快照生成时",
+            "治理信号进入处置队列",
+            summary,
+            owner,
+            status,
+        ),
+        _timeline_node(
+            f"tl_{timeline_id}_triage",
+            "研判",
+            "快照生成时",
+            "已生成建议动作",
+            f"建议动作：{primary_action}。",
+            owner,
+            status,
+        ),
+        _timeline_node(
+            f"tl_{timeline_id}_close",
+            "关闭",
+            "待完成",
+            "等待关闭证明",
+            close_condition,
+            owner,
+            "pending",
+        ),
+    ]
+
+
+def _timeline_node(
+    node_id: str,
+    stage: str,
+    occurred_at: str,
+    title: str,
+    body: str,
+    owner: str,
+    status: str,
+) -> dict[str, str]:
+    return {
+        "id": node_id,
+        "stage": stage,
+        "occurred_at": occurred_at,
+        "title": title,
+        "body": body,
+        "owner": owner,
+        "status": status,
+    }
+
+
+def _audit_packet(
+    action_id: str,
+    *,
+    title: str,
+    summary: str,
+    audit_ref: str,
+    evidence_ref: str,
+    related_ref: str,
+) -> dict[str, Any]:
+    refs = [item for item in (audit_ref, evidence_ref, related_ref) if item]
+    return {
+        "packet_id": f"packet_{_slug(action_id)}",
+        "summary": f"只读复核包：{title}。{summary}",
+        "export_state": "只读摘要已生成",
+        "evidence_refs": refs,
+        "echo_targets": _audit_echo_targets(action_id),
+        "retention_policy": "仅保留摘要、哈希和审计引用；不包含 Evidence Vault 原文。",
+        "safety_note": "只读复核包仅用于审计复核，不提供原文下载或生产写操作。",
+    }
+
+
+def _audit_echo_targets(action_id: str) -> list[str]:
+    if action_id.startswith("action_gap_"):
+        return ["Agent Store 审计", "风险处置", "通知中心"]
+    if action_id.startswith("action_approval_"):
+        return ["审批中心", "待办中心", "审计详情"]
+    if action_id.startswith("action_evidence_"):
+        return ["证据检索", "风险处置", "审计详情"]
+    return ["风险处置", "通知中心", "审计详情"]
 
 
 def _approval_action_id(approval: dict[str, Any]) -> str:
