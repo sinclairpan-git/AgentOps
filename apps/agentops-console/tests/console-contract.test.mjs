@@ -78,6 +78,8 @@ assert.match(appSource, /refreshSnapshot/);
 assert.match(appSource, /AgentStoreAuditView/);
 assert.match(appShellSource, /sourceState/);
 assert.match(appShellSource, /refresh-snapshot/);
+assert.match(viewSources, /actionId\(risk\)/);
+assert.match(viewSources, /action_gap_/);
 assert.match(uiSource, /后端快照/);
 
 assert.match(techStack, /source:\s*project-vendor/);

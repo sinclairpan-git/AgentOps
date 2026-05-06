@@ -29,6 +29,8 @@
 
 - 自检结论：处置详情为只读视图模型，不新增事实所有权，不暴露 `raw_payload`。
 - 安全边界：按钮仅打开详情或跳转，不执行审批、Grant、风险关闭或原文访问。
+- PR Codex Review P1：`actionWorkbench.details` 独立截断可能导致入口孤儿。已改为保留全部生成详情，并继续由前端 validator 拒绝无法解析的 `action_id`。
+- PR Codex Review P2：Agent Store gap 风险页入口 action_id 不匹配。已按 `Agent Store` + `gap_` 风险切换为 `action_gap_*`。
 - reviewer decision：等待 GitHub PR 上的 `@codex review` 最终确认。
 
 ## 任务/计划同步状态

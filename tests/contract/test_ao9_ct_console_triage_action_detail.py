@@ -113,7 +113,7 @@ def test_ao9_ct_003b_gap_detail_survives_action_workbench_cap():
     console_data = build_console_snapshot(repository=repository)["consoleData"]
     detail_ids = {item["id"] for item in console_data["actionWorkbench"]["details"]}
 
-    assert len(console_data["actionWorkbench"]["details"]) == 40
+    assert len(console_data["actionWorkbench"]["details"]) >= 45
     for collection_name in ("todos", "searchIndex"):
         for item in console_data["operationCenter"][collection_name]:
             action_id = item.get("action_id")

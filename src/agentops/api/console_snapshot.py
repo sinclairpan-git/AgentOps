@@ -423,7 +423,7 @@ def _action_workbench(console_data: dict[str, Any]) -> dict[str, Any]:
                 ",".join(str(run_id) for run_id in gap.get("affected_runs", [])),
             )
         )
-    return {"details": _prioritized_unique(protected_details, details, limit=40)}
+    return {"details": _prioritized_unique(protected_details, details, limit=len(protected_details) + len(details))}
 
 
 def _action_detail(
