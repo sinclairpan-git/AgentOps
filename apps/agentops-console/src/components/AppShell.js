@@ -245,10 +245,43 @@ export const AppShell = {
           <div v-if="activeActionDetail.evidence_ref"><dt>证据引用</dt><dd>{{ activeActionDetail.evidence_ref }}</dd></div>
           <div v-if="activeActionDetail.related_ref"><dt>关联对象</dt><dd>{{ activeActionDetail.related_ref }}</dd></div>
         </dl>
+        <section v-if="activeActionDetail.timeline && activeActionDetail.timeline.length" class="timeline-section">
+          <div class="section-title">
+            <h4>处置时间线</h4>
+            <span>只读进展</span>
+          </div>
+          <ol class="timeline-list">
+            <li v-for="node in activeActionDetail.timeline" :key="node.id" class="timeline-node">
+              <div class="timeline-marker" aria-hidden="true"></div>
+              <div>
+                <div class="timeline-head">
+                  <strong>{{ node.stage }}：{{ node.title }}</strong>
+                  <status-badge :status="node.status" />
+                </div>
+                <p>{{ node.body }}</p>
+                <small>{{ node.occurred_at }} / {{ node.owner }}</small>
+              </div>
+            </li>
+          </ol>
+        </section>
+        <section v-if="activeActionDetail.audit_packet" class="audit-packet">
+          <div class="section-title">
+            <h4>审计包摘要</h4>
+            <span>只读复核包</span>
+          </div>
+          <p>{{ activeActionDetail.audit_packet.summary }}</p>
+          <dl class="detail-list">
+            <div><dt>导出状态</dt><dd>{{ activeActionDetail.audit_packet.export_state }}</dd></div>
+            <div><dt>回显目标</dt><dd>{{ activeActionDetail.audit_packet.echo_targets.join('、') }}</dd></div>
+            <div><dt>证据引用</dt><dd>{{ activeActionDetail.audit_packet.evidence_refs.join('、') }}</dd></div>
+            <div><dt>保留策略</dt><dd>{{ activeActionDetail.audit_packet.retention_policy }}</dd></div>
+          </dl>
+          <p class="safety-note">{{ activeActionDetail.audit_packet.safety_note }}</p>
+        </section>
         <p class="safety-note">{{ activeActionDetail.safety_note }}</p>
         <div class="action-drawer-actions">
           <button class="ent-button" type="button" @click="choose(activeActionDetail.route)">前往相关页面</button>
-          <button class="ent-button ent-button--secondary" type="button" disabled>{{ activeActionDetail.primary_action }}</button>
+          <span class="readonly-action-note">建议动作，不在本页执行：{{ activeActionDetail.primary_action }}</span>
         </div>
       </aside>
     </div>

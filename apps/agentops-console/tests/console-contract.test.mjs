@@ -95,10 +95,16 @@ for (const expectedChineseText of [
   "通知中心",
   "待办中心",
   "处置详情",
+  "处置时间线",
+  "审计包摘要",
   "建议动作",
   "前往相关页面",
   "关闭条件",
   "审计引用",
+  "导出状态",
+  "回显目标",
+  "只读复核包",
+  "建议动作，不在本页执行",
   "只读处置预案",
   "总览",
   "运行记录",
@@ -211,6 +217,114 @@ assert.equal(
   validateSnapshot({
     ...validApiSnapshot,
     consoleData: { ...consoleData, actionWorkbench: { ...consoleData.actionWorkbench, details: null } }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      actionWorkbench: {
+        ...consoleData.actionWorkbench,
+        details: [{
+          ...consoleData.actionWorkbench.details[0],
+          timeline: null
+        }]
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      actionWorkbench: {
+        ...consoleData.actionWorkbench,
+        details: [{
+          ...consoleData.actionWorkbench.details[0],
+          timeline: [{
+            ...consoleData.actionWorkbench.details[0].timeline[0],
+            download_url: "/unsafe/raw"
+          }, ...consoleData.actionWorkbench.details[0].timeline.slice(1)]
+        }]
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      actionWorkbench: {
+        ...consoleData.actionWorkbench,
+        details: [{
+          ...consoleData.actionWorkbench.details[0],
+          timeline: [{
+            ...consoleData.actionWorkbench.details[0].timeline[0],
+            body: "查看 http://example.invalid/raw"
+          }, ...consoleData.actionWorkbench.details[0].timeline.slice(1)]
+        }]
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      actionWorkbench: {
+        ...consoleData.actionWorkbench,
+        details: [{
+          ...consoleData.actionWorkbench.details[0],
+          audit_packet: {
+            ...consoleData.actionWorkbench.details[0].audit_packet,
+            summary: "查看 https://example.invalid/raw"
+          }
+        }]
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      actionWorkbench: {
+        ...consoleData.actionWorkbench,
+        details: [{
+          ...consoleData.actionWorkbench.details[0],
+          audit_packet: {
+            ...consoleData.actionWorkbench.details[0].audit_packet,
+            evidence_refs: ["https://example.invalid/raw"]
+          }
+        }]
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      actionWorkbench: {
+        ...consoleData.actionWorkbench,
+        details: [{
+          ...consoleData.actionWorkbench.details[0],
+          audit_packet: null
+        }]
+      }
+    }
   }),
   false
 );

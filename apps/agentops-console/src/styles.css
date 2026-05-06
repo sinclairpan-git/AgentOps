@@ -335,8 +335,68 @@ button {
 
 .action-drawer-actions {
   display: flex;
+  align-items: center;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.readonly-action-note {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  border: 1px solid #c7d3e3;
+  border-radius: 6px;
+  background: #eef2f7;
+  color: #52657a;
+  padding: 7px 12px;
+  font-size: 13px;
+}
+
+.timeline-section,
+.audit-packet {
+  display: grid;
+  gap: 10px;
+  border: 1px solid #dbe3ef;
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 12px;
+}
+
+.timeline-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.timeline-node {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  gap: 10px;
+}
+
+.timeline-marker {
+  width: 10px;
+  height: 10px;
+  margin-top: 6px;
+  border: 2px solid #2f6fed;
+  border-radius: 50%;
+  background: #ffffff;
+}
+
+.timeline-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.timeline-node p,
+.timeline-node small,
+.audit-packet p {
+  margin: 4px 0 0;
+  color: #5c6b80;
 }
 
 .table-action {
