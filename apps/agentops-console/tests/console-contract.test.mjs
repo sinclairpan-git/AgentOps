@@ -16,9 +16,11 @@ const indexSource = readText("index.html");
 const viteConfigSource = readText("vite.config.js");
 const providerSource = readText("src/provider/enterpriseVue2Provider.js");
 const mainSource = readText("src/main.js");
+const appSource = readText("src/App.js");
 const appShellSource = readText("src/components/AppShell.js");
 const statusBadgeSource = readText("src/components/StatusBadge.js");
 const mockDataSource = readText("src/data/mockAgentOpsData.js");
+const apiClientSource = readText("src/data/agentOpsApiClient.js");
 const viewSources = [
   "src/views/OverviewView.js",
   "src/views/RunsView.js",
@@ -30,8 +32,9 @@ const viewSources = [
   "src/views/ConnectorStatusView.js",
   "src/views/SdlcRunsView.js"
 ].map(readText).join("\n");
-const uiSource = `${appShellSource}\n${statusBadgeSource}\n${mockDataSource}\n${viewSources}`;
+const uiSource = `${appSource}\n${appShellSource}\n${statusBadgeSource}\n${mockDataSource}\n${apiClientSource}\n${viewSources}`;
 const techStack = readRepoText(".ai-sdlc/profiles/tech-stack.yml");
+const { loadAgentOpsSnapshot, validateSnapshot } = await import(`file://${resolve(root, "src/data/agentOpsApiClient.js")}`);
 
 const vendoredDependencies = {
   "@sxf/er-components": "sxf-er-components-1.27.5.tgz",
@@ -66,6 +69,13 @@ assert.match(viteConfigSource, /find:\s*\/\^vue\$\/,/);
 assert.match(viteConfigSource, /vue\/dist\/vue\.esm\.js/);
 assert.match(indexSource, /<link rel="icon" href="data:," \/>/);
 assert.doesNotMatch(packageLock, /registry\.npmjs\.org\/@sxf|registry\.npmjs\.org\/@uedc|@sxf%2f|@uedc%2f|code\.sangfor|mq\.code\.sangfor/);
+assert.match(apiClientSource, /agentops\.console\.snapshot\.v1/);
+assert.match(apiClientSource, /\/v1\/console\/snapshot/);
+assert.match(appSource, /loadAgentOpsSnapshot/);
+assert.match(appSource, /refreshSnapshot/);
+assert.match(appShellSource, /sourceState/);
+assert.match(appShellSource, /refresh-snapshot/);
+assert.match(uiSource, /后端快照/);
 
 assert.match(techStack, /source:\s*project-vendor/);
 assert.match(techStack, /path:\s*vendor\/enterprise-vue2\/sxf-er-components-1\.27\.5\.tgz/);
@@ -97,6 +107,84 @@ assert.ok(
   mockDataSource.includes('verified_loaded: "unverified"'),
   "mock data must not present verified_loaded as active without machine-verifiable proof"
 );
+
+const validApiSnapshot = {
+  schema_version: "agentops.console.snapshot.v1",
+  generated_at: "2026-05-06T00:00:00Z",
+  source: "api_snapshot",
+  routes: consoleData ? [
+    { id: "overview", label: "总览", icon: "⌂" },
+    { id: "runs", label: "运行记录", icon: "▶" },
+    { id: "evidence", label: "证据检索", icon: "◇" },
+    { id: "approvals", label: "审批中心", icon: "✓" },
+    { id: "policies", label: "策略中心", icon: "!" },
+    { id: "quality", label: "质量中心", icon: "质" },
+    { id: "risks", label: "风险处置", icon: "△" },
+    { id: "connectors", label: "连接器状态", icon: "∞" },
+    { id: "sdlc-runs", label: "Ai_AutoSDLC 运行", icon: "SD" }
+  ] : [],
+  consoleData
+};
+
+assert.equal(validateSnapshot(validApiSnapshot), true);
+assert.equal(validateSnapshot({ ...validApiSnapshot, schema_version: "wrong" }), false);
+assert.equal(
+  validateSnapshot({ ...validApiSnapshot, routes: [{ id: "overview", label: "总览", icon: "⌂" }] }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: { ...consoleData, evidence: [{ raw_payload: "secret" }] }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      sdlcRuns: [{
+        id: "bad_verified_loaded",
+        command: "ai-sdlc run --dry-run",
+        adapter_status: "materialized",
+        dry_run_status: "dry_run_passed",
+        proof_source: "CLI 预演",
+        captured_at: "待采集",
+        verified_loaded: "verified_loaded"
+      }]
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: { ...consoleData, connectors: [{ id: "conn_bad", status: "surprise_green" }] }
+  }),
+  false
+);
+
+const apiLoad = await loadAgentOpsSnapshot(async () => ({
+  ok: true,
+  json: async () => validApiSnapshot
+}), "http://127.0.0.1:8765");
+assert.equal(apiLoad.source, "api_snapshot");
+assert.equal(apiLoad.sourceState.label, "后端快照已连接");
+
+const fallbackLoad = await loadAgentOpsSnapshot(async () => {
+  throw new Error("offline");
+}, "http://127.0.0.1:8765");
+assert.equal(fallbackLoad.source, "mock_fallback");
+assert.equal(fallbackLoad.sourceState.status, "degraded");
+assert.match(fallbackLoad.sourceState.copy, /本地安全样例/);
+assert.equal(fallbackLoad.sourceState.primary_action, "重试拉取");
+
+const timeoutLoad = await loadAgentOpsSnapshot((_url, options) => new Promise((_resolve, reject) => {
+  options.signal.addEventListener("abort", () => reject(Object.assign(new Error("aborted"), { name: "AbortError" })));
+}), "http://127.0.0.1:8765", 1);
+assert.equal(timeoutLoad.source, "mock_fallback");
+assert.match(timeoutLoad.sourceState.copy, /超时/);
 
 for (const sdlcRun of consoleData.sdlcRuns) {
   const proofSource = String(sdlcRun.proof_source || "");
@@ -166,6 +254,8 @@ const allowedEnglishUiTerms = [
   "AO3",
   "Adapter",
   "Agent Store",
+  "API",
+  "mock",
   "deny",
   "block",
   "require_online",

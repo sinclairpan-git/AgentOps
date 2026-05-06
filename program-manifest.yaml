@@ -11,36 +11,40 @@ specs:
 - id: 003-agentops-console-mvp
   path: specs/003-agentops-console-mvp
   depends_on: []
+- id: 004-agentops-console-api-snapshot
+  path: specs/004-agentops-console-api-snapshot
+  depends_on:
+  - 003-agentops-console-mvp
 truth_snapshot:
-  generated_at: '2026-05-06T04:59:52Z'
+  generated_at: '2026-05-06T05:44:15Z'
   generated_by: ai-sdlc program truth sync
   generator_version: program_truth_snapshot_v1
-  repo_revision: '3913602'
-  authoring_hash: f71f0387679283babaff646923013b993e1e7cc1205684a53d1f224ef056ed13
+  repo_revision: c3cd54d
+  authoring_hash: a6969ac014515344499aa503cf29b13f7137f8e78455472a18eb405a7fa5ae0d
   source_hashes: {}
-  snapshot_hash: 22156fe4e0ba247630b64c440cc93159cc01db6fe5450a59f60e115d30414300
+  snapshot_hash: b8a315929fafdceb2edf13b35d5c2afa544ded1bc454f6875d753c0ae27b34c2
   computed_capabilities: []
   source_inventory:
     state: complete
-    total_sources: 15
-    mapped_sources: 15
+    total_sources: 20
+    mapped_sources: 20
     unmapped_sources: 0
     missing_sources: 0
-    phase_signal_count: 51
-    deferred_signal_count: 77
+    phase_signal_count: 62
+    deferred_signal_count: 89
     non_goal_signal_count: 5
     layer_totals:
-      spec: 3
-      plan: 3
-      tasks: 3
-      execution: 3
-      close: 3
+      spec: 4
+      plan: 4
+      tasks: 4
+      execution: 4
+      close: 4
     layer_materialized:
-      spec: 3
-      plan: 3
-      tasks: 3
-      execution: 3
-      close: 3
+      spec: 4
+      plan: 4
+      tasks: 4
+      execution: 4
+      close: 4
     entries:
     - path: specs/001-agentops-trusted-loop/spec.md
       source_type: spec_doc
@@ -176,6 +180,51 @@ truth_snapshot:
       mapping_ref: 003-agentops-console-mvp
       phase_signal_count: 0
       deferred_signal_count: 1
+      non_goal_signal_count: 0
+    - path: specs/004-agentops-console-api-snapshot/spec.md
+      source_type: spec_doc
+      truth_layer: spec
+      mapped: true
+      exists: true
+      mapping_ref: 004-agentops-console-api-snapshot
+      phase_signal_count: 1
+      deferred_signal_count: 1
+      non_goal_signal_count: 0
+    - path: specs/004-agentops-console-api-snapshot/plan.md
+      source_type: plan_doc
+      truth_layer: plan
+      mapped: true
+      exists: true
+      mapping_ref: 004-agentops-console-api-snapshot
+      phase_signal_count: 1
+      deferred_signal_count: 2
+      non_goal_signal_count: 0
+    - path: specs/004-agentops-console-api-snapshot/tasks.md
+      source_type: tasks_doc
+      truth_layer: tasks
+      mapped: true
+      exists: true
+      mapping_ref: 004-agentops-console-api-snapshot
+      phase_signal_count: 1
+      deferred_signal_count: 1
+      non_goal_signal_count: 0
+    - path: specs/004-agentops-console-api-snapshot/task-execution-log.md
+      source_type: execution_log
+      truth_layer: execution
+      mapped: true
+      exists: true
+      mapping_ref: 004-agentops-console-api-snapshot
+      phase_signal_count: 8
+      deferred_signal_count: 8
+      non_goal_signal_count: 0
+    - path: specs/004-agentops-console-api-snapshot/development-summary.md
+      source_type: development_summary
+      truth_layer: close
+      mapped: true
+      exists: true
+      mapping_ref: 004-agentops-console-api-snapshot
+      phase_signal_count: 0
+      deferred_signal_count: 0
       non_goal_signal_count: 0
     unmapped_paths: []
   state: ready

@@ -12,4 +12,6 @@ def create_app() -> dict[str, str]:
         "evidence": "/v1/runs/{run_id}/evidence-summary",
         "policy": "/v1/policy/decision",
         "store_summary": "/v1/store-summary/{agent_id}",
+        "health": "/v1/health",
+        "console_snapshot": "/v1/console/snapshot",
     }
