@@ -30,6 +30,7 @@ def build_console_snapshot(*, generated_at: str | None = None, repository: InMem
     """Build a safe snapshot matching the Vue2 Console information architecture."""
 
     console_data = _console_data_from_repository(repository) if repository is not None else _console_data()
+    console_data = _with_operation_center(console_data)
     return {
         "schema_version": SCHEMA_VERSION,
         "generated_at": generated_at or datetime.now(UTC).isoformat(),
@@ -129,7 +130,7 @@ def _console_data_from_repository(repository: InMemoryRepository) -> dict[str, A
                 str(gap["severity"]),
                 "degraded",
                 _localized_owner_hint(str(gap["owner_hint"])),
-                str(gap["primary_action"]),
+                _localized_action(str(gap["primary_action"])),
                 "agent-store-audit",
             )
         )
@@ -164,6 +165,174 @@ def _console_data_from_repository(repository: InMemoryRepository) -> dict[str, A
         "connectors": _repository_connectors(repository, event_count=len(raw_events)),
         "sdlcRuns": _repository_sdlc_runs(repository, event_count=len(raw_events)),
     }
+
+
+def _with_operation_center(console_data: dict[str, Any]) -> dict[str, Any]:
+    return {
+        **console_data,
+        "operationCenter": _operation_center(console_data),
+    }
+
+
+def _operation_center(console_data: dict[str, Any]) -> dict[str, Any]:
+    notifications: list[dict[str, str]] = []
+    todos: list[dict[str, str]] = []
+    protected_todos: list[dict[str, str]] = []
+    search_index: list[dict[str, str]] = []
+    protected_search_index: list[dict[str, str]] = []
+
+    for approval in console_data.get("approvals", []):
+        if approval.get("status") in {"pending", "escalated"}:
+            notifications.append(
+                _notification(
+                    f"notif_{approval['approval_id']}",
+                    "审批待处理",
+                    f"{approval['requester']}：{approval['reason']}",
+                    str(approval["status"]),
+                    "approvals",
+                    str(approval["audit_id"]),
+                )
+            )
+            todos.append(
+                _todo(
+                    f"todo_{approval['approval_id']}",
+                    "处理审批",
+                    str(approval["reason"]),
+                    "审批负责人",
+                    str(approval["status"]),
+                    "approvals",
+                    str(approval["sla_due_at"]),
+                )
+            )
+
+    for evidence in console_data.get("evidence", []):
+        if evidence.get("raw_access_state") in {"redaction_failed", "permission_denied"}:
+            notifications.append(
+                _notification(
+                    f"notif_{evidence['evidence_id']}",
+                    "证据需要关注",
+                    str(evidence["summary"]),
+                    str(evidence["raw_access_state"]),
+                    "evidence",
+                    str(evidence["audit_id"]),
+                )
+            )
+            todos.append(
+                _todo(
+                    f"todo_{evidence['evidence_id']}",
+                    "处理证据访问",
+                    str(evidence["summary"]),
+                    "证据负责人",
+                    str(evidence["raw_access_state"]),
+                    "evidence",
+                    "需复核",
+                )
+            )
+
+    for risk in console_data.get("risks", []):
+        is_agent_store_gap = str(risk["source"]) == "Agent Store" and str(risk["id"]).startswith("gap_")
+        notifications.append(
+            _notification(
+                f"notif_{risk['id']}",
+                f"{risk['source']} 风险",
+                _localized_action(str(risk["primary_action"])),
+                str(risk["state"]),
+                str(risk["deep_link"]),
+                str(risk["id"]),
+            )
+        )
+        if is_agent_store_gap:
+            continue
+        todos.append(
+            _todo(
+                f"todo_{risk['id']}",
+                _localized_action(str(risk["primary_action"])),
+                f"{risk['source']} / {risk['severity']}",
+                str(risk["owner_hint"]),
+                str(risk["state"]),
+                str(risk["deep_link"]),
+                "持续跟进",
+            )
+        )
+
+    for gap in console_data.get("agentStore", {}).get("discoveryGaps", []):
+        protected_todos.append(
+            _todo(
+                f"todo_{gap['gap_id']}",
+                "补齐 Agent Store 注册事实",
+                f"{gap['agent_id']} / {gap['version']}",
+                str(gap["owner_hint"]),
+                str(gap["state"]),
+                "agent-store-audit",
+                "待排期",
+            )
+        )
+
+    for run in console_data.get("runs", []):
+        search_index.append(_search_item(str(run["run_id"]), "运行记录", f"{run['agent']} / {run['skill']}", "runs", str(run["l5_state"])))
+    for evidence in console_data.get("evidence", []):
+        search_index.append(_search_item(str(evidence["evidence_id"]), "证据检索", str(evidence["summary"]), "evidence", str(evidence["raw_access_state"])))
+    for approval in console_data.get("approvals", []):
+        search_index.append(_search_item(str(approval["approval_id"]), "审批中心", str(approval["reason"]), "approvals", str(approval["status"])))
+    for risk in console_data.get("risks", []):
+        if str(risk["source"]) == "Agent Store" and str(risk["id"]).startswith("gap_"):
+            continue
+        search_index.append(_search_item(str(risk["id"]), str(risk["source"]), _localized_action(str(risk["primary_action"])), str(risk["deep_link"]), str(risk["state"])))
+    for gap in console_data.get("agentStore", {}).get("discoveryGaps", []):
+        protected_search_index.append(_search_item(str(gap["gap_id"]), "Agent Store 审计", _localized_action(str(gap["primary_action"])), "agent-store-audit", str(gap["state"])))
+
+    return {
+        "notifications": notifications[:8],
+        "todos": _prioritized_unique(protected_todos, todos, limit=12),
+        "searchIndex": _prioritized_unique(protected_search_index, search_index, limit=30),
+    }
+
+
+def _notification(notification_id: str, title: str, body: str, status: str, route: str, ref: str) -> dict[str, str]:
+    return {
+        "id": notification_id,
+        "title": title,
+        "body": body,
+        "status": status,
+        "route": route,
+        "ref": ref,
+    }
+
+
+def _todo(todo_id: str, title: str, body: str, owner: str, status: str, route: str, due: str) -> dict[str, str]:
+    return {
+        "id": todo_id,
+        "title": title,
+        "body": body,
+        "owner": owner,
+        "status": status,
+        "route": route,
+        "due": due,
+    }
+
+
+def _search_item(item_id: str, kind: str, title: str, route: str, status: str) -> dict[str, str]:
+    return {
+        "id": item_id,
+        "kind": kind,
+        "title": title,
+        "route": route,
+        "status": status,
+    }
+
+
+def _prioritized_unique(protected_items: list[dict[str, str]], items: list[dict[str, str]], *, limit: int) -> list[dict[str, str]]:
+    selected: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for item in [*protected_items, *items]:
+        item_id = item["id"]
+        if item_id in seen:
+            continue
+        seen.add(item_id)
+        selected.append(item)
+        if len(selected) == limit:
+            break
+    return selected
 
 
 def _governance_state(events: list[dict[str, Any]]) -> str:
@@ -243,8 +412,30 @@ def _run_skill(events: list[dict[str, Any]]) -> str:
 def _evidence_summary(evaluation: dict[str, Any], events: list[dict[str, Any]]) -> str:
     if evaluation["result"] == "L5":
         return f"已接收 {len(events)} 条签名事件，核心证据链完整。"
-    missing = "、".join(evaluation["missing_evidence"] or evaluation["failed_conditions"])
+    missing = "、".join(_localized_evidence_gap(item) for item in evaluation["missing_evidence"] or evaluation["failed_conditions"])
     return f"已接收 {len(events)} 条事件，但仍缺少：{missing}。"
+
+
+def _localized_evidence_gap(gap: str) -> str:
+    labels = {
+        "stage_started": "阶段开始事件",
+        "stage_completed": "阶段完成事件",
+        "gate_result": "门禁结果事件",
+        "verification_result": "验证结果事件",
+        "violation_scan_completed": "违规扫描事件",
+        "artifact_generated": "产物生成事件",
+        "generation_snapshot": "生成快照事件",
+        "l5_eligibility_input": "L5 判定输入",
+        "source_signed": "来源签名",
+        "enterprise_managed": "企业托管来源",
+        "governance_loaded": "治理加载证明",
+        "identity_confidence": "身份可信证明",
+        "stage_events_complete": "阶段事件完整性",
+        "verification_fresh": "最新验证结果",
+        "outbox_delivered": "事件投递结果",
+        "policy_state_known": "策略状态证明",
+    }
+    return labels.get(gap, "可验证证据")
 
 
 def _payload_hash(events: list[dict[str, Any]]) -> str:
@@ -471,7 +662,7 @@ def _agent_store_gap(gap: dict[str, Any]) -> dict[str, Any]:
         "severity": str(gap["severity"]),
         "affected_runs": [str(run_id) for run_id in gap["affected_runs"]],
         "owner_hint": _localized_owner_hint(str(gap["owner_hint"])),
-        "primary_action": str(gap["primary_action"]),
+        "primary_action": _localized_action(str(gap["primary_action"])),
         "audit_id": str(gap["audit_id"]),
     }
 
@@ -545,6 +736,14 @@ def _agent_store_registry_record(record: dict[str, Any]) -> dict[str, Any]:
 
 def _localized_owner_hint(owner_hint: str) -> str:
     return "Agent 负责人" if owner_hint == "Agent Owner" else owner_hint
+
+
+def _localized_action(action: str) -> str:
+    return (
+        action.replace("通知 Owner 补齐", "通知负责人补齐")
+        .replace("通知 Owner", "通知负责人")
+        .replace("Owner", "负责人")
+    )
 
 
 def _console_data() -> dict[str, Any]:

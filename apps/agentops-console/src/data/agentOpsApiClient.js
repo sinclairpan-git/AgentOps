@@ -123,6 +123,7 @@ export function validateSnapshot(snapshot) {
     "quality",
     "risks",
     "agentStore",
+    "operationCenter",
     "connectors",
     "sdlcRuns"
   ];
@@ -154,6 +155,7 @@ export function snapshotShapeIsSafe(consoleData) {
     "quality",
     "risks",
     "agentStore",
+    "operationCenter",
     "connectors",
     "sdlcRuns"
   ];
@@ -164,6 +166,12 @@ export function snapshotShapeIsSafe(consoleData) {
         Array.isArray(consoleData.agentStore.runAudits) &&
         Array.isArray(consoleData.agentStore.storeSummaries) &&
         Array.isArray(consoleData.agentStore.registryMap);
+    }
+    if (key === "operationCenter") {
+      return isRecord(consoleData.operationCenter) &&
+        Array.isArray(consoleData.operationCenter.notifications) &&
+        Array.isArray(consoleData.operationCenter.todos) &&
+        Array.isArray(consoleData.operationCenter.searchIndex);
     }
     return Array.isArray(consoleData[key]);
   });
@@ -206,6 +214,9 @@ export function statesAreKnown(consoleData) {
     ...(consoleData.agentStore?.runAudits || []).flatMap((item) => [item.registration_state, item.raw_access_state]),
     ...(consoleData.agentStore?.storeSummaries || []).flatMap((item) => [item.metadata_state, item.risk_state]),
     ...(consoleData.agentStore?.registryMap || []).map((item) => item.metadata_state),
+    ...(consoleData.operationCenter?.notifications || []).map((item) => item.status),
+    ...(consoleData.operationCenter?.todos || []).map((item) => item.status),
+    ...(consoleData.operationCenter?.searchIndex || []).map((item) => item.status),
     ...(consoleData.connectors || []).map((item) => item.status),
     ...(consoleData.sdlcRuns || []).flatMap((item) => [item.adapter_status, item.dry_run_status, item.verified_loaded])
   ].filter(Boolean);

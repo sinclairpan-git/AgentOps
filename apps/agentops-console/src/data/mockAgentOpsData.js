@@ -76,6 +76,24 @@ export const consoleData = {
       { id: "agent.publisher@1.0.0", agent_id: "agent.publisher", version: "1.0.0", metadata_state: "consumed", fact_owner: "Agent Store", skill_count: 2, synced_at: "2026-05-05T18:48:00-07:00" }
     ]
   },
+  operationCenter: {
+    notifications: [
+      { id: "notif_ap_001", title: "审批待处理", body: "发布 Agent：生产部署需要短期 Grant", status: "pending", route: "approvals", ref: "audit_ap_001" },
+      { id: "notif_ev_003", title: "证据需要关注", body: "脱敏失败，仅保留哈希和告警。", status: "redaction_failed", route: "evidence", ref: "audit_ev_003" },
+      { id: "notif_risk_004", title: "Ai_AutoSDLC 运行风险", body: "加载验证证明", status: "unverified", route: "sdlc-runs", ref: "risk_004" }
+    ],
+    todos: [
+      { id: "todo_ap_001", title: "处理审批", body: "生产部署需要短期 Grant", owner: "审批负责人", status: "pending", route: "approvals", due: "2026-05-05 19:20" },
+      { id: "todo_ev_003", title: "处理证据访问", body: "脱敏失败，仅保留哈希和告警。", owner: "证据负责人", status: "redaction_failed", route: "evidence", due: "需复核" },
+      { id: "todo_gap_agent_agent_store_0_1_0", title: "补齐 Agent Store 注册事实", body: "agent.store / 0.1.0", owner: "Agent 负责人", status: "suspected", route: "agent-store-audit", due: "待排期" }
+    ],
+    searchIndex: [
+      { id: "run_20260505_001", kind: "运行记录", title: "发布 Agent / 生产部署", route: "runs", status: "healthy" },
+      { id: "ev_003", kind: "证据检索", title: "脱敏失败，仅保留哈希和告警。", route: "evidence", status: "redaction_failed" },
+      { id: "ap_001", kind: "审批中心", title: "生产部署需要短期 Grant", route: "approvals", status: "pending" },
+      { id: "gap_agent_agent_store_0_1_0", kind: "Agent Store 审计", title: "通知负责人补齐 Agent Store 注册事实", route: "agent-store-audit", status: "suspected" }
+    ]
+  },
   connectors: [
     { id: "conn_agent_store", name: "Agent Store", status: "healthy", last_seen_at: "2026-05-05 18:48", degrade_action: "无", request_id: "req_conn_agent_store" },
     { id: "conn_sdlc", name: "Ai_AutoSDLC", status: "materialized", last_seen_at: "2026-05-05 18:42", degrade_action: "需要 verified_loaded 证明", request_id: "req_conn_sdlc" },
