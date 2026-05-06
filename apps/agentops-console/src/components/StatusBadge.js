@@ -26,7 +26,13 @@ const labels = {
   verified_loaded: "已验证加载",
   unsupported: "不支持",
   dry_run_passed: "预演通过",
-  unverified: "未验证"
+  unverified: "未验证",
+  suspected: "疑似异常",
+  governed: "已治理",
+  registered: "已注册",
+  unregistered: "未注册",
+  normal: "正常",
+  warning: "需关注"
 };
 
 export const StatusBadge = {
@@ -39,9 +45,9 @@ export const StatusBadge = {
       return labels[this.status] || this.status;
     },
     tone() {
-      if (["healthy", "allow", "approved", "verified_loaded"].includes(this.status)) return "good";
+      if (["healthy", "allow", "approved", "verified_loaded", "governed", "registered", "normal"].includes(this.status)) return "good";
       if (["block", "rejected", "revoked", "redaction_failed", "permission_denied"].includes(this.status)) return "bad";
-      if (["degraded", "unknown", "expired", "unsupported", "unverified"].includes(this.status)) return "warn";
+      if (["degraded", "unknown", "expired", "unsupported", "unverified", "suspected", "unregistered", "warning"].includes(this.status)) return "warn";
       return "info";
     }
   },

@@ -6,6 +6,7 @@ export const routes = [
   { id: "policies", label: "策略中心", icon: "!" },
   { id: "quality", label: "质量中心", icon: "质" },
   { id: "risks", label: "风险处置", icon: "△" },
+  { id: "agent-store-audit", label: "Agent Store 审计", icon: "AS" },
   { id: "connectors", label: "连接器状态", icon: "∞" },
   { id: "sdlc-runs", label: "Ai_AutoSDLC 运行", icon: "SD" }
 ];
@@ -61,6 +62,20 @@ export const consoleData = {
     { id: "qs_003", signal_id: "qs_003", category: "证据完整性", status: "redaction_failed", score: "91%", evidence_ref: "ev_003 已保留哈希", owner_hint: "证据负责人", primary_action: "修复脱敏" },
     { id: "qs_004", signal_id: "qs_004", category: "策略可解释性", status: "unknown", score: "需证明", evidence_ref: "策略要求摘要", owner_hint: "安全/IAM", primary_action: "刷新 SLO" }
   ],
+  agentStore: {
+    discoveryGaps: [
+      { id: "gap_agent_agent_store_0_1_0", gap_id: "gap_agent_agent_store_0_1_0", gap_type: "agent_unregistered", agent_id: "agent.store", version: "0.1.0", skill_id: "", state: "suspected", severity: "高", affected_runs: ["run_20260505_004"], owner_hint: "Agent 负责人", primary_action: "通知负责人补齐 Agent Store 注册事实", audit_id: "audit_gap_agent_agent_store_0_1_0" }
+    ],
+    runAudits: [
+      { id: "audit_run_run_20260505_004", audit_id: "audit_run_run_20260505_004", run_id: "run_20260505_004", agent_id: "agent.store", version: "0.1.0", registration_state: "suspected", event_count: 3, raw_access_state: "summary_only", discovery_gap_ids: ["gap_agent_agent_store_0_1_0"], related_agent_versions: ["agent.store@0.1.0"], deep_links: { agent_id: "agent.store", version: "0.1.0", session_id: "sess_store_004", run_id: "run_20260505_004", installation_id: "inst_store", trace_id: "trace_store_004", audit_id: "audit_run_run_20260505_004", return_url: "/agent-store/agents/agent.store/runs/run_20260505_004" } }
+    ],
+    storeSummaries: [
+      { id: "agent.store@0.1.0:audit_run_run_20260505_004", agent_id: "agent.store", agent_version: "0.1.0", metadata_state: "unregistered", registry_fact_owner: "Agent Store", risk_state: "warning", evidence_level: "L3", confidence: 0.6, missing_evidence: ["l5_eligibility_input"], policy_requirement: { required_by: "AgentOps", source: "runtime_policy", issuer: "AgentOps Policy Service", policy_owner: "安全/IAM", policy_version: "runtime-v2", can_ignore: false, affected_actions: ["运行审计", "高风险 Skill 调用"] }, discovery_gap_ids: ["gap_agent_agent_store_0_1_0"], run_audit: { audit_id: "audit_run_run_20260505_004", registration_state: "suspected", event_count: 3 }, calculated_at: "2026-05-05T18:48:00-07:00", valid_until: "2026-06-04T18:48:00-07:00" }
+    ],
+    registryMap: [
+      { id: "agent.publisher@1.0.0", agent_id: "agent.publisher", version: "1.0.0", metadata_state: "consumed", fact_owner: "Agent Store", skill_count: 2, synced_at: "2026-05-05T18:48:00-07:00" }
+    ]
+  },
   connectors: [
     { id: "conn_agent_store", name: "Agent Store", status: "healthy", last_seen_at: "2026-05-05 18:48", degrade_action: "无", request_id: "req_conn_agent_store" },
     { id: "conn_sdlc", name: "Ai_AutoSDLC", status: "materialized", last_seen_at: "2026-05-05 18:42", degrade_action: "需要 verified_loaded 证明", request_id: "req_conn_sdlc" },

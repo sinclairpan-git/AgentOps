@@ -118,7 +118,7 @@ def test_ao4_ct_001_console_snapshot_schema():
     assert snapshot["schema_version"] == "agentops.console.snapshot.v1"
     assert snapshot["generated_at"] == "2026-05-06T00:00:00Z"
     assert snapshot["source"] == "api_snapshot"
-    assert len(snapshot["routes"]) == 9
+    assert len(snapshot["routes"]) == 10
     assert set(snapshot["consoleData"]) >= {
         "summary",
         "runs",
@@ -127,6 +127,7 @@ def test_ao4_ct_001_console_snapshot_schema():
         "policies",
         "quality",
         "risks",
+        "agentStore",
         "connectors",
         "sdlcRuns",
     }

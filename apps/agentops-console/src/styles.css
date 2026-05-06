@@ -246,7 +246,8 @@ button {
 
 .metric-grid,
 .card-grid,
-.split-grid {
+.split-grid,
+.panel-grid {
   display: grid;
   gap: 14px;
 }
@@ -258,6 +259,10 @@ button {
 .card-grid,
 .split-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.panel-grid.three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .ent-card {
@@ -383,7 +388,8 @@ button {
 }
 
 .risk-row,
-.risk-card {
+.risk-card,
+.audit-card {
   border: 1px solid #dbe3ef;
   border-radius: 8px;
   background: #ffffff;
@@ -397,6 +403,36 @@ button {
   gap: 12px;
   width: 100%;
   text-align: left;
+}
+
+.audit-card,
+.summary-band {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.deep-link-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+  color: #5c6b80;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.summary-band {
+  border: 1px solid #c7d3e3;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 18px;
+}
+
+.empty-state {
+  margin: 0;
+  color: #5c6b80;
 }
 
 .risk-row small {
@@ -437,6 +473,7 @@ dd {
     inset: 0 auto 0 0;
     z-index: 10;
     width: 280px;
+    overflow-y: auto;
     transform: translateX(-100%);
     transition: transform 160ms ease;
   }
@@ -452,7 +489,8 @@ dd {
 
   .metric-grid,
   .card-grid,
-  .split-grid {
+  .split-grid,
+  .panel-grid.three {
     grid-template-columns: 1fr;
   }
 }
@@ -482,7 +520,8 @@ dd {
   }
 
   .detail-list div,
-  .proof-panel dl div {
+  .proof-panel dl div,
+  .deep-link-grid {
     grid-template-columns: 1fr;
   }
 }

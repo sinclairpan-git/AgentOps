@@ -31,7 +31,13 @@ const allowedStates = new Set([
   "verified_loaded",
   "unsupported",
   "dry_run_passed",
-  "unverified"
+  "unverified",
+  "suspected",
+  "governed",
+  "registered",
+  "unregistered",
+  "normal",
+  "warning"
 ]);
 
 const requiredRouteIds = [
@@ -42,6 +48,7 @@ const requiredRouteIds = [
   "policies",
   "quality",
   "risks",
+  "agent-store-audit",
   "connectors",
   "sdlc-runs"
 ];
@@ -115,6 +122,7 @@ export function validateSnapshot(snapshot) {
     "policies",
     "quality",
     "risks",
+    "agentStore",
     "connectors",
     "sdlcRuns"
   ];
@@ -145,10 +153,20 @@ export function snapshotShapeIsSafe(consoleData) {
     "policies",
     "quality",
     "risks",
+    "agentStore",
     "connectors",
     "sdlcRuns"
   ];
-  return requiredCollections.every((key) => Array.isArray(consoleData[key]));
+  return requiredCollections.every((key) => {
+    if (key === "agentStore") {
+      return isRecord(consoleData.agentStore) &&
+        Array.isArray(consoleData.agentStore.discoveryGaps) &&
+        Array.isArray(consoleData.agentStore.runAudits) &&
+        Array.isArray(consoleData.agentStore.storeSummaries) &&
+        Array.isArray(consoleData.agentStore.registryMap);
+    }
+    return Array.isArray(consoleData[key]);
+  });
 }
 
 function isRecord(value) {
@@ -184,6 +202,10 @@ export function statesAreKnown(consoleData) {
     ...(consoleData.policies || []).map((item) => item.decision),
     ...(consoleData.risks || []).map((item) => item.state),
     ...(consoleData.quality || []).map((item) => item.status),
+    ...(consoleData.agentStore?.discoveryGaps || []).map((item) => item.state),
+    ...(consoleData.agentStore?.runAudits || []).flatMap((item) => [item.registration_state, item.raw_access_state]),
+    ...(consoleData.agentStore?.storeSummaries || []).flatMap((item) => [item.metadata_state, item.risk_state]),
+    ...(consoleData.agentStore?.registryMap || []).map((item) => item.metadata_state),
     ...(consoleData.connectors || []).map((item) => item.status),
     ...(consoleData.sdlcRuns || []).flatMap((item) => [item.adapter_status, item.dry_run_status, item.verified_loaded])
   ].filter(Boolean);

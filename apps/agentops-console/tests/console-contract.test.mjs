@@ -29,6 +29,7 @@ const viewSources = [
   "src/views/PolicyCenterView.js",
   "src/views/QualityCenterView.js",
   "src/views/RiskTriageView.js",
+  "src/views/AgentStoreAuditView.js",
   "src/views/ConnectorStatusView.js",
   "src/views/SdlcRunsView.js"
 ].map(readText).join("\n");
@@ -73,6 +74,7 @@ assert.match(apiClientSource, /agentops\.console\.snapshot\.v1/);
 assert.match(apiClientSource, /\/v1\/console\/snapshot/);
 assert.match(appSource, /loadAgentOpsSnapshot/);
 assert.match(appSource, /refreshSnapshot/);
+assert.match(appSource, /AgentStoreAuditView/);
 assert.match(appShellSource, /sourceState/);
 assert.match(appShellSource, /refresh-snapshot/);
 assert.match(uiSource, /后端快照/);
@@ -92,6 +94,11 @@ for (const expectedChineseText of [
   "策略中心",
   "质量中心",
   "风险处置",
+  "Agent Store 审计",
+  "发现队列",
+  "运行审计",
+  "注册映射",
+  "回显摘要",
   "连接器状态",
   "Ai_AutoSDLC 运行",
   "生成时间",
@@ -123,6 +130,7 @@ const validApiSnapshot = {
     { id: "policies", label: "策略中心", icon: "!" },
     { id: "quality", label: "质量中心", icon: "质" },
     { id: "risks", label: "风险处置", icon: "△" },
+    { id: "agent-store-audit", label: "Agent Store 审计", icon: "AS" },
     { id: "connectors", label: "连接器状态", icon: "∞" },
     { id: "sdlc-runs", label: "Ai_AutoSDLC 运行", icon: "SD" }
   ] : [],
@@ -146,6 +154,20 @@ assert.equal(
   validateSnapshot({
     ...validApiSnapshot,
     consoleData: { ...consoleData, risks: null }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: { ...consoleData, agentStore: null }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: { ...consoleData, agentStore: { ...consoleData.agentStore, runAudits: null } }
   }),
   false
 );
@@ -302,6 +324,7 @@ for (const removedEnglishText of [
 const allowedEnglishUiTerms = [
   "AgentOps",
   "Agent",
+  "Skill",
   "Ai_AutoSDLC",
   "AI-SDLC",
   "CLI",
@@ -325,6 +348,7 @@ const allowedEnglishUiTerms = [
   "AO3",
   "Adapter",
   "Agent Store",
+  "Store",
   "API",
   "mock",
   "deny",
@@ -338,6 +362,8 @@ const allowedEnglishUiTerms = [
   "runtime-v2.1",
   "runtime-v2.2",
   "runtime-v2.3",
+  "runtime-v2",
+  "runtime_policy",
   "sha256",
   "SDLC",
   "SD"
