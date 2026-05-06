@@ -90,6 +90,8 @@ export const AppShell = {
       this.$emit("navigate", item.route);
       if (item.action_id) {
         this.$emit("open-action-detail", item.action_id);
+      } else {
+        this.$emit("close-action-detail");
       }
     }
   },

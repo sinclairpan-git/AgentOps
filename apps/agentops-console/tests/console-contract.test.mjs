@@ -78,6 +78,7 @@ assert.match(appSource, /refreshSnapshot/);
 assert.match(appSource, /AgentStoreAuditView/);
 assert.match(appShellSource, /sourceState/);
 assert.match(appShellSource, /refresh-snapshot/);
+assert.match(appShellSource, /else\s*\{\s*this\.\$emit\("close-action-detail"\);\s*\}/);
 assert.match(viewSources, /actionId\(risk\)/);
 assert.match(viewSources, /action_gap_/);
 assert.match(uiSource, /后端快照/);
