@@ -34,6 +34,6 @@ AgentOps 的跨平台兼容性必须由目标平台证据证明，而不是由�
 - 前端 job 覆盖 Windows/Linux/macOS 与 Node 22/24。
 - 每个后端矩阵项必须上传独立 Python package artifact。
 - 每个前端矩阵项必须上传独立 Console package artifact。
-- `compatibility-result` 汇总矩阵结果，任何目标平台测试或打包失败都不得宣称三端兼容。
+- `Compatibility Gate Result` 汇总矩阵结果，任何目标平台测试或打包失败都不得宣称三端兼容。
 
 本地验证可以发现问题，但不能替代 GitHub Actions 的目标平台证据。
