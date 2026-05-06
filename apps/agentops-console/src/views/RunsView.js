@@ -11,21 +11,21 @@ export const RunsView = {
   data() {
     return {
       columns: [
-        { key: "run_id", label: "Run" },
+        { key: "run_id", label: "运行" },
         { key: "agent", label: "Agent" },
         { key: "skill", label: "Skill" },
-        { key: "risk_level", label: "Risk" },
+        { key: "risk_level", label: "风险" },
         { key: "l5_state", label: "L5 Gate", type: "status" },
-        { key: "policy_state", label: "Policy", type: "status" },
-        { key: "evidence_state", label: "Evidence", type: "status" }
+        { key: "policy_state", label: "策略", type: "status" },
+        { key: "evidence_state", label: "证据", type: "status" }
       ]
     };
   },
   template: `
     <div class="view-stack">
       <section class="page-heading">
-        <div><p class="eyebrow">Runtime facts</p><h3>Runs</h3></div>
-        <p class="heading-copy">Each run keeps L5, policy and evidence state visible. Unknown states never collapse into healthy.</p>
+        <div><p class="eyebrow">运行事实</p><h3>运行记录</h3></div>
+        <p class="heading-copy">每条运行都展示 L5 Gate、策略和证据状态；未知状态不会被折叠成健康。</p>
       </section>
       <data-table :columns="columns" :rows="data.runs" />
     </div>

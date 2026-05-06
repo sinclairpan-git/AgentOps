@@ -11,21 +11,21 @@ export const QualityCenterView = {
   data() {
     return {
       columns: [
-        { key: "signal_id", label: "Signal" },
-        { key: "category", label: "Category" },
-        { key: "status", label: "Status", type: "status" },
-        { key: "score", label: "Score" },
-        { key: "evidence_ref", label: "Evidence" },
-        { key: "owner_hint", label: "Owner" },
-        { key: "primary_action", label: "Action" }
+        { key: "signal_id", label: "信号" },
+        { key: "category", label: "类别" },
+        { key: "status", label: "状态", type: "status" },
+        { key: "score", label: "分数" },
+        { key: "evidence_ref", label: "证据" },
+        { key: "owner_hint", label: "负责人" },
+        { key: "primary_action", label: "动作" }
       ]
     };
   },
   template: `
     <div class="view-stack">
       <section class="page-heading">
-        <div><p class="eyebrow">Quality governance</p><h3>Quality Center</h3></div>
-        <p class="heading-copy">Quality signals make contract coverage, browser gate readiness and evidence completeness operational.</p>
+        <div><p class="eyebrow">质量治理</p><h3>质量中心</h3></div>
+        <p class="heading-copy">质量信号让契约覆盖、Browser Gate 准备度和证据完整性可运营。</p>
       </section>
       <data-table :columns="columns" :rows="data.quality" />
     </div>

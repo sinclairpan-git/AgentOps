@@ -11,21 +11,21 @@ export const ApprovalCenterView = {
   data() {
     return {
       columns: [
-        { key: "approval_id", label: "Approval" },
-        { key: "requester", label: "Requester" },
-        { key: "affected_actions", label: "Actions" },
+        { key: "approval_id", label: "审批" },
+        { key: "requester", label: "申请方" },
+        { key: "affected_actions", label: "影响动作" },
         { key: "sla_due_at", label: "SLA" },
-        { key: "status", label: "Status", type: "status" },
+        { key: "status", label: "状态", type: "status" },
         { key: "grant_status", label: "Grant", type: "status" },
-        { key: "audit_id", label: "Audit" }
+        { key: "audit_id", label: "审计" }
       ]
     };
   },
   template: `
     <div class="view-stack">
       <section class="page-heading">
-        <div><p class="eyebrow">Human control</p><h3>Approval Center</h3></div>
-        <p class="heading-copy">Approval state, SLA and grant status stay tied to the original policy request.</p>
+        <div><p class="eyebrow">人工控制</p><h3>审批中心</h3></div>
+        <p class="heading-copy">审批状态、SLA 和 Grant 状态始终绑定原始策略请求。</p>
       </section>
       <data-table :columns="columns" :rows="data.approvals" />
     </div>

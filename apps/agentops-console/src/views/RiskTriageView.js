@@ -11,8 +11,8 @@ export const RiskTriageView = {
   template: `
     <div class="view-stack">
       <section class="page-heading">
-        <div><p class="eyebrow">Operator queue</p><h3>Risk Triage</h3></div>
-        <p class="heading-copy">Risk items keep source ownership and next action explicit, including quality drops.</p>
+        <div><p class="eyebrow">运营队列</p><h3>风险处置</h3></div>
+        <p class="heading-copy">风险项明确来源、责任人和下一步动作，也覆盖质量下降问题。</p>
       </section>
       <section class="list-stack">
         <ent-card v-for="risk in data.risks" :key="risk.id">

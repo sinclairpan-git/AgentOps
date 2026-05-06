@@ -13,6 +13,21 @@ const packageJson = JSON.parse(readText("package.json"));
 const packageLock = readText("package-lock.json");
 const providerSource = readText("src/provider/enterpriseVue2Provider.js");
 const mainSource = readText("src/main.js");
+const appShellSource = readText("src/components/AppShell.js");
+const statusBadgeSource = readText("src/components/StatusBadge.js");
+const mockDataSource = readText("src/data/mockAgentOpsData.js");
+const viewSources = [
+  "src/views/OverviewView.js",
+  "src/views/RunsView.js",
+  "src/views/EvidenceExplorerView.js",
+  "src/views/ApprovalCenterView.js",
+  "src/views/PolicyCenterView.js",
+  "src/views/QualityCenterView.js",
+  "src/views/RiskTriageView.js",
+  "src/views/ConnectorStatusView.js",
+  "src/views/SdlcRunsView.js"
+].map(readText).join("\n");
+const uiSource = `${appShellSource}\n${statusBadgeSource}\n${mockDataSource}\n${viewSources}`;
 const techStack = readRepoText(".ai-sdlc/profiles/tech-stack.yml");
 
 const vendoredDependencies = {
@@ -49,3 +64,114 @@ assert.match(techStack, /source:\s*project-vendor/);
 assert.match(techStack, /path:\s*vendor\/enterprise-vue2\/sxf-er-components-1\.27\.5\.tgz/);
 
 assert.ok(existsSync(resolve(root, "src/styles.css")), "src/styles.css must exist because src/main.js imports it");
+
+for (const expectedChineseText of [
+  "治理控制台",
+  "当前视图",
+  "总览",
+  "运行记录",
+  "证据检索",
+  "审批中心",
+  "策略中心",
+  "质量中心",
+  "风险处置",
+  "连接器状态",
+  "Ai_AutoSDLC 运行",
+  "已生成配置",
+  "脱敏失败"
+]) {
+  assert.ok(
+    uiSource.includes(expectedChineseText),
+    `${expectedChineseText} must be present in Chinese UI text`
+  );
+}
+
+assert.ok(
+  mockDataSource.includes('verified_loaded: "unverified"'),
+  "mock data must not present verified_loaded as active without machine-verifiable proof"
+);
+
+for (const removedEnglishText of [
+  "Governance Console",
+  "Current View",
+  "Priority Risks",
+  "Open queue",
+  "Governance Proof",
+  "Evidence Explorer",
+  "Approval Center",
+  "Policy Center",
+  "Quality Center",
+  "Risk Triage",
+  "Connector Status",
+  "Redaction failed. Summary body withheld.",
+  "Request access"
+]) {
+  assert.ok(
+    !uiSource.includes(removedEnglishText),
+    `${removedEnglishText} must not appear as user-facing UI text`
+  );
+}
+
+const allowedEnglishUiTerms = [
+  "AgentOps",
+  "Agent",
+  "Ai_AutoSDLC",
+  "AI-SDLC",
+  "CLI",
+  "dry-run",
+  "adapter",
+  "verified_loaded",
+  "materialized",
+  "Grant",
+  "Grant TTL",
+  "L5 Gate",
+  "Browser Gate",
+  "Policy SLO",
+  "SLA",
+  "SLO",
+  "IAM",
+  "AGENTS.md",
+  "P95",
+  "AO",
+  "AO1",
+  "AO2",
+  "AO3",
+  "Adapter",
+  "Agent Store",
+  "deny",
+  "block",
+  "require_online",
+  "deploy:prod",
+  "evidence.raw",
+  "db.migrate",
+  "store.publish",
+  "test:run",
+  "runtime-v2.1",
+  "runtime-v2.2",
+  "runtime-v2.3",
+  "sha256",
+  "SDLC",
+  "SD"
+];
+const userFacingValuePattern =
+  /(?:label|copy|detail|summary|proof_source|agent|skill|risk_level|reason|requester|grant_ttl|source|severity|owner_hint|primary_action|category|score|evidence_ref|name|degrade_action|fallback_action|policy_version|denied_scope)\s*:\s*"([^"]*)"/g;
+const templateTextPattern = />\s*([^<>{}`\n][^<>{}`]*)\s*</g;
+const userFacingTextCandidates = [
+  ...[...mockDataSource.matchAll(userFacingValuePattern)].map((match) => match[1]),
+  ...[...uiSource.matchAll(templateTextPattern)].map((match) => match[1].trim()).filter(Boolean)
+];
+const allowedEnglishPattern = new RegExp(
+  allowedEnglishUiTerms
+    .sort((left, right) => right.length - left.length)
+    .map((term) => term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+    .join("|"),
+  "g"
+);
+
+for (const candidate of userFacingTextCandidates) {
+  const residue = candidate
+    .replace(allowedEnglishPattern, "")
+    .replace(/[0-9:._/%/-]/g, "")
+    .trim();
+  assert.doesNotMatch(residue, /[A-Za-z]{3,}/, `${candidate} must be Chinese unless it is an allowed fixed term`);
+}

@@ -18,7 +18,7 @@ export const AppShell = {
   computed: {
     activeLabel() {
       const active = this.routes.find((route) => route.id === this.activeRoute);
-      return active ? active.label : "Overview";
+      return active ? active.label : "总览";
     }
   },
   methods: {
@@ -29,12 +29,12 @@ export const AppShell = {
   },
   template: `
     <div class="console-shell">
-      <aside class="sidebar" :class="{ 'sidebar--open': menuOpen }" aria-label="AgentOps navigation">
+      <aside class="sidebar" :class="{ 'sidebar--open': menuOpen }" aria-label="AgentOps 导航">
         <div class="brand">
           <div class="brand-mark">AO</div>
           <div>
             <h1>AgentOps</h1>
-            <p>Governance Console</p>
+            <p>治理控制台</p>
           </div>
         </div>
         <nav class="nav-list">
@@ -54,9 +54,9 @@ export const AppShell = {
 
       <main class="workspace">
         <header class="topbar">
-          <button class="menu-button" type="button" aria-label="Toggle navigation" @click="menuOpen = !menuOpen">☰</button>
+          <button class="menu-button" type="button" aria-label="展开或收起导航" @click="menuOpen = !menuOpen">☰</button>
           <div>
-            <p class="eyebrow">Current View</p>
+            <p class="eyebrow">当前视图</p>
             <h2>{{ activeLabel }}</h2>
           </div>
           <div class="topbar-status">
