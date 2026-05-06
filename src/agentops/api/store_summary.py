@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
+from agentops.core.agent_store import build_agent_store_echo_summary
 from agentops.core.errors import AgentOpsError
+from agentops.storage.repository import InMemoryRepository
 
 
 def get_agent_store_summary(
@@ -13,7 +15,17 @@ def get_agent_store_summary(
     evidence_summary: dict[str, Any],
     *,
     consumer_schema_version: str = "1.0",
+    repository: InMemoryRepository | None = None,
 ) -> dict[str, Any]:
+    if repository is not None:
+        return build_agent_store_echo_summary(
+            repository,
+            agent_id,
+            version,
+            evidence_summary,
+            consumer_schema_version=consumer_schema_version,
+        )
+
     if not consumer_schema_version.startswith("1."):
         raise AgentOpsError("SUMMARY_SCHEMA_UNSUPPORTED", "Unsupported Agent Store summary schema.")
 

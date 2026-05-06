@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from threading import RLock
@@ -27,6 +28,8 @@ class InMemoryRepository:
     grant_consumptions: dict[str, dict[str, Any]] = field(default_factory=dict)
     raw_access_requests: dict[str, dict[str, Any]] = field(default_factory=dict)
     raw_access_grants: dict[str, dict[str, Any]] = field(default_factory=dict)
+    agent_store_agents: dict[str, dict[str, Any]] = field(default_factory=dict)
+    agent_store_skills: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     def write_event(self, event: dict[str, Any], evidence_mode: str = "managed") -> str:
         event_id = event["event_id"]
@@ -128,3 +131,54 @@ class InMemoryRepository:
         with self._lock:
             self.raw_access_grants[grant["raw_grant_id"]] = dict(grant)
             return dict(grant)
+
+    def upsert_agent_store_metadata(self, metadata: dict[str, Any]) -> dict[str, Any]:
+        agent_id = str(metadata["agent_id"])
+        version_value = metadata.get("version")
+        if version_value in (None, ""):
+            version_value = metadata.get("agent_version")
+        if version_value in (None, ""):
+            version_value = "unknown"
+        version = str(version_value)
+        record = {
+            **deepcopy(metadata),
+            "agent_id": agent_id,
+            "version": version,
+            "synced_at": str(metadata.get("synced_at") or utc_now()),
+        }
+        skills = record.get("skills") or []
+        if not isinstance(skills, list | tuple):
+            skills = []
+        with self._lock:
+            agent_key = f"{agent_id}@{version}"
+            self.agent_store_agents[f"{agent_id}@{version}"] = deepcopy(record)
+            stale_skill_keys = [key for key in self.agent_store_skills if key.startswith(f"{agent_key}:")]
+            for key in stale_skill_keys:
+                self.agent_store_skills.pop(key)
+            for skill in skills:
+                if isinstance(skill, dict):
+                    skill_id_value = skill.get("skill_id")
+                    if skill_id_value in (None, ""):
+                        skill_id_value = skill.get("name")
+                    if skill_id_value not in (None, ""):
+                        skill_id = str(skill_id_value)
+                        self.agent_store_skills[f"{agent_id}@{version}:{skill_id}"] = {
+                            **deepcopy(skill),
+                            "skill_id": skill_id,
+                            "agent_id": agent_id,
+                            "version": version,
+                        }
+            return deepcopy(record)
+
+    def get_agent_store_metadata(self, agent_id: str, version: str) -> dict[str, Any] | None:
+        with self._lock:
+            record = self.agent_store_agents.get(f"{agent_id}@{version}")
+            return deepcopy(record) if record else None
+
+    def has_agent_store_skill(self, agent_id: str, version: str, skill_id: str) -> bool:
+        with self._lock:
+            return f"{agent_id}@{version}:{skill_id}" in self.agent_store_skills
+
+    def agent_store_metadata_records(self) -> tuple[dict[str, Any], ...]:
+        with self._lock:
+            return tuple(deepcopy(record) for record in self.agent_store_agents.values())

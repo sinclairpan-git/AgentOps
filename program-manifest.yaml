@@ -19,6 +19,10 @@ specs:
   path: specs/005-agentops-live-console-source
   depends_on:
   - 004-agentops-console-api-snapshot
+- id: 006-agent-store-discovery-audit
+  path: specs/006-agent-store-discovery-audit
+  depends_on:
+  - 005-agentops-live-console-source
 truth_snapshot:
   generated_at: '2026-05-06T07:52:47Z'
   generated_by: ai-sdlc program truth sync
