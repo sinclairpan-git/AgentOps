@@ -26,12 +26,15 @@ def test_ao7_ct_002_discovery_gaps_are_visible_without_raw_payload():
     repository = InMemoryRepository()
     repository.write_event(base_event("stage_started", agent_id="agent.unknown", agent_version="0.1.0"))
 
-    agent_store = build_console_snapshot(repository=repository)["consoleData"]["agentStore"]
+    console_data = build_console_snapshot(repository=repository)["consoleData"]
+    agent_store = console_data["agentStore"]
 
     assert agent_store["discoveryGaps"][0]["gap_id"] == "gap_agent_agent_unknown_0_1_0"
     assert agent_store["discoveryGaps"][0]["state"] == "suspected"
     assert agent_store["discoveryGaps"][0]["owner_hint"] == "Agent 负责人"
     assert agent_store["discoveryGaps"][0]["affected_runs"] == ["run_1"]
+    agent_store_risk = next(risk for risk in console_data["risks"] if risk["source"] == "Agent Store")
+    assert agent_store_risk["deep_link"] == "agent-store-audit"
     assert "raw_payload" not in str(agent_store["discoveryGaps"])
 
 

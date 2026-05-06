@@ -19,6 +19,8 @@ export const AgentStoreAuditView = {
         { key: "version", label: "版本" },
         { key: "state", label: "状态", type: "status" },
         { key: "severity", label: "级别" },
+        { key: "owner_hint", label: "负责人" },
+        { key: "affected_runs_label", label: "影响运行" },
         { key: "primary_action", label: "下一步" }
       ],
       registryColumns: [
@@ -43,6 +45,12 @@ export const AgentStoreAuditView = {
     },
     activeSummary() {
       return this.agentStore.storeSummaries[0] || null;
+    },
+    gapRows() {
+      return this.agentStore.discoveryGaps.map((gap) => ({
+        ...gap,
+        affected_runs_label: this.joinValues(gap.affected_runs)
+      }));
     },
     activePolicyRequirement() {
       return this.activeSummary?.policy_requirement || {
@@ -94,7 +102,7 @@ export const AgentStoreAuditView = {
           <h4>发现队列</h4>
           <span>负责人和下一步动作</span>
         </div>
-        <data-table v-if="agentStore.discoveryGaps.length" :columns="gapColumns" :rows="agentStore.discoveryGaps" />
+        <data-table v-if="gapRows.length" :columns="gapColumns" :rows="gapRows" />
         <ent-card v-else><p class="empty-state">暂无未注册发现。</p></ent-card>
       </section>
 

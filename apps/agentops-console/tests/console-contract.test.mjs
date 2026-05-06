@@ -96,6 +96,8 @@ for (const expectedChineseText of [
   "风险处置",
   "Agent Store 审计",
   "发现队列",
+  "负责人",
+  "影响运行",
   "运行审计",
   "注册映射",
   "回显摘要",

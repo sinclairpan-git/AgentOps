@@ -130,7 +130,7 @@ def _console_data_from_repository(repository: InMemoryRepository) -> dict[str, A
                 "degraded",
                 _localized_owner_hint(str(gap["owner_hint"])),
                 str(gap["primary_action"]),
-                "risks",
+                "agent-store-audit",
             )
         )
 
