@@ -27,7 +27,9 @@ export const EvidenceExplorerView = {
             <div><dt>审计</dt><dd>{{ item.audit_id }}</dd></div>
             <div v-if="item.denied_scope"><dt>拒绝范围</dt><dd>{{ item.denied_scope }}</dd></div>
           </dl>
-          <ent-button tone="secondary">{{ item.raw_access_state === 'permission_denied' ? '申请权限' : '查看安全摘要' }}</ent-button>
+          <ent-button tone="secondary" @click="$emit('open-action-detail', 'action_evidence_' + item.evidence_id)">
+            {{ item.raw_access_state === 'permission_denied' ? '查看申请预案' : '查看处置详情' }}
+          </ent-button>
         </ent-card>
       </section>
     </div>

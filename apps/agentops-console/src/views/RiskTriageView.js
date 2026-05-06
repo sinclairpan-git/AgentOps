@@ -23,7 +23,7 @@ export const RiskTriageView = {
               <p class="muted">{{ risk.owner_hint }}</p>
             </div>
             <status-badge :status="risk.state" />
-            <ent-button tone="secondary" @click="$emit('navigate', risk.deep_link)">{{ risk.primary_action }}</ent-button>
+            <ent-button tone="secondary" @click="$emit('open-action-detail', 'action_risk_' + risk.id)">查看处置详情</ent-button>
           </div>
         </ent-card>
       </section>

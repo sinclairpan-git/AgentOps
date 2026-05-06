@@ -7,7 +7,8 @@ export const DataTable = {
   },
   props: {
     columns: { type: Array, required: true },
-    rows: { type: Array, required: true }
+    rows: { type: Array, required: true },
+    rowActionLabel: { type: String, default: "" }
   },
   template: `
     <div class="table-wrap">
@@ -15,6 +16,7 @@ export const DataTable = {
         <thead>
           <tr>
             <th v-for="column in columns" :key="column.key">{{ column.label }}</th>
+            <th v-if="rowActionLabel">操作</th>
           </tr>
         </thead>
         <tbody>
@@ -22,6 +24,9 @@ export const DataTable = {
             <td v-for="column in columns" :key="column.key" :data-label="column.label">
               <status-badge v-if="column.type === 'status'" :status="row[column.key]" />
               <span v-else>{{ row[column.key] }}</span>
+            </td>
+            <td v-if="rowActionLabel" data-label="操作">
+              <button class="table-action" type="button" @click="$emit('row-action', row)">{{ rowActionLabel }}</button>
             </td>
           </tr>
         </tbody>

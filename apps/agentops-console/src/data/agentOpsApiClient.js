@@ -124,6 +124,7 @@ export function validateSnapshot(snapshot) {
     "risks",
     "agentStore",
     "operationCenter",
+    "actionWorkbench",
     "connectors",
     "sdlcRuns"
   ];
@@ -136,7 +137,9 @@ export function validateSnapshot(snapshot) {
   if (containsForbiddenKey(snapshot, "raw_payload")) {
     return false;
   }
-  return statesAreKnown(snapshot.consoleData) && verifiedLoadedProofIsSafe(snapshot.consoleData);
+  return statesAreKnown(snapshot.consoleData) &&
+    operationActionsResolve(snapshot.consoleData) &&
+    verifiedLoadedProofIsSafe(snapshot.consoleData);
 }
 
 export function snapshotShapeIsSafe(consoleData) {
@@ -156,6 +159,7 @@ export function snapshotShapeIsSafe(consoleData) {
     "risks",
     "agentStore",
     "operationCenter",
+    "actionWorkbench",
     "connectors",
     "sdlcRuns"
   ];
@@ -172,6 +176,10 @@ export function snapshotShapeIsSafe(consoleData) {
         Array.isArray(consoleData.operationCenter.notifications) &&
         Array.isArray(consoleData.operationCenter.todos) &&
         Array.isArray(consoleData.operationCenter.searchIndex);
+    }
+    if (key === "actionWorkbench") {
+      return isRecord(consoleData.actionWorkbench) &&
+        Array.isArray(consoleData.actionWorkbench.details);
     }
     return Array.isArray(consoleData[key]);
   });
@@ -217,11 +225,22 @@ export function statesAreKnown(consoleData) {
     ...(consoleData.operationCenter?.notifications || []).map((item) => item.status),
     ...(consoleData.operationCenter?.todos || []).map((item) => item.status),
     ...(consoleData.operationCenter?.searchIndex || []).map((item) => item.status),
+    ...(consoleData.actionWorkbench?.details || []).map((item) => item.status),
     ...(consoleData.connectors || []).map((item) => item.status),
     ...(consoleData.sdlcRuns || []).flatMap((item) => [item.adapter_status, item.dry_run_status, item.verified_loaded])
   ].filter(Boolean);
 
   return candidates.every((state) => allowedStates.has(state));
+}
+
+export function operationActionsResolve(consoleData) {
+  const detailIds = new Set((consoleData.actionWorkbench?.details || []).map((item) => item.id));
+  const operationItems = [
+    ...(consoleData.operationCenter?.notifications || []),
+    ...(consoleData.operationCenter?.todos || []),
+    ...(consoleData.operationCenter?.searchIndex || [])
+  ];
+  return operationItems.every((item) => !item.action_id || detailIds.has(item.action_id));
 }
 
 export function verifiedLoadedProofIsSafe(consoleData) {

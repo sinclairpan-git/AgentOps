@@ -19,6 +19,7 @@ const mainSource = readText("src/main.js");
 const appSource = readText("src/App.js");
 const appShellSource = readText("src/components/AppShell.js");
 const statusBadgeSource = readText("src/components/StatusBadge.js");
+const dataTableSource = readText("src/components/DataTable.js");
 const mockDataSource = readText("src/data/mockAgentOpsData.js");
 const apiClientSource = readText("src/data/agentOpsApiClient.js");
 const viewSources = [
@@ -33,7 +34,7 @@ const viewSources = [
   "src/views/ConnectorStatusView.js",
   "src/views/SdlcRunsView.js"
 ].map(readText).join("\n");
-const uiSource = `${appSource}\n${appShellSource}\n${statusBadgeSource}\n${mockDataSource}\n${apiClientSource}\n${viewSources}`;
+const uiSource = `${appSource}\n${appShellSource}\n${statusBadgeSource}\n${dataTableSource}\n${mockDataSource}\n${apiClientSource}\n${viewSources}`;
 const techStack = readRepoText(".ai-sdlc/profiles/tech-stack.yml");
 const { loadAgentOpsSnapshot, validateSnapshot } = await import(`file://${resolve(root, "src/data/agentOpsApiClient.js")}`);
 
@@ -90,6 +91,12 @@ for (const expectedChineseText of [
   "全局搜索",
   "通知中心",
   "待办中心",
+  "处置详情",
+  "建议动作",
+  "前往相关页面",
+  "关闭条件",
+  "审计引用",
+  "只读处置预案",
   "总览",
   "运行记录",
   "证据检索",
@@ -193,6 +200,33 @@ assert.equal(
 assert.equal(
   validateSnapshot({
     ...validApiSnapshot,
+    consoleData: { ...consoleData, actionWorkbench: null }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: { ...consoleData, actionWorkbench: { ...consoleData.actionWorkbench, details: null } }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      operationCenter: {
+        ...consoleData.operationCenter,
+        todos: [{ ...consoleData.operationCenter.todos[0], action_id: "action_missing" }]
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
     consoleData: { ...consoleData, summary: null }
   }),
   false
@@ -266,6 +300,15 @@ assert.equal(
   }),
   true
 );
+
+const detailIds = new Set(consoleData.actionWorkbench.details.map((item) => item.id));
+for (const collectionName of ["notifications", "todos", "searchIndex"]) {
+  for (const item of consoleData.operationCenter[collectionName]) {
+    if (item.action_id) {
+      assert.ok(detailIds.has(item.action_id), `${item.action_id} must resolve to action detail`);
+    }
+  }
+}
 
 const apiLoad = await loadAgentOpsSnapshot(async () => ({
   ok: true,
