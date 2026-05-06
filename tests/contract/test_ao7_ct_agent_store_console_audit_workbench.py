@@ -65,6 +65,26 @@ def test_ao7_ct_003_run_audit_workbench_keeps_deep_links_and_related_versions():
     assert audit["raw_access_state"] == "summary_only"
 
 
+def test_ao7_ct_003a_run_audit_uses_agent_store_run_id_fallback():
+    repository = InMemoryRepository()
+    payload = base_event("stage_started")["payload"]
+    payload.pop("run_id")
+    repository.write_event(
+        base_event(
+            "stage_started",
+            event_id="evt_without_run_id",
+            idempotency_key="stage_started:without_run_id",
+            run_id="",
+            payload=payload,
+        )
+    )
+
+    audit = build_console_snapshot(repository=repository)["consoleData"]["agentStore"]["runAudits"][0]
+
+    assert audit["run_id"] == "evt_without_run_id"
+    assert audit["deep_links"]["return_url"] == "/agent-store/agents/agent.ai-sdlc/runs/evt_without_run_id"
+
+
 def test_ao7_ct_004_store_summary_workbench_contains_policy_requirement_and_validity():
     repository = InMemoryRepository()
     sync_agent_store_metadata(

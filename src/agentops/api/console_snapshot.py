@@ -316,9 +316,14 @@ def _repository_sdlc_runs(repository: InMemoryRepository, *, event_count: int | 
 
 def _agent_store_workbench(repository: InMemoryRepository, events_by_run: dict[str, list[dict[str, Any]]]) -> dict[str, Any]:
     gaps = [_agent_store_gap(gap) for gap in discover_agent_store_gaps(repository)]
+    agent_store_events_by_run: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for events in events_by_run.values():
+        for event in events:
+            agent_store_events_by_run[_agent_store_run_id(event)].append(event)
+
     audits = []
     summaries = []
-    for run_id in sorted(events_by_run):
+    for run_id in sorted(agent_store_events_by_run):
         try:
             audit = build_run_audit(repository, run_id)
         except Exception:
@@ -329,7 +334,7 @@ def _agent_store_workbench(repository: InMemoryRepository, events_by_run: dict[s
                 repository,
                 str(audit["agent_id"]),
                 str(audit["version"]),
-                _agent_store_evidence_summary(run_id, events_by_run[run_id]),
+                _agent_store_evidence_summary(run_id, agent_store_events_by_run[run_id]),
             )
         except Exception:
             continue
@@ -341,6 +346,14 @@ def _agent_store_workbench(repository: InMemoryRepository, events_by_run: dict[s
         "storeSummaries": summaries,
         "registryMap": [_agent_store_registry_record(record) for record in repository.agent_store_metadata_records()],
     }
+
+
+def _agent_store_run_id(event: dict[str, Any]) -> str:
+    payload = _event_payload(event)
+    for candidate in (event.get("run_id"), payload.get("run_id")):
+        if candidate not in (None, ""):
+            return str(candidate)
+    return str(event.get("event_id") or "unknown_run")
 
 
 def _agent_store_evidence_summary(run_id: str, events: list[dict[str, Any]]) -> dict[str, Any]:
