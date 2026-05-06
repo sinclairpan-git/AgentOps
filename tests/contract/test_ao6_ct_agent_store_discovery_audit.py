@@ -83,6 +83,34 @@ def test_ao6_ct_003_registered_agent_with_unregistered_skill_is_discovered():
     assert gaps[0]["affected_runs"] == ["run_1"]
 
 
+def test_ao6_ct_003a_metadata_refresh_removes_stale_skills():
+    repository = InMemoryRepository()
+    sync_agent_store_metadata(
+        repository,
+        {
+            "agent_id": "agent.ai-sdlc",
+            "version": "1.0.0",
+            "skills": [{"skill_id": "refine"}, {"skill_id": "design"}],
+        },
+    )
+    sync_agent_store_metadata(
+        repository,
+        {
+            "agent_id": "agent.ai-sdlc",
+            "version": "1.0.0",
+            "skills": [{"skill_id": "design"}],
+        },
+    )
+    repository.write_event(base_event("stage_started"))
+
+    gaps = list_agent_store_discovery_gaps(repository)
+
+    assert repository.has_agent_store_skill("agent.ai-sdlc", "1.0.0", "refine") is False
+    assert len(gaps) == 1
+    assert gaps[0]["gap_type"] == "skill_unregistered"
+    assert gaps[0]["skill_id"] == "refine"
+
+
 def test_ao6_ct_004_run_audit_contains_deep_links_and_no_raw_payload():
     repository = InMemoryRepository()
     sync_agent_store_metadata(
@@ -153,6 +181,16 @@ def test_ao6_ct_006_agent_store_echo_summary_rejects_unsupported_schema():
         get_agent_store_summary("agent.ai-sdlc", "1.0.0", evidence_summary(), repository=repository, consumer_schema_version="2.0")
 
     assert exc.value.error_code == "SUMMARY_SCHEMA_UNSUPPORTED"
+
+
+def test_ao6_ct_006a_agent_store_echo_summary_rejects_run_target_mismatch():
+    repository = InMemoryRepository()
+    repository.write_event(base_event("stage_started"))
+
+    with pytest.raises(AgentOpsError) as exc:
+        get_agent_store_summary("agent.other", "9.9.9", evidence_summary(), repository=repository)
+
+    assert exc.value.error_code == "STORE_SUMMARY_RUN_MISMATCH"
 
 
 def test_ao6_ct_007_console_snapshot_surfaces_agent_store_discovery_risks():

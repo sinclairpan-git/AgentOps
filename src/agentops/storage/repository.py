@@ -141,7 +141,11 @@ class InMemoryRepository:
             "synced_at": str(metadata.get("synced_at") or utc_now()),
         }
         with self._lock:
+            agent_key = f"{agent_id}@{version}"
             self.agent_store_agents[f"{agent_id}@{version}"] = dict(record)
+            stale_skill_keys = [key for key in self.agent_store_skills if key.startswith(f"{agent_key}:")]
+            for key in stale_skill_keys:
+                self.agent_store_skills.pop(key)
             for skill in record.get("skills", []):
                 if isinstance(skill, dict):
                     skill_id = str(skill.get("skill_id") or skill.get("name") or "")

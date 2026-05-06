@@ -135,6 +135,11 @@ def build_agent_store_echo_summary(
     metadata = repository.get_agent_store_metadata(agent_id, version)
     run_id = str(evidence_summary["run_id"])
     run_audit = build_run_audit(repository, run_id)
+    if run_audit["agent_id"] != agent_id or run_audit["version"] != version:
+        raise AgentOpsError(
+            "STORE_SUMMARY_RUN_MISMATCH",
+            "Run audit does not match the requested Agent Store summary target.",
+        )
     discovery_gaps = [
         gap
         for gap in discover_agent_store_gaps(repository)
