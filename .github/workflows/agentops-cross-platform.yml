@@ -113,7 +113,7 @@ jobs:
           if-no-files-found: error
 
   compatibility-result:
-    name: Compatibility Result
+    name: Compatibility Gate Result
     runs-on: ubuntu-latest
     needs:
       - backend
