@@ -129,6 +129,7 @@ def test_ao4_ct_001_console_snapshot_schema():
         "risks",
         "agentStore",
         "operationCenter",
+        "actionWorkbench",
         "connectors",
         "sdlcRuns",
     }

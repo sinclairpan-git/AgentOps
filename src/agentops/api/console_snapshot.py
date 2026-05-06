@@ -30,7 +30,7 @@ def build_console_snapshot(*, generated_at: str | None = None, repository: InMem
     """Build a safe snapshot matching the Vue2 Console information architecture."""
 
     console_data = _console_data_from_repository(repository) if repository is not None else _console_data()
-    console_data = _with_operation_center(console_data)
+    console_data = _with_workbenches(console_data)
     return {
         "schema_version": SCHEMA_VERSION,
         "generated_at": generated_at or datetime.now(UTC).isoformat(),
@@ -167,9 +167,13 @@ def _console_data_from_repository(repository: InMemoryRepository) -> dict[str, A
     }
 
 
-def _with_operation_center(console_data: dict[str, Any]) -> dict[str, Any]:
-    return {
+def _with_workbenches(console_data: dict[str, Any]) -> dict[str, Any]:
+    enriched = {
         **console_data,
+        "actionWorkbench": _action_workbench(console_data),
+    }
+    return {
+        **enriched,
         "operationCenter": _operation_center(console_data),
     }
 
@@ -191,6 +195,7 @@ def _operation_center(console_data: dict[str, Any]) -> dict[str, Any]:
                     str(approval["status"]),
                     "approvals",
                     str(approval["audit_id"]),
+                    _approval_action_id(approval),
                 )
             )
             todos.append(
@@ -202,6 +207,7 @@ def _operation_center(console_data: dict[str, Any]) -> dict[str, Any]:
                     str(approval["status"]),
                     "approvals",
                     str(approval["sla_due_at"]),
+                    _approval_action_id(approval),
                 )
             )
 
@@ -215,6 +221,7 @@ def _operation_center(console_data: dict[str, Any]) -> dict[str, Any]:
                     str(evidence["raw_access_state"]),
                     "evidence",
                     str(evidence["audit_id"]),
+                    _evidence_action_id(evidence),
                 )
             )
             todos.append(
@@ -226,6 +233,7 @@ def _operation_center(console_data: dict[str, Any]) -> dict[str, Any]:
                     str(evidence["raw_access_state"]),
                     "evidence",
                     "需复核",
+                    _evidence_action_id(evidence),
                 )
             )
 
@@ -239,6 +247,7 @@ def _operation_center(console_data: dict[str, Any]) -> dict[str, Any]:
                 str(risk["state"]),
                 str(risk["deep_link"]),
                 str(risk["id"]),
+                _gap_action_id(risk) if is_agent_store_gap else _risk_action_id(risk),
             )
         )
         if is_agent_store_gap:
@@ -252,6 +261,7 @@ def _operation_center(console_data: dict[str, Any]) -> dict[str, Any]:
                 str(risk["state"]),
                 str(risk["deep_link"]),
                 "持续跟进",
+                _risk_action_id(risk),
             )
         )
 
@@ -265,21 +275,22 @@ def _operation_center(console_data: dict[str, Any]) -> dict[str, Any]:
                 str(gap["state"]),
                 "agent-store-audit",
                 "待排期",
+                _gap_action_id(gap),
             )
         )
 
     for run in console_data.get("runs", []):
         search_index.append(_search_item(str(run["run_id"]), "运行记录", f"{run['agent']} / {run['skill']}", "runs", str(run["l5_state"])))
     for evidence in console_data.get("evidence", []):
-        search_index.append(_search_item(str(evidence["evidence_id"]), "证据检索", str(evidence["summary"]), "evidence", str(evidence["raw_access_state"])))
+        search_index.append(_search_item(str(evidence["evidence_id"]), "证据检索", str(evidence["summary"]), "evidence", str(evidence["raw_access_state"]), _evidence_action_id(evidence)))
     for approval in console_data.get("approvals", []):
-        search_index.append(_search_item(str(approval["approval_id"]), "审批中心", str(approval["reason"]), "approvals", str(approval["status"])))
+        search_index.append(_search_item(str(approval["approval_id"]), "审批中心", str(approval["reason"]), "approvals", str(approval["status"]), _approval_action_id(approval)))
     for risk in console_data.get("risks", []):
         if str(risk["source"]) == "Agent Store" and str(risk["id"]).startswith("gap_"):
             continue
-        search_index.append(_search_item(str(risk["id"]), str(risk["source"]), _localized_action(str(risk["primary_action"])), str(risk["deep_link"]), str(risk["state"])))
+        search_index.append(_search_item(str(risk["id"]), str(risk["source"]), _localized_action(str(risk["primary_action"])), str(risk["deep_link"]), str(risk["state"]), _risk_action_id(risk)))
     for gap in console_data.get("agentStore", {}).get("discoveryGaps", []):
-        protected_search_index.append(_search_item(str(gap["gap_id"]), "Agent Store 审计", _localized_action(str(gap["primary_action"])), "agent-store-audit", str(gap["state"])))
+        protected_search_index.append(_search_item(str(gap["gap_id"]), "Agent Store 审计", _localized_action(str(gap["primary_action"])), "agent-store-audit", str(gap["state"]), _gap_action_id(gap)))
 
     return {
         "notifications": notifications[:8],
@@ -288,7 +299,7 @@ def _operation_center(console_data: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _notification(notification_id: str, title: str, body: str, status: str, route: str, ref: str) -> dict[str, str]:
+def _notification(notification_id: str, title: str, body: str, status: str, route: str, ref: str, action_id: str = "") -> dict[str, str]:
     return {
         "id": notification_id,
         "title": title,
@@ -296,10 +307,11 @@ def _notification(notification_id: str, title: str, body: str, status: str, rout
         "status": status,
         "route": route,
         "ref": ref,
+        "action_id": action_id,
     }
 
 
-def _todo(todo_id: str, title: str, body: str, owner: str, status: str, route: str, due: str) -> dict[str, str]:
+def _todo(todo_id: str, title: str, body: str, owner: str, status: str, route: str, due: str, action_id: str = "") -> dict[str, str]:
     return {
         "id": todo_id,
         "title": title,
@@ -308,16 +320,18 @@ def _todo(todo_id: str, title: str, body: str, owner: str, status: str, route: s
         "status": status,
         "route": route,
         "due": due,
+        "action_id": action_id,
     }
 
 
-def _search_item(item_id: str, kind: str, title: str, route: str, status: str) -> dict[str, str]:
+def _search_item(item_id: str, kind: str, title: str, route: str, status: str, action_id: str = "") -> dict[str, str]:
     return {
         "id": item_id,
         "kind": kind,
         "title": title,
         "route": route,
         "status": status,
+        "action_id": action_id,
     }
 
 
@@ -333,6 +347,202 @@ def _prioritized_unique(protected_items: list[dict[str, str]], items: list[dict[
         if len(selected) == limit:
             break
     return selected
+
+
+def _action_workbench(console_data: dict[str, Any]) -> dict[str, Any]:
+    details: list[dict[str, str]] = []
+    protected_details: list[dict[str, str]] = []
+    for approval in console_data.get("approvals", []):
+        details.append(
+            _action_detail(
+                _approval_action_id(approval),
+                "审批处置",
+                str(approval["reason"]),
+                str(approval["status"]),
+                "approvals",
+                "审批负责人",
+                _approval_primary_action(approval),
+                _approval_secondary_action(approval),
+                f"SLA 重置或审批状态更新为完成态；Grant 状态同步为 {approval['grant_status']}。",
+                str(approval["audit_id"]),
+                "",
+                str(approval["approval_id"]),
+            )
+        )
+    for evidence in console_data.get("evidence", []):
+        target = protected_details if evidence.get("raw_access_state") in {"redaction_failed", "permission_denied", "degraded"} else details
+        target.append(
+            _action_detail(
+                _evidence_action_id(evidence),
+                "证据处置",
+                str(evidence["summary"]),
+                str(evidence["raw_access_state"]),
+                "evidence",
+                "证据负责人",
+                _evidence_primary_action(evidence),
+                _evidence_secondary_action(evidence),
+                _evidence_close_condition(evidence),
+                str(evidence["audit_id"]),
+                str(evidence["evidence_id"]),
+                str(evidence["run_id"]),
+            )
+        )
+    for risk in console_data.get("risks", []):
+        if str(risk["source"]) == "Agent Store" and str(risk["id"]).startswith("gap_"):
+            continue
+        details.append(
+            _action_detail(
+                _risk_action_id(risk),
+                f"{risk['source']} 风险处置",
+                f"{risk['source']} / {risk['severity']} / {_localized_action(str(risk['primary_action']))}",
+                str(risk["state"]),
+                str(risk["deep_link"]),
+                str(risk["owner_hint"]),
+                _localized_action(str(risk["primary_action"])),
+                "转交负责人",
+                _close_condition_for_risk(risk),
+                str(risk["id"]),
+                "",
+                str(risk["source"]),
+            )
+        )
+    for gap in console_data.get("agentStore", {}).get("discoveryGaps", []):
+        protected_details.append(
+            _action_detail(
+                _gap_action_id(gap),
+                "Agent Store 注册事实处置",
+                f"发现 {_localized_gap_type(str(gap['gap_type']))}，需要回到 Agent Store 补齐注册事实。",
+                str(gap["state"]),
+                "agent-store-audit",
+                str(gap["owner_hint"]),
+                _localized_action(str(gap["primary_action"])),
+                "转交 Agent 负责人",
+                "Agent Store 注册事实已同步为已治理、已忽略或已阻断，且影响运行已完成审计回显。",
+                str(gap["audit_id"]),
+                "",
+                ",".join(str(run_id) for run_id in gap.get("affected_runs", [])),
+            )
+        )
+    return {"details": _prioritized_unique(protected_details, details, limit=len(protected_details) + len(details))}
+
+
+def _action_detail(
+    action_id: str,
+    title: str,
+    summary: str,
+    status: str,
+    route: str,
+    owner: str,
+    primary_action: str,
+    secondary_action: str,
+    close_condition: str,
+    audit_ref: str,
+    evidence_ref: str,
+    related_ref: str,
+) -> dict[str, str]:
+    return {
+        "id": action_id,
+        "title": title,
+        "summary": summary,
+        "status": status,
+        "route": route,
+        "owner": owner,
+        "primary_action": primary_action,
+        "secondary_action": secondary_action,
+        "close_condition": close_condition,
+        "audit_ref": audit_ref,
+        "evidence_ref": evidence_ref,
+        "related_ref": related_ref,
+        "safety_note": "当前为只读处置预案，不执行生产写操作。",
+    }
+
+
+def _approval_action_id(approval: dict[str, Any]) -> str:
+    return f"action_approval_{approval['approval_id']}"
+
+
+def _approval_primary_action(approval: dict[str, Any]) -> str:
+    status = str(approval["status"])
+    if status in {"pending", "escalated"}:
+        return "处理审批"
+    if status == "approved":
+        return "查看审批记录"
+    if status == "revoked":
+        return "查看撤销原因"
+    if status == "expired":
+        return "重新发起审批"
+    if status == "rejected":
+        return "查看拒绝原因"
+    return "查看审批记录"
+
+
+def _approval_secondary_action(approval: dict[str, Any]) -> str:
+    status = str(approval["status"])
+    if status in {"pending", "escalated"}:
+        return "补充材料或转交审批"
+    if status == "approved":
+        return "查看 Grant 状态"
+    if status == "revoked":
+        return "通知申请方"
+    if status == "expired":
+        return "补充材料"
+    if status == "rejected":
+        return "通知申请方"
+    return "转交审批负责人"
+
+
+def _evidence_action_id(evidence: dict[str, Any]) -> str:
+    return f"action_evidence_{evidence['evidence_id']}"
+
+
+def _evidence_primary_action(evidence: dict[str, Any]) -> str:
+    state = str(evidence["raw_access_state"])
+    if state == "permission_denied":
+        return "查看申请预案"
+    if state == "approved_limited":
+        return "查看授权记录"
+    if state in {"summary_only", "redaction_failed"}:
+        return "查看安全摘要"
+    return "查看证据说明"
+
+
+def _evidence_secondary_action(evidence: dict[str, Any]) -> str:
+    state = str(evidence["raw_access_state"])
+    if state == "summary_only":
+        return "申请限定范围访问"
+    if state == "approved_limited":
+        return "查看到期时间"
+    if state == "permission_denied":
+        return "补充申请理由"
+    return "转交证据负责人"
+
+
+def _evidence_close_condition(evidence: dict[str, Any]) -> str:
+    state = str(evidence["raw_access_state"])
+    if state == "summary_only":
+        return "安全摘要可解释、哈希可追溯，且无需查看原文。"
+    if state == "approved_limited":
+        return "限定范围授权仍在有效期内，审计引用可追溯。"
+    return "脱敏摘要可解释、哈希可追溯，且原文访问已审批或明确拒绝。"
+
+
+def _risk_action_id(risk: dict[str, Any]) -> str:
+    return f"action_risk_{risk['id']}"
+
+
+def _gap_action_id(item: dict[str, Any]) -> str:
+    return f"action_gap_{item['gap_id'] if 'gap_id' in item else item['id']}"
+
+
+def _close_condition_for_risk(risk: dict[str, Any]) -> str:
+    source = str(risk["source"])
+    if source == "审批中心":
+        return "SLA 重置或审批完成，且 Grant 状态完成同步。"
+    if source == "证据检索":
+        return "证据摘要可解释，脱敏失败或拒绝范围已有审计说明。"
+    if source == "Ai_AutoSDLC 运行":
+        return "adapter 证明状态明确，不能将 materialized/unverified 误判为 verified_loaded。"
+    return "处置动作完成，审计引用可追溯，风险状态不再阻塞当前队列。"
 
 
 def _governance_state(events: list[dict[str, Any]]) -> str:
@@ -744,6 +954,14 @@ def _localized_action(action: str) -> str:
         .replace("通知 Owner", "通知负责人")
         .replace("Owner", "负责人")
     )
+
+
+def _localized_gap_type(gap_type: str) -> str:
+    labels = {
+        "agent_unregistered": "Agent 未注册",
+        "skill_unregistered": "Skill 未注册",
+    }
+    return labels.get(gap_type, "注册事实缺失")
 
 
 def _console_data() -> dict[str, Any]:

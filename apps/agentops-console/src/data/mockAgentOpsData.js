@@ -51,10 +51,10 @@ export const consoleData = {
     { id: "pol_004", decision: "unknown", action: "store.publish", fallback_action: "警告", policy_version: "runtime-v2.1", grant_ttl: "无", audit_id: "req_policy_unknown" }
   ],
   risks: [
-    { id: "risk_001", source: "策略中心", severity: "严重", state: "block", owner_hint: "安全/IAM", primary_action: "复核拒绝优先级（deny）", deep_link: "policies" },
-    { id: "risk_002", source: "审批中心", severity: "高", state: "escalated", owner_hint: "发布审批人", primary_action: "升级审批", deep_link: "approvals" },
-    { id: "risk_003", source: "证据检索", severity: "高", state: "redaction_failed", owner_hint: "证据负责人", primary_action: "仅检查哈希", deep_link: "evidence" },
-    { id: "risk_004", source: "Ai_AutoSDLC 运行", severity: "中", state: "unverified", owner_hint: "SDLC 负责人", primary_action: "加载验证证明", deep_link: "sdlc-runs" }
+      { id: "risk_001", source: "策略中心", severity: "严重", state: "block", owner_hint: "安全/IAM", primary_action: "复核拒绝优先级（deny）", deep_link: "policies" },
+      { id: "risk_002", source: "审批中心", severity: "高", state: "escalated", owner_hint: "发布审批人", primary_action: "升级审批", deep_link: "approvals" },
+      { id: "risk_003", source: "证据检索", severity: "高", state: "redaction_failed", owner_hint: "证据负责人", primary_action: "仅检查哈希", deep_link: "evidence" },
+      { id: "risk_004", source: "Ai_AutoSDLC 运行", severity: "中", state: "unverified", owner_hint: "SDLC 负责人", primary_action: "加载验证证明", deep_link: "sdlc-runs" }
   ],
   quality: [
     { id: "qs_001", signal_id: "qs_001", category: "契约测试", status: "healthy", score: "82/82", evidence_ref: "AO1/AO2 契约套件", owner_hint: "AgentOps 后端", primary_action: "保持基线" },
@@ -78,20 +78,37 @@ export const consoleData = {
   },
   operationCenter: {
     notifications: [
-      { id: "notif_ap_001", title: "审批待处理", body: "发布 Agent：生产部署需要短期 Grant", status: "pending", route: "approvals", ref: "audit_ap_001" },
-      { id: "notif_ev_003", title: "证据需要关注", body: "脱敏失败，仅保留哈希和告警。", status: "redaction_failed", route: "evidence", ref: "audit_ev_003" },
-      { id: "notif_risk_004", title: "Ai_AutoSDLC 运行风险", body: "加载验证证明", status: "unverified", route: "sdlc-runs", ref: "risk_004" }
+      { id: "notif_ap_001", title: "审批待处理", body: "发布 Agent：生产部署需要短期 Grant", status: "pending", route: "approvals", ref: "audit_ap_001", action_id: "action_approval_ap_001" },
+      { id: "notif_ev_003", title: "证据需要关注", body: "脱敏失败，仅保留哈希和告警。", status: "redaction_failed", route: "evidence", ref: "audit_ev_003", action_id: "action_evidence_ev_003" },
+      { id: "notif_risk_004", title: "Ai_AutoSDLC 运行风险", body: "加载验证证明", status: "unverified", route: "sdlc-runs", ref: "risk_004", action_id: "action_risk_risk_004" }
     ],
     todos: [
-      { id: "todo_ap_001", title: "处理审批", body: "生产部署需要短期 Grant", owner: "审批负责人", status: "pending", route: "approvals", due: "2026-05-05 19:20" },
-      { id: "todo_ev_003", title: "处理证据访问", body: "脱敏失败，仅保留哈希和告警。", owner: "证据负责人", status: "redaction_failed", route: "evidence", due: "需复核" },
-      { id: "todo_gap_agent_agent_store_0_1_0", title: "补齐 Agent Store 注册事实", body: "agent.store / 0.1.0", owner: "Agent 负责人", status: "suspected", route: "agent-store-audit", due: "待排期" }
+      { id: "todo_ap_001", title: "处理审批", body: "生产部署需要短期 Grant", owner: "审批负责人", status: "pending", route: "approvals", due: "2026-05-05 19:20", action_id: "action_approval_ap_001" },
+      { id: "todo_ev_003", title: "处理证据访问", body: "脱敏失败，仅保留哈希和告警。", owner: "证据负责人", status: "redaction_failed", route: "evidence", due: "需复核", action_id: "action_evidence_ev_003" },
+      { id: "todo_gap_agent_agent_store_0_1_0", title: "补齐 Agent Store 注册事实", body: "agent.store / 0.1.0", owner: "Agent 负责人", status: "suspected", route: "agent-store-audit", due: "待排期", action_id: "action_gap_gap_agent_agent_store_0_1_0" }
     ],
     searchIndex: [
       { id: "run_20260505_001", kind: "运行记录", title: "发布 Agent / 生产部署", route: "runs", status: "healthy" },
-      { id: "ev_003", kind: "证据检索", title: "脱敏失败，仅保留哈希和告警。", route: "evidence", status: "redaction_failed" },
-      { id: "ap_001", kind: "审批中心", title: "生产部署需要短期 Grant", route: "approvals", status: "pending" },
-      { id: "gap_agent_agent_store_0_1_0", kind: "Agent Store 审计", title: "通知负责人补齐 Agent Store 注册事实", route: "agent-store-audit", status: "suspected" }
+      { id: "ev_003", kind: "证据检索", title: "脱敏失败，仅保留哈希和告警。", route: "evidence", status: "redaction_failed", action_id: "action_evidence_ev_003" },
+      { id: "ap_001", kind: "审批中心", title: "生产部署需要短期 Grant", route: "approvals", status: "pending", action_id: "action_approval_ap_001" },
+      { id: "gap_agent_agent_store_0_1_0", kind: "Agent Store 审计", title: "通知负责人补齐 Agent Store 注册事实", route: "agent-store-audit", status: "suspected", action_id: "action_gap_gap_agent_agent_store_0_1_0" }
+    ]
+  },
+  actionWorkbench: {
+    details: [
+      { id: "action_approval_ap_001", title: "审批处置", summary: "生产部署需要短期 Grant", status: "pending", route: "approvals", owner: "审批负责人", primary_action: "处理审批", secondary_action: "补充材料或转交审批", close_condition: "SLA 重置或审批状态更新为完成态。", audit_ref: "audit_ap_001", evidence_ref: "", related_ref: "ap_001", safety_note: "当前为只读处置预案，不执行生产写操作。" },
+      { id: "action_approval_ap_002", title: "审批处置", summary: "复核失败的测试证据", status: "escalated", route: "approvals", owner: "审批负责人", primary_action: "处理审批", secondary_action: "补充材料或转交审批", close_condition: "SLA 重置或审批状态更新为完成态。", audit_ref: "audit_ap_002", evidence_ref: "", related_ref: "ap_002", safety_note: "当前为只读处置预案，不执行生产写操作。" },
+      { id: "action_approval_ap_003", title: "审批处置", summary: "结构迁移被策略阻断", status: "approved", route: "approvals", owner: "审批负责人", primary_action: "查看审批记录", secondary_action: "查看 Grant 状态", close_condition: "SLA 重置或审批状态更新为完成态。", audit_ref: "audit_ap_003", evidence_ref: "", related_ref: "ap_003", safety_note: "当前为只读处置预案，不执行生产写操作。" },
+      { id: "action_approval_ap_004", title: "审批处置", summary: "已接受发布风险提示", status: "revoked", route: "approvals", owner: "审批负责人", primary_action: "查看撤销原因", secondary_action: "通知申请方", close_condition: "SLA 重置或审批状态更新为完成态。", audit_ref: "audit_ap_004", evidence_ref: "", related_ref: "ap_004", safety_note: "当前为只读处置预案，不执行生产写操作。" },
+      { id: "action_evidence_ev_001", title: "证据处置", summary: "部署命令摘要已移除敏感值。", status: "summary_only", route: "evidence", owner: "证据负责人", primary_action: "查看安全摘要", secondary_action: "申请限定范围访问", close_condition: "安全摘要可解释、哈希可追溯，且无需查看原文。", audit_ref: "audit_ev_001", evidence_ref: "ev_001", related_ref: "run_20260505_001", safety_note: "当前为只读处置预案，不执行生产写操作。" },
+      { id: "action_evidence_ev_002", title: "证据处置", summary: "已获得短时复核窗口的限时授权。", status: "approved_limited", route: "evidence", owner: "证据负责人", primary_action: "查看授权记录", secondary_action: "查看到期时间", close_condition: "限定范围授权仍在有效期内，审计引用可追溯。", audit_ref: "audit_ev_002", evidence_ref: "ev_002", related_ref: "run_20260505_002", safety_note: "当前为只读处置预案，不执行生产写操作。" },
+      { id: "action_evidence_ev_003", title: "证据处置", summary: "脱敏失败，仅保留哈希和告警。", status: "redaction_failed", route: "evidence", owner: "证据负责人", primary_action: "查看安全摘要", secondary_action: "申请限定范围访问", close_condition: "脱敏摘要可解释、哈希可追溯，且原文访问已审批或明确拒绝。", audit_ref: "audit_ev_003", evidence_ref: "ev_003", related_ref: "run_20260505_003", safety_note: "当前为只读处置预案，不执行生产写操作。" },
+      { id: "action_evidence_ev_004", title: "证据处置", summary: "权限边界隐藏详情，可申请限定范围访问。", status: "permission_denied", route: "evidence", owner: "证据负责人", primary_action: "查看申请预案", secondary_action: "补充申请理由", close_condition: "脱敏摘要可解释、哈希可追溯，且原文访问已审批或明确拒绝。", audit_ref: "audit_ev_004", evidence_ref: "ev_004", related_ref: "run_20260505_004", safety_note: "当前为只读处置预案，不执行生产写操作。" },
+      { id: "action_risk_risk_001", title: "策略中心 风险处置", summary: "策略中心 / 严重 / 复核拒绝优先级（deny）", status: "block", route: "policies", owner: "安全/IAM", primary_action: "复核拒绝优先级（deny）", secondary_action: "转交负责人", close_condition: "处置动作完成，审计引用可追溯，风险状态不再阻塞当前队列。", audit_ref: "risk_001", evidence_ref: "", related_ref: "策略中心", safety_note: "当前为只读处置预案，不执行生产写操作。" },
+      { id: "action_risk_risk_002", title: "审批中心 风险处置", summary: "审批中心 / 高 / 升级审批", status: "escalated", route: "approvals", owner: "发布审批人", primary_action: "升级审批", secondary_action: "转交负责人", close_condition: "SLA 重置或审批完成，且 Grant 状态完成同步。", audit_ref: "risk_002", evidence_ref: "", related_ref: "审批中心", safety_note: "当前为只读处置预案，不执行生产写操作。" },
+      { id: "action_risk_risk_003", title: "证据检索 风险处置", summary: "证据检索 / 高 / 仅检查哈希", status: "redaction_failed", route: "evidence", owner: "证据负责人", primary_action: "仅检查哈希", secondary_action: "转交负责人", close_condition: "证据摘要可解释，脱敏失败或拒绝范围已有审计说明。", audit_ref: "risk_003", evidence_ref: "", related_ref: "证据检索", safety_note: "当前为只读处置预案，不执行生产写操作。" },
+      { id: "action_risk_risk_004", title: "Ai_AutoSDLC 运行风险处置", summary: "Ai_AutoSDLC 运行 / 中 / 加载验证证明", status: "unverified", route: "sdlc-runs", owner: "SDLC 负责人", primary_action: "加载验证证明", secondary_action: "转交负责人", close_condition: "adapter 证明状态明确，不能将 materialized/unverified 误判为 verified_loaded。", audit_ref: "risk_004", evidence_ref: "", related_ref: "Ai_AutoSDLC 运行", safety_note: "当前为只读处置预案，不执行生产写操作。" },
+      { id: "action_gap_gap_agent_agent_store_0_1_0", title: "Agent Store 注册事实处置", summary: "发现 Agent 未注册，需要回到 Agent Store 补齐注册事实。", status: "suspected", route: "agent-store-audit", owner: "Agent 负责人", primary_action: "通知负责人补齐 Agent Store 注册事实", secondary_action: "转交 Agent 负责人", close_condition: "Agent Store 注册事实已同步为已治理、已忽略或已阻断，且影响运行已完成审计回显。", audit_ref: "audit_gap_agent_agent_store_0_1_0", evidence_ref: "", related_ref: "run_20260505_004", safety_note: "当前为只读处置预案，不执行生产写操作。" }
     ]
   },
   connectors: [

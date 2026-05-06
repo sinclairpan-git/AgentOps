@@ -8,6 +8,13 @@ export const RiskTriageView = {
   props: {
     data: { type: Object, required: true }
   },
+  methods: {
+    actionId(risk) {
+      return risk.source === "Agent Store" && String(risk.id).startsWith("gap_")
+        ? `action_gap_${risk.id}`
+        : `action_risk_${risk.id}`;
+    }
+  },
   template: `
     <div class="view-stack">
       <section class="page-heading">
@@ -23,7 +30,7 @@ export const RiskTriageView = {
               <p class="muted">{{ risk.owner_hint }}</p>
             </div>
             <status-badge :status="risk.state" />
-            <ent-button tone="secondary" @click="$emit('navigate', risk.deep_link)">{{ risk.primary_action }}</ent-button>
+            <ent-button tone="secondary" @click="$emit('open-action-detail', actionId(risk))">查看处置详情</ent-button>
           </div>
         </ent-card>
       </section>

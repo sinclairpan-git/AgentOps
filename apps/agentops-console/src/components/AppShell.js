@@ -10,6 +10,8 @@ export const AppShell = {
     activeRoute: { type: String, required: true },
     summary: { type: Object, required: true },
     operationCenter: { type: Object, required: true },
+    actionWorkbench: { type: Object, required: true },
+    activeActionId: { type: String, default: "" },
     sourceState: { type: Object, required: true }
   },
   data() {
@@ -33,6 +35,12 @@ export const AppShell = {
     },
     searchIndex() {
       return Array.isArray(this.operationCenter.searchIndex) ? this.operationCenter.searchIndex : [];
+    },
+    actionDetails() {
+      return Array.isArray(this.actionWorkbench.details) ? this.actionWorkbench.details : [];
+    },
+    activeActionDetail() {
+      return this.actionDetails.find((item) => item.id === this.activeActionId) || null;
     },
     searchResults() {
       const query = this.searchQuery.trim().toLowerCase();
@@ -68,11 +76,23 @@ export const AppShell = {
       this.notificationOpen = false;
       this.todoOpen = false;
       this.searchQuery = "";
+      this.$emit("close-action-detail");
       this.$emit("navigate", routeId);
     },
     chooseSearchResult(item) {
+      this.openOperationItem(item);
+    },
+    openOperationItem(item) {
+      this.menuOpen = false;
+      this.notificationOpen = false;
+      this.todoOpen = false;
       this.searchQuery = "";
-      this.choose(item.route);
+      this.$emit("navigate", item.route);
+      if (item.action_id) {
+        this.$emit("open-action-detail", item.action_id);
+      } else {
+        this.$emit("close-action-detail");
+      }
     }
   },
   template: `
@@ -151,7 +171,7 @@ export const AppShell = {
             <h4>通知中心</h4>
             <span>治理变化和异常提醒</span>
           </div>
-          <button v-for="item in notifications" :key="item.id" type="button" class="ops-row" @click="choose(item.route)">
+          <button v-for="item in notifications" :key="item.id" type="button" class="ops-row" @click="openOperationItem(item)">
             <span>
               <strong>{{ item.title }}</strong>
               <small>{{ item.body }}</small>
@@ -165,7 +185,7 @@ export const AppShell = {
             <h4>待办中心</h4>
             <span>按负责人和到期线处理</span>
           </div>
-          <button v-for="item in todos" :key="item.id" type="button" class="ops-row" @click="choose(item.route)">
+          <button v-for="item in todos" :key="item.id" type="button" class="ops-row" @click="openOperationItem(item)">
             <span>
               <strong>{{ item.title }}</strong>
               <small>{{ item.owner }} / {{ item.due }}</small>
@@ -206,6 +226,31 @@ export const AppShell = {
           <slot />
         </section>
       </main>
+      <aside v-if="activeActionDetail" class="action-drawer" aria-label="处置详情">
+        <div class="action-drawer-header">
+          <div>
+            <p class="eyebrow">处置详情</p>
+            <h3>{{ activeActionDetail.title }}</h3>
+          </div>
+          <button class="icon-button" type="button" aria-label="关闭处置详情" @click="$emit('close-action-detail')">×</button>
+        </div>
+        <status-badge :status="activeActionDetail.status" />
+        <p class="summary-copy">{{ activeActionDetail.summary }}</p>
+        <dl class="detail-list action-detail-list">
+          <div><dt>负责人</dt><dd>{{ activeActionDetail.owner }}</dd></div>
+          <div><dt>建议动作</dt><dd>{{ activeActionDetail.primary_action }}</dd></div>
+          <div><dt>备用动作</dt><dd>{{ activeActionDetail.secondary_action }}</dd></div>
+          <div><dt>关闭条件</dt><dd>{{ activeActionDetail.close_condition }}</dd></div>
+          <div><dt>审计引用</dt><dd>{{ activeActionDetail.audit_ref }}</dd></div>
+          <div v-if="activeActionDetail.evidence_ref"><dt>证据引用</dt><dd>{{ activeActionDetail.evidence_ref }}</dd></div>
+          <div v-if="activeActionDetail.related_ref"><dt>关联对象</dt><dd>{{ activeActionDetail.related_ref }}</dd></div>
+        </dl>
+        <p class="safety-note">{{ activeActionDetail.safety_note }}</p>
+        <div class="action-drawer-actions">
+          <button class="ent-button" type="button" @click="choose(activeActionDetail.route)">前往相关页面</button>
+          <button class="ent-button ent-button--secondary" type="button" disabled>{{ activeActionDetail.primary_action }}</button>
+        </div>
+      </aside>
     </div>
   `
 };

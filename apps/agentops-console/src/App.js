@@ -35,7 +35,8 @@ export default {
       activeRoute: "overview",
       routes: snapshot.routes,
       consoleData: snapshot.consoleData,
-      sourceState: snapshot.sourceState
+      sourceState: snapshot.sourceState,
+      activeActionId: ""
     };
   },
   async mounted() {
@@ -52,6 +53,12 @@ export default {
     },
     navigate(routeId) {
       this.activeRoute = routeId;
+    },
+    openActionDetail(actionId) {
+      this.activeActionId = actionId;
+    },
+    closeActionDetail() {
+      this.activeActionId = "";
     }
   },
   computed: {
@@ -65,8 +72,12 @@ export default {
       :active-route="activeRoute"
       :summary="consoleData.summary"
       :operation-center="consoleData.operationCenter"
+      :action-workbench="consoleData.actionWorkbench"
+      :active-action-id="activeActionId"
       :source-state="sourceState"
       @navigate="navigate"
+      @open-action-detail="openActionDetail"
+      @close-action-detail="closeActionDetail"
       @refresh-snapshot="refreshSnapshot"
     >
       <component
@@ -74,6 +85,7 @@ export default {
         :data="consoleData"
         :active-route="activeRoute"
         @navigate="navigate"
+        @open-action-detail="openActionDetail"
       />
     </app-shell>
   `
