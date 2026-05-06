@@ -1,0 +1,6 @@
+checkpoint: pre_close
+decision: approve
+target: dev_reviewed
+reason: 005 Console 运行事实数据源已通过 UX/前端与 AI-Native/AI-SDLC 对抗复评；P1（来源边界、生成时间、错误/重复/mixed batch/CORS 契约、API assembly truth、adapter truth）已吸收并重新验证。当前无 P0/P1 阻断。
+next_action: 补齐 AI-SDLC close-out 元数据、提交分支、提 PR、执行 GitHub checks 与 @codex review；全部通过后合入 main。
+timestamp: '2026-05-06T07:50:00Z'

@@ -7,7 +7,7 @@ verify semantics without requiring an HTTP server dependency.
 
 def create_app() -> dict[str, str]:
     return {
-        "ingestion": "/v1/events/batch",
+        "ingestion": "POST /v1/events",
         "credentials": "/v1/bootstrap/credentials",
         "evidence": "/v1/runs/{run_id}/evidence-summary",
         "policy": "/v1/policy/decision",

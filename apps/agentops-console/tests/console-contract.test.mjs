@@ -94,6 +94,9 @@ for (const expectedChineseText of [
   "风险处置",
   "连接器状态",
   "Ai_AutoSDLC 运行",
+  "生成时间",
+  "来源类型",
+  "来源边界",
   "已生成配置",
   "脱敏失败"
 ]) {
@@ -209,6 +212,19 @@ assert.equal(
   }),
   false
 );
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      summary: {
+        ...consoleData.summary,
+        metrics: [{ label: "今日运行", value: 0, status: "empty", detail: "暂无运行事实" }]
+      }
+    }
+  }),
+  true
+);
 
 const apiLoad = await loadAgentOpsSnapshot(async () => ({
   ok: true,
@@ -216,6 +232,16 @@ const apiLoad = await loadAgentOpsSnapshot(async () => ({
 }), "http://127.0.0.1:8765");
 assert.equal(apiLoad.source, "api_snapshot");
 assert.equal(apiLoad.sourceState.label, "后端快照已连接");
+
+const liveApiLoad = await loadAgentOpsSnapshot(async () => ({
+  ok: true,
+  json: async () => ({ ...validApiSnapshot, source_detail: { mode: "repository_backed" } })
+}), "http://127.0.0.1:8765");
+assert.equal(liveApiLoad.sourceState.label, "后端事实快照已连接");
+assert.match(liveApiLoad.sourceState.copy, /事件仓库生成/);
+assert.equal(liveApiLoad.sourceState.sourceType, "事件仓库事实");
+assert.match(liveApiLoad.sourceState.sourceSummary, /不包含生产 IAM、数据库/);
+assert.equal(liveApiLoad.sourceState.primary_action, "重新生成快照");
 
 const fallbackLoad = await loadAgentOpsSnapshot(async () => {
   throw new Error("offline");

@@ -1,12 +1,12 @@
 pipeline_started_at: '2026-05-04T06:14:47+00:00'
-pipeline_last_updated: '2026-05-06T05:35:39+00:00'
+pipeline_last_updated: '2026-05-06T07:49:56+00:00'
 current_stage: close
 feature:
-  id: 004-agentops-console-api-snapshot
-  spec_dir: specs/004-agentops-console-api-snapshot
-  design_branch: design/004-agentops-console-api-snapshot-docs
-  feature_branch: feature/004-agentops-console-api-snapshot-dev
-  current_branch: codex/004-console-api-snapshot
+  id: 005-agentops-live-console-source
+  spec_dir: specs/005-agentops-live-console-source
+  design_branch: design/005-agentops-live-console-source-docs
+  feature_branch: feature/005-agentops-live-console-source-dev
+  current_branch: codex/005-live-console-source
   docs_baseline_ref: ''
   docs_baseline_at: ''
 multi_agent:
@@ -16,33 +16,33 @@ multi_agent:
 prd_source: /Users/sinclairpan/project/AI-Native底座开发文档/AgentOps_项目_PRD.md
 completed_stages:
 - stage: init
-  completed_at: '2026-05-06T05:35:39+00:00'
+  completed_at: '2026-05-06T07:48:36+00:00'
   artifacts: []
 - stage: refine
-  completed_at: '2026-05-06T05:35:39+00:00'
+  completed_at: '2026-05-06T07:48:36+00:00'
   artifacts:
   - spec.md
 - stage: design
-  completed_at: '2026-05-06T05:35:39+00:00'
+  completed_at: '2026-05-06T07:48:36+00:00'
   artifacts:
   - plan.md
 - stage: decompose
-  completed_at: '2026-05-06T05:35:39+00:00'
+  completed_at: '2026-05-06T07:48:36+00:00'
   artifacts:
   - tasks.md
 - stage: verify
-  completed_at: '2026-05-06T05:35:39+00:00'
+  completed_at: '2026-05-06T07:48:36+00:00'
   artifacts:
   - task-execution-log.md
   - tasks.md
 - stage: execute
-  completed_at: '2026-05-06T05:35:39+00:00'
+  completed_at: '2026-05-06T07:48:36+00:00'
   artifacts:
   - development-summary.md
   - task-execution-log.md
 execute_progress: null
 ai_decisions_count: 0
 execution_mode: auto
-linked_wi_id: 004-agentops-console-api-snapshot
-linked_plan_uri: specs/002-agentops-policy-approval-vault/plan.md
-last_synced_at: '2026-05-05T11:15:35+00:00'
+linked_wi_id: 005-agentops-live-console-source
+linked_plan_uri: specs/005-agentops-live-console-source/plan.md
+last_synced_at: '2026-05-06T07:49:56+00:00'
