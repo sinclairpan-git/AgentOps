@@ -15,6 +15,19 @@
 
 请在修改 `specs/` 与 `.ai-sdlc/` 下文档时遵守上述入口。
 
+## GitHub PR 收口固定规则
+
+当一个功能分支已经提交并创建 GitHub PR 后，默认执行以下收口流程，无需用户每次重复说明：
+
+1. 在 PR 中触发 `@codex review`。
+2. 等待 GitHub checks 全部完成，且必须包含 `Compatibility Gate Result` 通过。
+3. 若 Codex review 反馈具体问题，回到当前分支修复、提交、推送，并重新触发 `@codex review`。
+4. 若 Codex review 明确“未发现问题”或等价通过，且所有 GitHub checks 均通过、`mergeStateStatus=CLEAN`，则合入 `main` 并同步本地 `main`。
+5. PR 创建并触发 `@codex review` 后，Codex 必须主动创建或确认存在 5 分钟轮询 heartbeat，不等待用户再次要求。heartbeat 任务需检查 Codex review、GitHub checks、`Compatibility Gate Result` 和 `mergeStateStatus`。
+6. 若 review 或 checks 未完成，继续维持 5 分钟轮询；轮询发现问题则修复、提交、推送并重新触发 review；发现满足合入条件则合入主线并同步本地 `main`。
+
+该规则适用于 AgentOps 项目的常规功能 PR；若用户明确要求暂停、仅观察、不得自动合入或改用其他分支策略，则以用户最新指令为准。
+
 （自动安装；不覆盖已有同名自定义文件。）
 
 <!-- AI-SDLC managed shell guidance -->

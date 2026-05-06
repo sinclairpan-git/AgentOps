@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+from collections import defaultdict
 from datetime import UTC, datetime
 from typing import Any
+
+from agentops.core.l5_gate import evaluate_l5_gate
+from agentops.storage.repository import InMemoryRepository
 
 SCHEMA_VERSION = "agentops.console.snapshot.v1"
 
@@ -20,16 +24,274 @@ ROUTES = [
 ]
 
 
-def build_console_snapshot(*, generated_at: str | None = None) -> dict[str, Any]:
+def build_console_snapshot(*, generated_at: str | None = None, repository: InMemoryRepository | None = None) -> dict[str, Any]:
     """Build a safe snapshot matching the Vue2 Console information architecture."""
 
+    console_data = _console_data_from_repository(repository) if repository is not None else _console_data()
     return {
         "schema_version": SCHEMA_VERSION,
         "generated_at": generated_at or datetime.now(UTC).isoformat(),
         "source": "api_snapshot",
+        "source_detail": {
+            "mode": "repository_backed" if repository is not None else "sample_fixture",
+            "fact_source": "InMemoryRepository" if repository is not None else "console_snapshot_fixture",
+        },
         "routes": [dict(route) for route in ROUTES],
-        "consoleData": _console_data(),
+        "consoleData": console_data,
     }
+
+
+def _console_data_from_repository(repository: InMemoryRepository) -> dict[str, Any]:
+    events_by_run: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    raw_events = repository.raw_event_records()
+    for event in raw_events:
+        run_id = _event_run_id(event)
+        events_by_run[run_id].append(event)
+
+    run_models: list[dict[str, str]] = []
+    evidence_models: list[dict[str, str]] = []
+    risk_models: list[dict[str, str]] = []
+    quality_models: list[dict[str, str]] = []
+    l5_count = 0
+    pending_count = 0
+    degraded_count = 0
+
+    for run_id in sorted(events_by_run):
+        events = sorted(events_by_run[run_id], key=_event_sequence_no)
+        l5_input = _last_payload(events, "l5_eligibility_input")
+        governance_state = _governance_state(events)
+        policy_state_known = _strict_bool(l5_input.get("policy_state_known"), default=False)
+        outbox_status = str(l5_input.get("outbox_status", "delivered"))
+        evaluation = evaluate_l5_gate(
+            events,
+            governance_state=governance_state,
+            outbox_status=outbox_status,
+            policy_state_known=policy_state_known,
+        )
+        l5_state = _l5_state(evaluation["result"])
+        policy_state = _policy_state(policy_state_known=policy_state_known, has_l5_input=bool(l5_input))
+        evidence_state = "summary_only" if evaluation["result"] == "L5" else "degraded"
+        agent = str(events[0].get("agent_id") or "未知 Agent")
+        skill = _run_skill(events)
+        risk_level = "低" if evaluation["result"] == "L5" else "高"
+
+        if evaluation["result"] == "L5":
+            l5_count += 1
+        elif evaluation["result"] == "pending":
+            pending_count += 1
+        else:
+            degraded_count += 1
+
+        run_models.append(_run(run_id, agent, skill, risk_level, l5_state, policy_state, evidence_state))
+        evidence_models.append(
+            _evidence(
+                f"ev_{run_id}",
+                run_id,
+                _evidence_summary(evaluation, events),
+                _payload_hash(events),
+                evidence_state,
+                f"audit_{run_id}",
+            )
+        )
+
+        if evaluation["failed_conditions"]:
+            risk_models.append(
+                _risk(
+                    f"risk_{run_id}",
+                    "运行记录",
+                    "高",
+                    "degraded",
+                    "AgentOps 管理员",
+                    "查看降级原因",
+                    "runs",
+                )
+            )
+
+        quality_models.append(
+            _quality(
+                f"qs_{run_id}",
+                "L5 证据完整性",
+                l5_state,
+                evaluation["evidence_level"],
+                ",".join(sorted({event["event_type"] for event in events})),
+                "AI-SDLC 负责人",
+                "补齐缺失证据" if evaluation["missing_evidence"] or evaluation["failed_conditions"] else "保持基线",
+            )
+        )
+
+    run_count = len(run_models)
+    approvals = [_approval_from_record(approval) for approval in repository.approval_records()]
+    approval_pending_count = sum(1 for approval in approvals if approval["status"] in {"pending", "escalated"})
+    metrics = [
+        {"label": "今日运行", "value": run_count, "status": "healthy" if run_count else "empty", "detail": f"{l5_count} 条 L5，{degraded_count} 条降级，{pending_count} 条待补偿"},
+        {"label": "Policy SLO", "value": "本地内核", "status": "healthy", "detail": "当前由可执行内核生成策略摘要"},
+        {"label": "审批待办", "value": approval_pending_count, "status": "pending" if approval_pending_count else "healthy", "detail": "来自 AgentOps 审批仓库事实"},
+        {"label": "证据状态", "value": f"{len(evidence_models)} 条摘要", "status": "healthy" if evidence_models else "empty", "detail": "仅展示脱敏摘要和哈希，不暴露原文"},
+    ]
+
+    return {
+        "summary": {
+            "adapter": {
+                "status": "materialized",
+                "copy": "后端事实仓库已连接；adapter 仍需 verified_loaded 机器证明。",
+                "proof_source": "InMemoryRepository 运行事实",
+                "captured_at": datetime.now(UTC).isoformat(),
+            },
+            "metrics": metrics,
+        },
+        "runs": run_models,
+        "evidence": evidence_models,
+        "approvals": approvals,
+        "policies": _policies_from_grants(repository.grant_records()),
+        "risks": risk_models,
+        "quality": quality_models,
+        "connectors": _repository_connectors(repository, event_count=len(raw_events)),
+        "sdlcRuns": _repository_sdlc_runs(repository, event_count=len(raw_events)),
+    }
+
+
+def _governance_state(events: list[dict[str, Any]]) -> str:
+    for event in reversed(events):
+        payload = _event_payload(event)
+        if event.get("event_type") == "stage_started":
+            return str(payload.get("adapter_state") or "materialized")
+    return "materialized"
+
+
+def _last_payload(events: list[dict[str, Any]], event_type: str) -> dict[str, Any]:
+    for event in reversed(events):
+        payload = _event_payload(event)
+        if event.get("event_type") == event_type:
+            return dict(payload)
+    return {}
+
+
+def _event_payload(event: dict[str, Any]) -> dict[str, Any]:
+    payload = event.get("payload")
+    return dict(payload) if isinstance(payload, dict) else {}
+
+
+def _event_run_id(event: dict[str, Any]) -> str:
+    payload = _event_payload(event)
+    for candidate in (event.get("run_id"), payload.get("run_id")):
+        if candidate not in (None, ""):
+            return str(candidate)
+    for fallback_key in ("event_id", "idempotency_key", "trace_id", "span_id"):
+        fallback_value = event.get(fallback_key)
+        if fallback_value not in (None, ""):
+            return f"event_{fallback_value}"
+    return f"event_sequence_{_event_sequence_no(event)}"
+
+
+def _event_sequence_no(event: dict[str, Any]) -> int:
+    try:
+        return int(event.get("sequence_no", 0))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _strict_bool(value: Any, *, default: bool) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized == "true":
+            return True
+        if normalized == "false":
+            return False
+    return default
+
+
+def _l5_state(result: str) -> str:
+    if result == "L5":
+        return "healthy"
+    if result == "pending":
+        return "pending"
+    return "degraded"
+
+
+def _policy_state(*, policy_state_known: bool, has_l5_input: bool) -> str:
+    if policy_state_known:
+        return "allow"
+    return "block" if has_l5_input else "unknown"
+
+
+def _run_skill(events: list[dict[str, Any]]) -> str:
+    for event in events:
+        payload = event.get("payload", {})
+        if event.get("event_type") == "stage_started" and isinstance(payload, dict):
+            return str(payload.get("stage_name") or "治理运行")
+    return "治理运行"
+
+
+def _evidence_summary(evaluation: dict[str, Any], events: list[dict[str, Any]]) -> str:
+    if evaluation["result"] == "L5":
+        return f"已接收 {len(events)} 条签名事件，核心证据链完整。"
+    missing = "、".join(evaluation["missing_evidence"] or evaluation["failed_conditions"])
+    return f"已接收 {len(events)} 条事件，但仍缺少：{missing}。"
+
+
+def _payload_hash(events: list[dict[str, Any]]) -> str:
+    for event in events:
+        payload_hash = str(event.get("payload_hash") or "")
+        if payload_hash:
+            return payload_hash
+    return "sha256:missing"
+
+
+def _approval_from_record(approval: dict[str, Any]) -> dict[str, str]:
+    approval_id = str(approval["approval_id"])
+    return {
+        "approval_id": approval_id,
+        "id": approval_id,
+        "requester": str(approval.get("requester") or approval.get("agent_id") or "未知申请方"),
+        "reason": str(approval.get("reason") or approval.get("request_reason") or "需要审批后继续"),
+        "affected_actions": str(approval.get("affected_actions") or approval.get("resource_scope") or "未声明动作"),
+        "sla_due_at": str(approval.get("sla_due_at") or approval.get("expires_at") or "待确认"),
+        "status": str(approval.get("status") or "pending"),
+        "grant_status": str(approval.get("grant_status") or "pending"),
+        "audit_id": str(approval.get("audit_id") or f"audit_{approval_id}"),
+    }
+
+
+def _policies_from_grants(grants: tuple[dict[str, Any], ...]) -> list[dict[str, str]]:
+    if not grants:
+        return [
+            _policy("pol_repository_default", "warn", "本地事实接入", "require_online", "runtime-v2", "无", "audit_repository_default")
+        ]
+    return [
+        _policy(
+            str(grant.get("grant_id") or "grant_unknown"),
+            "conditional_allow" if grant.get("status") == "active" else "block",
+            str(grant.get("resource_scope") or "未声明动作"),
+            "require_online",
+            str(grant.get("policy_version") or "runtime-v2"),
+            str(grant.get("expires_at") or "待确认"),
+            str(grant.get("audit_id") or f"audit_{grant.get('grant_id') or 'grant_unknown'}"),
+        )
+        for grant in sorted(grants, key=lambda item: str(item.get("grant_id") or "grant_unknown"))
+    ]
+
+
+def _repository_connectors(repository: InMemoryRepository, *, event_count: int | None = None) -> list[dict[str, str]]:
+    now = datetime.now(UTC).isoformat()
+    event_count = repository.raw_event_count() if event_count is None else event_count
+    return [
+        _connector("conn_ingestion", "事件接入", "healthy", now, "无", "req_conn_ingestion"),
+        _connector("conn_repository", "运行事实仓库", "healthy", now, f"{event_count} 条事件", "req_conn_repository"),
+        _connector("conn_sdlc", "Ai_AutoSDLC", "materialized", now, "需要 verified_loaded 机器证明", "req_conn_sdlc"),
+        _connector("conn_evidence", "证据存储", "healthy", now, "仅展示摘要", "req_conn_evidence"),
+        _connector("conn_policy", "策略服务", "healthy", now, "本地内核策略摘要", "req_conn_policy"),
+    ]
+
+
+def _repository_sdlc_runs(repository: InMemoryRepository, *, event_count: int | None = None) -> list[dict[str, str]]:
+    now = datetime.now(UTC).isoformat()
+    event_count = repository.raw_event_count() if event_count is None else event_count
+    return [
+        _sdlc_run("sdlc_repository_snapshot", "console repository snapshot", "materialized", "dry_run_passed", "InMemoryRepository", now),
+        _sdlc_run("sdlc_repository_events", "ingestion event count", "materialized", "dry_run_passed", f"{event_count} 条事件", now),
+    ]
 
 
 def _console_data() -> dict[str, Any]:

@@ -12,6 +12,7 @@ const allowedStates = new Set([
   "block",
   "degraded",
   "unknown",
+  "empty",
   "pending",
   "needs_more_info",
   "approved",
@@ -51,6 +52,9 @@ const fallbackSnapshot = (reason) => ({
     status: "degraded",
     label: "后端快照不可用",
     copy: reason || "已切换到本地安全样例，当前内容不能作为真实运行事实。",
+    generatedAt: "未生成",
+    sourceType: "本地安全样例",
+    sourceSummary: "后端生成失败后使用的脱敏样例，不包含真实运行事实。",
     request_id: "req_console_snapshot_fallback",
     primary_action: "重试拉取"
   },
@@ -67,18 +71,28 @@ const fallbackSnapshot = (reason) => ({
   }
 });
 
-const apiSnapshot = (snapshot) => ({
-  source: "api_snapshot",
-  sourceState: {
-    status: "healthy",
-    label: "后端快照已连接",
-    copy: "页面正在展示 AgentOps API 返回的治理快照。",
-    request_id: "req_console_snapshot_live",
-    primary_action: "刷新快照"
-  },
-  routes: snapshot.routes,
-  consoleData: snapshot.consoleData
-});
+const apiSnapshot = (snapshot) => {
+  const repositoryBacked = snapshot.source_detail?.mode === "repository_backed";
+  return {
+    source: "api_snapshot",
+    sourceState: {
+      status: "healthy",
+      label: repositoryBacked ? "后端事实快照已连接" : "后端快照已连接",
+      copy: repositoryBacked
+        ? "页面正在展示由 AgentOps 事件仓库生成的治理快照。"
+        : "页面正在展示 AgentOps API 返回的治理快照。",
+      generatedAt: snapshot.generated_at || "未返回",
+      sourceType: repositoryBacked ? "事件仓库事实" : "API 快照",
+      sourceSummary: repositoryBacked
+        ? "基于本地事件仓库事实生成，不包含生产 IAM、数据库或多租户权限事实。"
+        : "基于后端快照接口生成。",
+      request_id: "req_console_snapshot_live",
+      primary_action: repositoryBacked ? "重新生成快照" : "刷新快照"
+    },
+    routes: snapshot.routes,
+    consoleData: snapshot.consoleData
+  };
+};
 
 export function apiBaseUrl() {
   const viteEnv = import.meta.env || {};
@@ -235,6 +249,9 @@ export function initialSnapshot() {
       status: "pending",
       label: "正在连接后端快照",
       copy: "正在读取 AgentOps API，页面会在失败时自动使用本地安全样例。",
+      generatedAt: "连接中",
+      sourceType: "等待后端",
+      sourceSummary: "尚未取得后端生成结果。",
       request_id: "req_console_snapshot_loading",
       primary_action: "等待连接"
     },

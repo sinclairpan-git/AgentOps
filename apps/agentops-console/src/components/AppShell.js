@@ -70,6 +70,20 @@ export const AppShell = {
           <div>
             <strong>{{ sourceState.label }}</strong>
             <p>{{ sourceState.copy }}</p>
+            <dl class="source-meta">
+              <div>
+                <dt>生成时间</dt>
+                <dd>{{ sourceState.generatedAt }}</dd>
+              </div>
+              <div>
+                <dt>来源类型</dt>
+                <dd>{{ sourceState.sourceType }}</dd>
+              </div>
+              <div>
+                <dt>来源边界</dt>
+                <dd>{{ sourceState.sourceSummary }}</dd>
+              </div>
+            </dl>
             <div class="source-actions">
               <small>{{ sourceState.request_id }}</small>
               <button class="ent-button ent-button--secondary source-action" type="button" @click="$emit('refresh-snapshot')">

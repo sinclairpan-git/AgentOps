@@ -179,6 +179,29 @@ button {
   font-size: 13px;
 }
 
+.source-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 10px 0 0;
+}
+
+.source-meta div {
+  min-width: 0;
+}
+
+.source-meta dt {
+  color: #5c6b80;
+  font-size: 12px;
+}
+
+.source-meta dd {
+  margin: 2px 0 0;
+  color: #18283a;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
 .source-actions {
   display: flex;
   align-items: center;
@@ -448,6 +471,10 @@ dd {
 
   .source-banner {
     margin: 14px 18px 0;
+  }
+
+  .source-meta {
+    grid-template-columns: 1fr;
   }
 
   .page-heading h3 {

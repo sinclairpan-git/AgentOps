@@ -7,6 +7,7 @@ const labels = {
   block: "阻断",
   degraded: "降级",
   unknown: "未知",
+  empty: "暂无数据",
   pending: "待处理",
   needs_more_info: "需补充",
   approved: "已批准",
