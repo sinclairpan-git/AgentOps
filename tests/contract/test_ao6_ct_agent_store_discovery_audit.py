@@ -248,6 +248,40 @@ def test_ao6_ct_005_agent_store_echo_summary_includes_policy_requirement_and_aud
     assert "raw_payload" not in str(summary)
 
 
+def test_ao6_ct_005a_agent_store_echo_summary_uses_only_current_run_gaps():
+    repository = InMemoryRepository()
+    sync_agent_store_metadata(
+        repository,
+        {
+            "agent_id": "agent.ai-sdlc",
+            "version": "1.0.0",
+            "skills": [{"skill_id": "refine"}],
+        },
+    )
+    repository.write_event(base_event("stage_started"))
+    run_2 = base_event(
+        "stage_started",
+        event_id="evt_stage_started_run_2",
+        idempotency_key="stage_started:run_2",
+        run_id="run_2",
+        sequence_no=2,
+    )
+    run_2["payload"]["run_id"] = "run_2"
+    run_2["payload"]["stage_id"] = "deploy"
+    run_2["payload"]["stage_name"] = "deploy"
+    repository.write_event(run_2)
+
+    summary = get_agent_store_summary("agent.ai-sdlc", "1.0.0", evidence_summary("run_1"), repository=repository)
+    risky_summary = get_agent_store_summary("agent.ai-sdlc", "1.0.0", evidence_summary("run_2"), repository=repository)
+
+    assert summary["run_audit"]["registration_state"] == "governed"
+    assert summary["risk_state"] == "normal"
+    assert summary["discovery_gap_ids"] == []
+    assert risky_summary["run_audit"]["registration_state"] == "suspected"
+    assert risky_summary["risk_state"] == "warning"
+    assert risky_summary["discovery_gap_ids"] == ["gap_skill_agent_ai_sdlc_1_0_0_deploy"]
+
+
 def test_ao6_ct_006_agent_store_echo_summary_rejects_unsupported_schema():
     repository = InMemoryRepository()
     repository.write_event(base_event("stage_started"))

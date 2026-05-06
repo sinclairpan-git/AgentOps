@@ -151,7 +151,7 @@ def build_agent_store_echo_summary(
     discovery_gaps = [
         gap
         for gap in discover_agent_store_gaps(repository)
-        if gap["agent_id"] == agent_id and gap["version"] == version
+        if gap["agent_id"] == agent_id and gap["version"] == version and run_id in gap["affected_runs"]
     ]
     registered = metadata is not None and not discovery_gaps
     risk_state = "normal" if registered and evidence_summary.get("evidence_level") == "L5" else "warning"
