@@ -31,6 +31,7 @@
 - P1：Agent Store gap 被风险投影和 discovery gap 重复生成待办/搜索。已改为 discovery gap 负责 Agent Store 待办和搜索，风险层只保留通知。
 - P2：运营中心可见文案暴露内部 token。已将 L5 缺失证据、Owner 文案映射为中文业务表达。
 - P2：AO8 契约测试过宽。已补充唯一 ID、路由白名单、可见文案不泄露内部 token 的断言。
+- PR Codex Review P1：列表截断可能挤掉 Agent Store gap 待办和搜索条目。已将 discovery gap 条目标记为优先保留项，并补充上限场景契约测试。
 
 ## 统一验证命令
 

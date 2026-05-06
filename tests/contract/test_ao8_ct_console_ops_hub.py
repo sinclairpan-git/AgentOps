@@ -138,3 +138,29 @@ def test_ao8_ct_004_registered_clean_run_keeps_search_without_false_todo():
     assert any(item["id"] == "run_1" and item["route"] == "runs" for item in operation_center["searchIndex"])
     assert not any(item["route"] == "agent-store-audit" for item in operation_center["todos"])
     _assert_operation_center_contract(operation_center)
+
+
+def test_ao8_ct_005_agent_store_gap_survives_operation_center_caps():
+    repository = InMemoryRepository()
+    repository.write_event(base_event("stage_started", agent_id="agent.unknown", agent_version="0.1.0"))
+    for index in range(35):
+        repository.store_approval(
+            {
+                "approval_id": f"ap_bulk_{index:02d}",
+                "requester": "发布 Agent",
+                "reason": f"批量审批 {index:02d}",
+                "affected_actions": "deploy:prod",
+                "sla_due_at": "2026-05-06 13:20",
+                "status": "pending",
+                "grant_status": "pending",
+                "audit_id": f"audit_ap_bulk_{index:02d}",
+            }
+        )
+
+    operation_center = build_console_snapshot(repository=repository)["consoleData"]["operationCenter"]
+
+    assert len(operation_center["todos"]) == 12
+    assert len(operation_center["searchIndex"]) == 30
+    assert any(item["id"] == "todo_gap_agent_agent_unknown_0_1_0" for item in operation_center["todos"])
+    assert any(item["id"] == "gap_agent_agent_unknown_0_1_0" for item in operation_center["searchIndex"])
+    _assert_operation_center_contract(operation_center)

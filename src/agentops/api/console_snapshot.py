@@ -177,7 +177,9 @@ def _with_operation_center(console_data: dict[str, Any]) -> dict[str, Any]:
 def _operation_center(console_data: dict[str, Any]) -> dict[str, Any]:
     notifications: list[dict[str, str]] = []
     todos: list[dict[str, str]] = []
+    protected_todos: list[dict[str, str]] = []
     search_index: list[dict[str, str]] = []
+    protected_search_index: list[dict[str, str]] = []
 
     for approval in console_data.get("approvals", []):
         if approval.get("status") in {"pending", "escalated"}:
@@ -254,7 +256,7 @@ def _operation_center(console_data: dict[str, Any]) -> dict[str, Any]:
         )
 
     for gap in console_data.get("agentStore", {}).get("discoveryGaps", []):
-        todos.append(
+        protected_todos.append(
             _todo(
                 f"todo_{gap['gap_id']}",
                 "补齐 Agent Store 注册事实",
@@ -277,12 +279,12 @@ def _operation_center(console_data: dict[str, Any]) -> dict[str, Any]:
             continue
         search_index.append(_search_item(str(risk["id"]), str(risk["source"]), _localized_action(str(risk["primary_action"])), str(risk["deep_link"]), str(risk["state"])))
     for gap in console_data.get("agentStore", {}).get("discoveryGaps", []):
-        search_index.append(_search_item(str(gap["gap_id"]), "Agent Store 审计", _localized_action(str(gap["primary_action"])), "agent-store-audit", str(gap["state"])))
+        protected_search_index.append(_search_item(str(gap["gap_id"]), "Agent Store 审计", _localized_action(str(gap["primary_action"])), "agent-store-audit", str(gap["state"])))
 
     return {
         "notifications": notifications[:8],
-        "todos": todos[:12],
-        "searchIndex": search_index[:30],
+        "todos": _prioritized_unique(protected_todos, todos, limit=12),
+        "searchIndex": _prioritized_unique(protected_search_index, search_index, limit=30),
     }
 
 
@@ -317,6 +319,20 @@ def _search_item(item_id: str, kind: str, title: str, route: str, status: str) -
         "route": route,
         "status": status,
     }
+
+
+def _prioritized_unique(protected_items: list[dict[str, str]], items: list[dict[str, str]], *, limit: int) -> list[dict[str, str]]:
+    selected: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for item in [*protected_items, *items]:
+        item_id = item["id"]
+        if item_id in seen:
+            continue
+        seen.add(item_id)
+        selected.append(item)
+        if len(selected) == limit:
+            break
+    return selected
 
 
 def _governance_state(events: list[dict[str, Any]]) -> str:
