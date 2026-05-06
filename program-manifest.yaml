@@ -27,36 +27,40 @@ specs:
   path: specs/007-agent-store-console-audit-workbench
   depends_on:
   - 006-agent-store-discovery-audit
+- id: 008-console-ops-hub
+  path: specs/008-console-ops-hub
+  depends_on:
+  - 007-agent-store-console-audit-workbench
 truth_snapshot:
-  generated_at: '2026-05-06T07:52:47Z'
+  generated_at: '2026-05-06T14:45:51Z'
   generated_by: ai-sdlc program truth sync
   generator_version: program_truth_snapshot_v1
-  repo_revision: 611e51a
-  authoring_hash: f0d23e921ba695f53405e0afee3e717890cc58913fc05991ecd9339b66ca146b
+  repo_revision: ee4cc5e
+  authoring_hash: dad1debe892cf519bc14e0ae3f5a83b934df847540174ee602cbacfd3fc9555d
   source_hashes: {}
-  snapshot_hash: d2f4f6ccc2ddde9d5d16f621d9dee311d605056d4c39d9fd1e117fa4a2559661
+  snapshot_hash: 26adce5d24b4e4b2c783bdd3e805278bf1a76ef45ff6096922bdeadcab2ff5fe
   computed_capabilities: []
   source_inventory:
     state: complete
-    total_sources: 25
-    mapped_sources: 25
+    total_sources: 40
+    mapped_sources: 40
     unmapped_sources: 0
-    missing_sources: 0
-    phase_signal_count: 67
-    deferred_signal_count: 95
-    non_goal_signal_count: 7
+    missing_sources: 2
+    phase_signal_count: 79
+    deferred_signal_count: 107
+    non_goal_signal_count: 11
     layer_totals:
-      spec: 5
-      plan: 5
-      tasks: 5
-      execution: 5
-      close: 5
+      spec: 8
+      plan: 8
+      tasks: 8
+      execution: 8
+      close: 8
     layer_materialized:
-      spec: 5
-      plan: 5
-      tasks: 5
-      execution: 5
-      close: 5
+      spec: 8
+      plan: 8
+      tasks: 8
+      execution: 6
+      close: 8
     entries:
     - path: specs/001-agentops-trusted-loop/spec.md
       source_type: spec_doc
@@ -282,6 +286,141 @@ truth_snapshot:
       mapping_ref: 005-agentops-live-console-source
       phase_signal_count: 0
       deferred_signal_count: 1
+      non_goal_signal_count: 0
+    - path: specs/006-agent-store-discovery-audit/spec.md
+      source_type: spec_doc
+      truth_layer: spec
+      mapped: true
+      exists: true
+      mapping_ref: 006-agent-store-discovery-audit
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 1
+    - path: specs/006-agent-store-discovery-audit/plan.md
+      source_type: plan_doc
+      truth_layer: plan
+      mapped: true
+      exists: true
+      mapping_ref: 006-agent-store-discovery-audit
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 0
+    - path: specs/006-agent-store-discovery-audit/tasks.md
+      source_type: tasks_doc
+      truth_layer: tasks
+      mapped: true
+      exists: true
+      mapping_ref: 006-agent-store-discovery-audit
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 0
+    - path: specs/006-agent-store-discovery-audit/task-execution-log.md
+      source_type: execution_log
+      truth_layer: execution
+      mapped: true
+      exists: false
+      mapping_ref: 006-agent-store-discovery-audit
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 0
+    - path: specs/006-agent-store-discovery-audit/development-summary.md
+      source_type: development_summary
+      truth_layer: close
+      mapped: true
+      exists: true
+      mapping_ref: 006-agent-store-discovery-audit
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 0
+    - path: specs/007-agent-store-console-audit-workbench/spec.md
+      source_type: spec_doc
+      truth_layer: spec
+      mapped: true
+      exists: true
+      mapping_ref: 007-agent-store-console-audit-workbench
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 1
+    - path: specs/007-agent-store-console-audit-workbench/plan.md
+      source_type: plan_doc
+      truth_layer: plan
+      mapped: true
+      exists: true
+      mapping_ref: 007-agent-store-console-audit-workbench
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 0
+    - path: specs/007-agent-store-console-audit-workbench/tasks.md
+      source_type: tasks_doc
+      truth_layer: tasks
+      mapped: true
+      exists: true
+      mapping_ref: 007-agent-store-console-audit-workbench
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 0
+    - path: specs/007-agent-store-console-audit-workbench/task-execution-log.md
+      source_type: execution_log
+      truth_layer: execution
+      mapped: true
+      exists: false
+      mapping_ref: 007-agent-store-console-audit-workbench
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 0
+    - path: specs/007-agent-store-console-audit-workbench/development-summary.md
+      source_type: development_summary
+      truth_layer: close
+      mapped: true
+      exists: true
+      mapping_ref: 007-agent-store-console-audit-workbench
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 0
+    - path: specs/008-console-ops-hub/spec.md
+      source_type: spec_doc
+      truth_layer: spec
+      mapped: true
+      exists: true
+      mapping_ref: 008-console-ops-hub
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 1
+    - path: specs/008-console-ops-hub/plan.md
+      source_type: plan_doc
+      truth_layer: plan
+      mapped: true
+      exists: true
+      mapping_ref: 008-console-ops-hub
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 0
+    - path: specs/008-console-ops-hub/tasks.md
+      source_type: tasks_doc
+      truth_layer: tasks
+      mapped: true
+      exists: true
+      mapping_ref: 008-console-ops-hub
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 0
+    - path: specs/008-console-ops-hub/task-execution-log.md
+      source_type: execution_log
+      truth_layer: execution
+      mapped: true
+      exists: true
+      mapping_ref: 008-console-ops-hub
+      phase_signal_count: 12
+      deferred_signal_count: 12
+      non_goal_signal_count: 1
+    - path: specs/008-console-ops-hub/development-summary.md
+      source_type: development_summary
+      truth_layer: close
+      mapped: true
+      exists: true
+      mapping_ref: 008-console-ops-hub
+      phase_signal_count: 0
+      deferred_signal_count: 0
       non_goal_signal_count: 0
     unmapped_paths: []
   state: ready

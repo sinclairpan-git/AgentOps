@@ -64,6 +64,7 @@ export default {
       :routes="routes"
       :active-route="activeRoute"
       :summary="consoleData.summary"
+      :operation-center="consoleData.operationCenter"
       :source-state="sourceState"
       @navigate="navigate"
       @refresh-snapshot="refreshSnapshot"

@@ -87,6 +87,9 @@ assert.ok(existsSync(resolve(root, "src/styles.css")), "src/styles.css must exis
 for (const expectedChineseText of [
   "治理控制台",
   "当前视图",
+  "全局搜索",
+  "通知中心",
+  "待办中心",
   "总览",
   "运行记录",
   "证据检索",
@@ -170,6 +173,20 @@ assert.equal(
   validateSnapshot({
     ...validApiSnapshot,
     consoleData: { ...consoleData, agentStore: { ...consoleData.agentStore, runAudits: null } }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: { ...consoleData, operationCenter: null }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: { ...consoleData, operationCenter: { ...consoleData.operationCenter, searchIndex: null } }
   }),
   false
 );

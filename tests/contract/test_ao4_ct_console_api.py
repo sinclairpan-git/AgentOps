@@ -128,6 +128,7 @@ def test_ao4_ct_001_console_snapshot_schema():
         "quality",
         "risks",
         "agentStore",
+        "operationCenter",
         "connectors",
         "sdlcRuns",
     }
@@ -314,7 +315,7 @@ def test_ao5_ct_005_event_post_mixed_batch_only_snapshots_accepted_events():
     assert payload["accepted"] == ["evt_stage_started"]
     assert payload["rejected"][0]["error_code"] == "EVENT_PAYLOAD_INVALID"
     assert snapshot["consoleData"]["summary"]["metrics"][0]["value"] == 1
-    assert snapshot["consoleData"]["evidence"][0]["summary"] == "已接收 1 条事件，但仍缺少：artifact_generated、gate_result、generation_snapshot、l5_eligibility_input、stage_completed、verification_result、violation_scan_completed。"
+    assert snapshot["consoleData"]["evidence"][0]["summary"] == "已接收 1 条事件，但仍缺少：产物生成事件、门禁结果事件、生成快照事件、L5 判定输入、阶段完成事件、验证结果事件、违规扫描事件。"
 
 
 def test_ao5_ct_006_event_post_request_errors_are_json_and_cors_is_enforced():
