@@ -45,7 +45,7 @@ def _console_data_from_repository(repository: InMemoryRepository) -> dict[str, A
     events_by_run: dict[str, list[dict[str, Any]]] = defaultdict(list)
     raw_events = repository.raw_event_records()
     for event in raw_events:
-        run_id = str(event.get("run_id") or _event_payload(event).get("run_id") or "unknown_run")
+        run_id = _event_run_id(event)
         events_by_run[run_id].append(event)
 
     run_models: list[dict[str, str]] = []
@@ -60,7 +60,7 @@ def _console_data_from_repository(repository: InMemoryRepository) -> dict[str, A
         events = sorted(events_by_run[run_id], key=_event_sequence_no)
         l5_input = _last_payload(events, "l5_eligibility_input")
         governance_state = _governance_state(events)
-        policy_state_known = _strict_bool(l5_input.get("policy_state_known"), default=True)
+        policy_state_known = _strict_bool(l5_input.get("policy_state_known"), default=False)
         outbox_status = str(l5_input.get("outbox_status", "delivered"))
         evaluation = evaluate_l5_gate(
             events,
@@ -69,7 +69,7 @@ def _console_data_from_repository(repository: InMemoryRepository) -> dict[str, A
             policy_state_known=policy_state_known,
         )
         l5_state = _l5_state(evaluation["result"])
-        policy_state = "allow" if policy_state_known else "block"
+        policy_state = _policy_state(policy_state_known=policy_state_known, has_l5_input=bool(l5_input))
         evidence_state = "summary_only" if evaluation["result"] == "L5" else "degraded"
         agent = str(events[0].get("agent_id") or "未知 Agent")
         skill = _run_skill(events)
@@ -171,6 +171,18 @@ def _event_payload(event: dict[str, Any]) -> dict[str, Any]:
     return dict(payload) if isinstance(payload, dict) else {}
 
 
+def _event_run_id(event: dict[str, Any]) -> str:
+    payload = _event_payload(event)
+    for candidate in (event.get("run_id"), payload.get("run_id")):
+        if candidate not in (None, ""):
+            return str(candidate)
+    for fallback_key in ("event_id", "idempotency_key", "trace_id", "span_id"):
+        fallback_value = event.get(fallback_key)
+        if fallback_value not in (None, ""):
+            return f"event_{fallback_value}"
+    return f"event_sequence_{_event_sequence_no(event)}"
+
+
 def _event_sequence_no(event: dict[str, Any]) -> int:
     try:
         return int(event.get("sequence_no", 0))
@@ -196,6 +208,12 @@ def _l5_state(result: str) -> str:
     if result == "pending":
         return "pending"
     return "degraded"
+
+
+def _policy_state(*, policy_state_known: bool, has_l5_input: bool) -> str:
+    if policy_state_known:
+        return "allow"
+    return "block" if has_l5_input else "unknown"
 
 
 def _run_skill(events: list[dict[str, Any]]) -> str:

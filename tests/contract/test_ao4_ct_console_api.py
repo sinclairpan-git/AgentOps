@@ -63,6 +63,42 @@ def _raw_request(server: ThreadingHTTPServer, method: str, path: str, body: byte
         connection.close()
 
 
+def _standalone_event(event_id: str, *, sequence_no: int):
+    event = base_event(
+        "stage_started",
+        event_id=event_id,
+        idempotency_key=f"{event_id}:standalone",
+        sequence_no=sequence_no,
+    )
+    for key in (
+        "agent_version",
+        "credential_status",
+        "device_id",
+        "device_key_status",
+        "identity_confidence",
+        "ingestion_token",
+        "installation_id",
+        "run_id",
+        "session_id",
+        "signature",
+        "source_trust_level",
+        "user_id",
+    ):
+        event.pop(key, None)
+    event.update(
+        {
+            "event_type": "custom_signal",
+            "integration_mode": "standalone",
+            "enterprise_state": "not_detected",
+            "local_subject": f"local-{event_id}",
+            "local_workspace_hash": f"sha256:{event_id}",
+            "local_report_uri": f"file:///{event_id}.json",
+            "payload": {"summary": f"standalone {event_id}"},
+        }
+    )
+    return event
+
+
 @pytest.fixture
 def http_server():
     server = ThreadingHTTPServer(("127.0.0.1", 0), create_http_handler())
@@ -484,3 +520,39 @@ def test_ao5_ct_013_events_batch_alias_stays_backward_compatible():
     assert response.status == 202
     assert payload["accepted"] == ["evt_stage_started"]
     assert snapshot["consoleData"]["summary"]["metrics"][0]["value"] == 1
+
+
+def test_ao5_ct_014_events_without_run_id_keep_event_identity():
+    repository = InMemoryRepository()
+    server = ThreadingHTTPServer(("127.0.0.1", 0), create_http_handler(repository))
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        response, payload = _json_request(
+            server,
+            "POST",
+            "/v1/events",
+            payload={"events": [_standalone_event("evt_custom_a", sequence_no=1), _standalone_event("evt_custom_b", sequence_no=2)]},
+        )
+        _, snapshot = _json_response(server, "/v1/console/snapshot")
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+    run_ids = {run["run_id"] for run in snapshot["consoleData"]["runs"]}
+
+    assert response.status == 202
+    assert payload["accepted"] == ["evt_custom_a", "evt_custom_b"]
+    assert run_ids == {"event_evt_custom_a", "event_evt_custom_b"}
+    assert snapshot["consoleData"]["summary"]["metrics"][0]["value"] == 2
+
+
+def test_ao5_ct_015_missing_policy_evidence_is_unknown_not_allow():
+    repository = InMemoryRepository()
+    repository.write_event(base_event("stage_started"))
+
+    snapshot = build_console_snapshot(repository=repository)
+
+    assert snapshot["consoleData"]["runs"][0]["policy_state"] == "unknown"
+    assert snapshot["consoleData"]["runs"][0]["l5_state"] == "degraded"
