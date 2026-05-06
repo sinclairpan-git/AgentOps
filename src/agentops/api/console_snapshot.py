@@ -44,7 +44,7 @@ def build_console_snapshot(*, generated_at: str | None = None, repository: InMem
 def _console_data_from_repository(repository: InMemoryRepository) -> dict[str, Any]:
     events_by_run: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for event in repository.raw_events.values():
-        run_id = str(event.get("run_id") or event.get("payload", {}).get("run_id") or "unknown_run")
+        run_id = str(event.get("run_id") or _event_payload(event).get("run_id") or "unknown_run")
         events_by_run[run_id].append(event)
 
     run_models: list[dict[str, str]] = []
@@ -56,10 +56,10 @@ def _console_data_from_repository(repository: InMemoryRepository) -> dict[str, A
     degraded_count = 0
 
     for run_id in sorted(events_by_run):
-        events = sorted(events_by_run[run_id], key=lambda event: int(event.get("sequence_no", 0)))
+        events = sorted(events_by_run[run_id], key=_event_sequence_no)
         l5_input = _last_payload(events, "l5_eligibility_input")
         governance_state = _governance_state(events)
-        policy_state_known = bool(l5_input.get("policy_state_known", True))
+        policy_state_known = _strict_bool(l5_input.get("policy_state_known"), default=True)
         outbox_status = str(l5_input.get("outbox_status", "delivered"))
         evaluation = evaluate_l5_gate(
             events,
@@ -151,7 +151,7 @@ def _console_data_from_repository(repository: InMemoryRepository) -> dict[str, A
 
 def _governance_state(events: list[dict[str, Any]]) -> str:
     for event in events:
-        payload = event.get("payload", {})
+        payload = _event_payload(event)
         if event.get("event_type") == "stage_started" and isinstance(payload, dict):
             return str(payload.get("adapter_state") or "materialized")
     return "materialized"
@@ -159,9 +159,34 @@ def _governance_state(events: list[dict[str, Any]]) -> str:
 
 def _last_payload(events: list[dict[str, Any]], event_type: str) -> dict[str, Any]:
     for event in reversed(events):
-        if event.get("event_type") == event_type and isinstance(event.get("payload"), dict):
-            return dict(event["payload"])
+        payload = _event_payload(event)
+        if event.get("event_type") == event_type:
+            return dict(payload)
     return {}
+
+
+def _event_payload(event: dict[str, Any]) -> dict[str, Any]:
+    payload = event.get("payload")
+    return dict(payload) if isinstance(payload, dict) else {}
+
+
+def _event_sequence_no(event: dict[str, Any]) -> int:
+    try:
+        return int(event.get("sequence_no", 0))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _strict_bool(value: Any, *, default: bool) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized == "true":
+            return True
+        if normalized == "false":
+            return False
+    return default
 
 
 def _l5_state(result: str) -> str:

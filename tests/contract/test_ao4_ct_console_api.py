@@ -332,3 +332,44 @@ def test_ao5_ct_008_api_assembly_truth_tracks_http_ingestion_route():
 
     assert app["ingestion"] == "POST /v1/events"
     assert app["console_snapshot"] == "/v1/console/snapshot"
+
+
+def test_ao5_ct_009_repository_snapshot_tolerates_malformed_non_l5_event_shape():
+    repository = InMemoryRepository()
+    event = base_event("stage_started", event_id="evt_custom_bad_shape", idempotency_key="custom_signal:bad_shape", sequence_no="abc")
+    event["event_type"] = "custom_signal"
+    event["payload"] = "not-an-object"
+
+    repository.write_event(event)
+    snapshot = build_console_snapshot(repository=repository)
+
+    assert snapshot["consoleData"]["summary"]["metrics"][0]["value"] == 1
+    assert snapshot["consoleData"]["runs"][0]["run_id"] == "run_1"
+    assert snapshot["consoleData"]["runs"][0]["l5_state"] == "degraded"
+
+
+def test_ao5_ct_010_repository_snapshot_parses_policy_state_known_string_false_safely():
+    repository = InMemoryRepository()
+    for index, event_type in enumerate(
+        [
+            "stage_started",
+            "stage_completed",
+            "gate_result",
+            "verification_result",
+            "violation_scan_completed",
+            "artifact_generated",
+            "generation_snapshot",
+            "l5_eligibility_input",
+        ],
+        start=1,
+    ):
+        event = base_event(event_type, sequence_no=index)
+        if event_type == "l5_eligibility_input":
+            event["payload"]["policy_state_known"] = "false"
+        repository.write_event(event)
+
+    snapshot = build_console_snapshot(repository=repository)
+
+    assert snapshot["consoleData"]["runs"][0]["policy_state"] == "block"
+    assert snapshot["consoleData"]["runs"][0]["l5_state"] == "degraded"
+    assert snapshot["consoleData"]["evidence"][0]["raw_access_state"] == "degraded"
