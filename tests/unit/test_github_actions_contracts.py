@@ -7,6 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = ROOT / ".github" / "workflows" / "agentops-cross-platform.yml"
 ENGINEERING_DOC = ROOT / "docs" / "engineering" / "cross-platform-compatibility.md"
+BRANCH_GOVERNANCE_DOC = ROOT / "docs" / "engineering" / "github-branch-governance.md"
 
 
 def _workflow_lines() -> list[str]:
@@ -70,6 +71,7 @@ def test_cross_platform_workflow_covers_target_operating_systems() -> None:
     assert "      fail-fast: false" in frontend
     assert "      - backend" in result
     assert "      - frontend" in result
+    assert "    name: Compatibility Gate Result" in result
 
 
 def test_cross_platform_workflow_covers_backend_gates_in_backend_job() -> None:
@@ -124,3 +126,15 @@ def test_cross_platform_engineering_constraints_are_documented() -> None:
     assert "云端打包" in doc
     assert "agentops-python-<os>-py<version>" in doc
     assert "agentops-console-<os>-node<version>" in doc
+    assert "Compatibility Gate Result" in doc
+
+
+def test_github_branch_governance_is_documented() -> None:
+    assert BRANCH_GOVERNANCE_DOC.exists(), "GitHub branch governance must be documented"
+    doc = BRANCH_GOVERNANCE_DOC.read_text(encoding="utf-8")
+
+    assert "main-compatibility-gate" in doc
+    assert "默认分支：`main`" in doc
+    assert "Pull Request" in doc
+    assert "Compatibility Gate Result" in doc
+    assert "non-fast-forward" in doc
