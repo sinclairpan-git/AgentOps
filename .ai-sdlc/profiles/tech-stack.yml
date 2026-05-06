@@ -2,3 +2,18 @@ backend:
   name: python
   version: '3.11+'
   source: bootstrap-default
+frontend:
+  name: vue
+  version: '2.x'
+  source: user-required
+  app_dir: apps/agentops-console
+  component_library:
+    name: sdlc-enterprise-vue2
+    package: '@sxf/er-components'
+    source: local
+    path: /Users/sinclairpan/project/前端组件库1
+    constraint: required
+  provider_policy:
+    name: enterprise-vue2-provider-whitelist
+    no_full_vue_use: true
+    framework_baseline: /Users/sinclairpan/project/Ai_AutoSDLC/specs/016-frontend-enterprise-vue2-provider-baseline/spec.md
