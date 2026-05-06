@@ -45,8 +45,12 @@ def discover_agent_store_gaps(repository: InMemoryRepository) -> list[dict[str, 
     discovery: dict[str, dict[str, Any]] = {}
 
     for event in raw_events:
-        agent_id = str(event.get("agent_id") or "unknown_agent")
-        version = str(event.get("agent_version") or event.get("version") or "unknown")
+        agent_id_value = event.get("agent_id")
+        version_value = event.get("agent_version") or event.get("version")
+        if agent_id_value in (None, "") or version_value in (None, ""):
+            continue
+        agent_id = str(agent_id_value)
+        version = str(version_value)
         run_id = _event_run_id(event)
         agent_key = f"{agent_id}@{version}"
         agent_runs[agent_key].add(run_id)
@@ -148,11 +152,7 @@ def build_agent_store_echo_summary(
             "STORE_SUMMARY_RUN_MISMATCH",
             "Run audit does not match the requested Agent Store summary target.",
         )
-    discovery_gaps = [
-        gap
-        for gap in discover_agent_store_gaps(repository)
-        if gap["agent_id"] == agent_id and gap["version"] == version and run_id in gap["affected_runs"]
-    ]
+    discovery_gaps = [gap for gap in discover_agent_store_gaps(repository) if run_id in gap["affected_runs"]]
     registered = metadata is not None and not discovery_gaps
     risk_state = "normal" if registered and evidence_summary.get("evidence_level") == "L5" else "warning"
 

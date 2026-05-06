@@ -80,6 +80,20 @@ def test_ao6_ct_002_unregistered_agent_is_discovered_without_raw_payload():
     assert "raw_payload" not in str(gaps)
 
 
+def test_ao6_ct_002a_discovery_ignores_events_without_agent_store_identity():
+    repository = InMemoryRepository()
+    event = base_event("stage_started", event_id="evt_custom_sink", idempotency_key="custom_sink:run_1")
+    event.pop("agent_id", None)
+    event.pop("agent_version", None)
+    event["integration_mode"] = "custom_sink"
+    event["payload"] = {"run_id": "run_1", "summary": "外部证据源"}
+    repository.write_event(event)
+
+    gaps = list_agent_store_discovery_gaps(repository)
+
+    assert gaps == []
+
+
 def test_ao6_ct_003_registered_agent_with_unregistered_skill_is_discovered():
     repository = InMemoryRepository()
     sync_agent_store_metadata(
@@ -280,6 +294,34 @@ def test_ao6_ct_005a_agent_store_echo_summary_uses_only_current_run_gaps():
     assert risky_summary["run_audit"]["registration_state"] == "suspected"
     assert risky_summary["risk_state"] == "warning"
     assert risky_summary["discovery_gap_ids"] == ["gap_skill_agent_ai_sdlc_1_0_0_deploy"]
+
+
+def test_ao6_ct_005b_agent_store_echo_summary_includes_cross_version_run_gaps():
+    repository = InMemoryRepository()
+    sync_agent_store_metadata(
+        repository,
+        {
+            "agent_id": "agent.ai-sdlc",
+            "version": "1.0.0",
+            "skills": [{"skill_id": "refine"}],
+        },
+    )
+    repository.write_event(base_event("stage_started"))
+    repository.write_event(
+        base_event(
+            "stage_started",
+            event_id="evt_stage_started_v2",
+            idempotency_key="stage_started_v2:run_1",
+            sequence_no=2,
+            agent_version="2.0.0",
+        )
+    )
+
+    summary = get_agent_store_summary("agent.ai-sdlc", "1.0.0", evidence_summary("run_1"), repository=repository)
+
+    assert summary["run_audit"]["registration_state"] == "suspected"
+    assert summary["risk_state"] == "warning"
+    assert summary["discovery_gap_ids"] == ["gap_agent_agent_ai_sdlc_2_0_0"]
 
 
 def test_ao6_ct_006_agent_store_echo_summary_rejects_unsupported_schema():
