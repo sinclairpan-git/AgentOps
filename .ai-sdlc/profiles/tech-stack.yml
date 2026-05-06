@@ -10,8 +10,12 @@ frontend:
   component_library:
     name: sdlc-enterprise-vue2
     package: '@sxf/er-components'
-    source: local
-    path: /Users/sinclairpan/project/前端组件库1
+    version: 1.27.5
+    source: project-vendor
+    path: vendor/enterprise-vue2/sxf-er-components-1.27.5.tgz
+    runtime_theme_package: '@sxf/sf-theme'
+    runtime_theme_version: 0.2.5
+    runtime_theme_path: vendor/enterprise-vue2/sxf-sf-theme-0.2.5.tgz
     constraint: required
   provider_policy:
     name: enterprise-vue2-provider-whitelist

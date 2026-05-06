@@ -5,5 +5,8 @@
 __pycache__/
 *.py[cod]
 *.egg-info/
+node_modules/
+apps/agentops-console/dist/
+apps/agentops-console/vite-dev.*.log
 ai-sdlc-offline-*.tar.gz
 ai-sdlc-offline-*/

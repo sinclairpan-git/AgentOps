@@ -10,6 +10,8 @@
     "test": "node tests/console-contract.test.mjs"
   },
   "dependencies": {
+    "@sxf/er-components": "file:../../vendor/enterprise-vue2/sxf-er-components-1.27.5.tgz",
+    "@sxf/sf-theme": "file:../../vendor/enterprise-vue2/sxf-sf-theme-0.2.5.tgz",
     "vue": "2.7.16"
   },
   "devDependencies": {

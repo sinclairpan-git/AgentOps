@@ -1,7 +1,11 @@
 export const ENTERPRISE_VUE2_PROVIDER = {
   name: "sdlc-enterprise-vue2",
   packageName: "@sxf/er-components",
-  sourcePath: "/Users/sinclairpan/project/前端组件库1",
+  installedVersion: "1.27.5",
+  sourcePath: "vendor/enterprise-vue2/sxf-er-components-1.27.5.tgz",
+  themePackageName: "@sxf/sf-theme",
+  themeInstalledVersion: "0.2.5",
+  themeSourcePath: "vendor/enterprise-vue2/sxf-sf-theme-0.2.5.tgz",
   frameworkBaseline: "/Users/sinclairpan/project/Ai_AutoSDLC/specs/016-frontend-enterprise-vue2-provider-baseline/spec.md",
   allowFullVueUse: false,
   allowedCapabilities: [
