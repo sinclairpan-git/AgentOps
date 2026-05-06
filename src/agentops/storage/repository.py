@@ -157,8 +157,11 @@ class InMemoryRepository:
                 self.agent_store_skills.pop(key)
             for skill in skills:
                 if isinstance(skill, dict):
-                    skill_id = str(skill.get("skill_id") or skill.get("name") or "")
-                    if skill_id:
+                    skill_id_value = skill.get("skill_id")
+                    if skill_id_value in (None, ""):
+                        skill_id_value = skill.get("name")
+                    if skill_id_value not in (None, ""):
+                        skill_id = str(skill_id_value)
                         self.agent_store_skills[f"{agent_id}@{version}:{skill_id}"] = {
                             **deepcopy(skill),
                             "skill_id": skill_id,

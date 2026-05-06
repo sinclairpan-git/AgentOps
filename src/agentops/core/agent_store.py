@@ -98,8 +98,7 @@ def build_run_audit(repository: InMemoryRepository, run_id: str) -> dict[str, An
 
     events = sorted(events, key=_event_sequence_no)
     first = events[0]
-    agent_id = str(first.get("agent_id") or "unknown_agent")
-    version = str(first.get("agent_version") or first.get("version") or "unknown")
+    agent_id, version = _run_agent_identity(events)
     metadata = repository.get_agent_store_metadata(agent_id, version)
     gaps = [
         gap
@@ -120,7 +119,7 @@ def build_run_audit(repository: InMemoryRepository, run_id: str) -> dict[str, An
         "discovery_gap_ids": [gap["gap_id"] for gap in gaps],
         "related_agent_versions": sorted(
             {
-                f"{event.get('agent_id') or 'unknown_agent'}@{event.get('agent_version') or event.get('version') or 'unknown'}"
+                f"{identity[0]}@{identity[1]}" if (identity := _event_agent_identity(event)) else "unknown_agent@unknown"
                 for event in events
             }
         ),
@@ -216,6 +215,24 @@ def _gap(
 def _event_payload(event: dict[str, Any]) -> dict[str, Any]:
     payload = event.get("payload")
     return dict(payload) if isinstance(payload, dict) else {}
+
+
+def _run_agent_identity(events: list[dict[str, Any]]) -> tuple[str, str]:
+    for event in events:
+        identity = _event_agent_identity(event)
+        if identity:
+            return identity
+    return ("unknown_agent", "unknown")
+
+
+def _event_agent_identity(event: dict[str, Any]) -> tuple[str, str] | None:
+    agent_id = event.get("agent_id")
+    version = event.get("agent_version")
+    if version in (None, ""):
+        version = event.get("version")
+    if agent_id in (None, "") or version in (None, ""):
+        return None
+    return (str(agent_id), str(version))
 
 
 def _event_run_id(event: dict[str, Any]) -> str:

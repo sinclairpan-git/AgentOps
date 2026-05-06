@@ -209,6 +209,28 @@ def test_ao6_ct_003c_agent_store_metadata_reads_are_isolated_from_repository_sta
     assert repository.has_agent_store_skill("agent.ai-sdlc", "1.0.0", "refine") is True
 
 
+def test_ao6_ct_003d_agent_store_metadata_preserves_explicit_skill_ids():
+    repository = InMemoryRepository()
+    sync_agent_store_metadata(
+        repository,
+        {
+            "agent_id": "agent.ai-sdlc",
+            "version": "1.0.0",
+            "skills": [{"skill_id": 0}],
+        },
+    )
+    event = base_event("stage_started")
+    event["payload"]["skill_id"] = 0
+    event["payload"]["stage_id"] = 0
+    event["payload"]["stage_name"] = 0
+    repository.write_event(event)
+
+    gaps = list_agent_store_discovery_gaps(repository)
+
+    assert repository.has_agent_store_skill("agent.ai-sdlc", "1.0.0", "0") is True
+    assert gaps == []
+
+
 def test_ao6_ct_004_run_audit_contains_deep_links_and_no_raw_payload():
     repository = InMemoryRepository()
     sync_agent_store_metadata(
@@ -266,6 +288,41 @@ def test_ao6_ct_004a_run_audit_marks_mixed_agent_run_as_suspected():
     assert audit["discovery_gap_ids"] == ["gap_agent_agent_ai_sdlc_2_0_0"]
     assert audit["related_agent_versions"] == ["agent.ai-sdlc@1.0.0", "agent.ai-sdlc@2.0.0"]
     assert "raw_payload" not in str(audit)
+
+
+def test_ao6_ct_004b_run_audit_resolves_identity_from_agent_store_mapped_event():
+    repository = InMemoryRepository()
+    sync_agent_store_metadata(
+        repository,
+        {
+            "agent_id": "agent.ai-sdlc",
+            "version": "1.0.0",
+            "skills": [{"skill_id": "refine"}],
+        },
+    )
+    custom_event = base_event("stage_started", event_id="evt_custom_sink", idempotency_key="custom_sink:run_1")
+    custom_event.pop("agent_id", None)
+    custom_event.pop("agent_version", None)
+    custom_event["integration_mode"] = "custom_sink"
+    custom_event["payload"] = {"run_id": "run_1", "summary": "外部证据源"}
+    repository.write_event(custom_event)
+    repository.write_event(
+        base_event(
+            "stage_started",
+            event_id="evt_stage_started_agent",
+            idempotency_key="stage_started_agent:run_1",
+            sequence_no=2,
+        )
+    )
+
+    audit = get_run_audit(repository, "run_1")
+    summary = get_agent_store_summary("agent.ai-sdlc", "1.0.0", evidence_summary("run_1"), repository=repository)
+
+    assert audit["agent_id"] == "agent.ai-sdlc"
+    assert audit["version"] == "1.0.0"
+    assert audit["registration_state"] == "governed"
+    assert audit["related_agent_versions"] == ["agent.ai-sdlc@1.0.0", "unknown_agent@unknown"]
+    assert summary["run_audit"]["registration_state"] == "governed"
 
 
 def test_ao6_ct_005_agent_store_echo_summary_includes_policy_requirement_and_audit():
