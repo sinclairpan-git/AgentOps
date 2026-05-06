@@ -315,7 +315,8 @@ def _repository_sdlc_runs(repository: InMemoryRepository, *, event_count: int | 
 
 
 def _agent_store_workbench(repository: InMemoryRepository, events_by_run: dict[str, list[dict[str, Any]]]) -> dict[str, Any]:
-    gaps = [_agent_store_gap(gap) for gap in discover_agent_store_gaps(repository)]
+    raw_gaps = discover_agent_store_gaps(repository)
+    gaps = [_agent_store_gap(gap) for gap in raw_gaps]
     agent_store_events_by_run: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for events in events_by_run.values():
         for event in events:
@@ -326,7 +327,7 @@ def _agent_store_workbench(repository: InMemoryRepository, events_by_run: dict[s
     for run_id in sorted(agent_store_events_by_run):
         events = sorted(agent_store_events_by_run[run_id], key=_event_sequence_no)
         try:
-            audit = build_run_audit(repository, run_id)
+            audit = build_run_audit(repository, run_id, events=events, discovery_gaps=raw_gaps)
         except Exception:
             continue
         audits.append(_agent_store_audit(audit))
@@ -336,6 +337,8 @@ def _agent_store_workbench(repository: InMemoryRepository, events_by_run: dict[s
                 str(audit["agent_id"]),
                 str(audit["version"]),
                 _agent_store_evidence_summary(run_id, events),
+                run_audit=audit,
+                discovery_gaps=raw_gaps,
             )
         except Exception:
             continue

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import agentops.api.console_snapshot as console_snapshot_api
+import agentops.core.agent_store as agent_store_core
 from agentops.api.agent_store import sync_agent_store_metadata
 from agentops.api.console_snapshot import build_console_snapshot
 from agentops.storage.repository import InMemoryRepository
@@ -185,6 +187,37 @@ def test_ao7_ct_004b_store_summary_sorts_events_before_l5_evaluation():
     assert summary["evidence_level"] == "L4"
     assert summary["confidence"] == 0.8
     assert summary["risk_state"] == "warning"
+
+
+def test_ao7_ct_004c_store_summary_reuses_precomputed_agent_store_audit_context(monkeypatch):
+    repository = InMemoryRepository()
+    sync_agent_store_metadata(
+        repository,
+        {
+            "agent_id": "agent.ai-sdlc",
+            "version": "1.0.0",
+            "skills": [{"skill_id": "refine"}],
+        },
+    )
+    repository.write_event(base_event("stage_started"))
+    original_discover = console_snapshot_api.discover_agent_store_gaps
+    discover_calls = 0
+
+    def counted_discover(repository):
+        nonlocal discover_calls
+        discover_calls += 1
+        return original_discover(repository)
+
+    def unexpected_core_discover(repository):
+        raise AssertionError("console snapshot must reuse precomputed Agent Store gaps")
+
+    monkeypatch.setattr(console_snapshot_api, "discover_agent_store_gaps", counted_discover)
+    monkeypatch.setattr(agent_store_core, "discover_agent_store_gaps", unexpected_core_discover)
+
+    snapshot = console_snapshot_api.build_console_snapshot(repository=repository)
+
+    assert snapshot["consoleData"]["agentStore"]["runAudits"][0]["run_id"] == "run_1"
+    assert discover_calls <= 2
 
 
 def test_ao7_ct_005_registry_map_is_read_only_agent_store_metadata():
