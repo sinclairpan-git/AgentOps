@@ -324,6 +324,7 @@ def _agent_store_workbench(repository: InMemoryRepository, events_by_run: dict[s
     audits = []
     summaries = []
     for run_id in sorted(agent_store_events_by_run):
+        events = sorted(agent_store_events_by_run[run_id], key=_event_sequence_no)
         try:
             audit = build_run_audit(repository, run_id)
         except Exception:
@@ -334,7 +335,7 @@ def _agent_store_workbench(repository: InMemoryRepository, events_by_run: dict[s
                 repository,
                 str(audit["agent_id"]),
                 str(audit["version"]),
-                _agent_store_evidence_summary(run_id, agent_store_events_by_run[run_id]),
+                _agent_store_evidence_summary(run_id, events),
             )
         except Exception:
             continue

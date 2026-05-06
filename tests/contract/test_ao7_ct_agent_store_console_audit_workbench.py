@@ -141,6 +141,49 @@ def test_ao7_ct_004a_store_summary_reuses_l5_gate_event_contract():
     assert summary["risk_state"] == "normal"
 
 
+def test_ao7_ct_004b_store_summary_sorts_events_before_l5_evaluation():
+    repository = InMemoryRepository()
+    sync_agent_store_metadata(
+        repository,
+        {
+            "agent_id": "agent.ai-sdlc",
+            "version": "1.0.0",
+            "skills": [{"skill_id": "refine"}],
+        },
+    )
+    stale_payload = base_event("l5_eligibility_input")["payload"]
+    stale_payload["policy_state_known"] = False
+    repository.write_event(
+        base_event(
+            "l5_eligibility_input",
+            event_id="evt_l5_eligibility_input_late",
+            idempotency_key="l5_eligibility_input:run_1:late",
+            sequence_no=9,
+            payload=stale_payload,
+        )
+    )
+    for index, event_type in enumerate(
+        [
+            "stage_started",
+            "stage_completed",
+            "gate_result",
+            "verification_result",
+            "violation_scan_completed",
+            "artifact_generated",
+            "generation_snapshot",
+            "l5_eligibility_input",
+        ],
+        start=1,
+    ):
+        repository.write_event(base_event(event_type, sequence_no=index))
+
+    summary = build_console_snapshot(repository=repository)["consoleData"]["agentStore"]["storeSummaries"][0]
+
+    assert summary["evidence_level"] == "L4"
+    assert summary["confidence"] == 0.8
+    assert summary["risk_state"] == "warning"
+
+
 def test_ao7_ct_005_registry_map_is_read_only_agent_store_metadata():
     repository = InMemoryRepository()
     sync_agent_store_metadata(
