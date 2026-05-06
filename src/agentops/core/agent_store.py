@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from copy import deepcopy
 from typing import Any
 
 from agentops.core.errors import AgentOpsError
@@ -46,7 +47,9 @@ def discover_agent_store_gaps(repository: InMemoryRepository) -> list[dict[str, 
 
     for event in raw_events:
         agent_id_value = event.get("agent_id")
-        version_value = event.get("agent_version") or event.get("version")
+        version_value = event.get("agent_version")
+        if version_value in (None, ""):
+            version_value = event.get("version")
         if agent_id_value in (None, "") or version_value in (None, ""):
             continue
         agent_id = str(agent_id_value)
@@ -168,7 +171,7 @@ def build_agent_store_echo_summary(
         "missing_evidence": list(evidence_summary["missing_evidence"]),
         "risk_state": risk_state,
         "approval_state": "none",
-        "policy_requirement": dict(DEFAULT_POLICY_REQUIREMENT),
+        "policy_requirement": deepcopy(DEFAULT_POLICY_REQUIREMENT),
         "discovery_gap_ids": [gap["gap_id"] for gap in discovery_gaps],
         "run_audit": {
             "audit_id": run_audit["audit_id"],

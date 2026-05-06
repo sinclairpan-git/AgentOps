@@ -133,7 +133,12 @@ class InMemoryRepository:
 
     def upsert_agent_store_metadata(self, metadata: dict[str, Any]) -> dict[str, Any]:
         agent_id = str(metadata["agent_id"])
-        version = str(metadata.get("version") or metadata.get("agent_version") or "unknown")
+        version_value = metadata.get("version")
+        if version_value in (None, ""):
+            version_value = metadata.get("agent_version")
+        if version_value in (None, ""):
+            version_value = "unknown"
+        version = str(version_value)
         record = {
             **metadata,
             "agent_id": agent_id,

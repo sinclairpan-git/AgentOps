@@ -56,6 +56,23 @@ def test_ao6_ct_001a_agent_store_metadata_accepts_agent_version_alias():
     assert repository.has_agent_store_skill("agent.ai-sdlc", "1.0.0", "refine") is True
 
 
+def test_ao6_ct_001b_agent_store_metadata_preserves_explicit_version_values():
+    repository = InMemoryRepository()
+
+    result = sync_agent_store_metadata(
+        repository,
+        {
+            "agent_id": "agent.zero",
+            "version": 0,
+            "skills": [{"skill_id": "refine"}],
+        },
+    )
+
+    assert result["version"] == "0"
+    assert repository.get_agent_store_metadata("agent.zero", "0")["version"] == "0"
+    assert repository.has_agent_store_skill("agent.zero", "0", "refine") is True
+
+
 def test_ao6_ct_002_unregistered_agent_is_discovered_without_raw_payload():
     repository = InMemoryRepository()
     repository.write_event(base_event("stage_started", agent_id="agent.unknown", agent_version="0.1.0"))
@@ -322,6 +339,25 @@ def test_ao6_ct_005b_agent_store_echo_summary_includes_cross_version_run_gaps():
     assert summary["run_audit"]["registration_state"] == "suspected"
     assert summary["risk_state"] == "warning"
     assert summary["discovery_gap_ids"] == ["gap_agent_agent_ai_sdlc_2_0_0"]
+
+
+def test_ao6_ct_005c_agent_store_echo_summary_policy_requirement_is_isolated():
+    repository = InMemoryRepository()
+    sync_agent_store_metadata(
+        repository,
+        {
+            "agent_id": "agent.ai-sdlc",
+            "version": "1.0.0",
+            "skills": [{"skill_id": "refine"}],
+        },
+    )
+    repository.write_event(base_event("stage_started"))
+
+    summary = get_agent_store_summary("agent.ai-sdlc", "1.0.0", evidence_summary(), repository=repository)
+    summary["policy_requirement"]["affected_actions"].append("污染项")
+    fresh_summary = get_agent_store_summary("agent.ai-sdlc", "1.0.0", evidence_summary(), repository=repository)
+
+    assert fresh_summary["policy_requirement"]["affected_actions"] == ["运行审计", "高风险 Skill 调用"]
 
 
 def test_ao6_ct_006_agent_store_echo_summary_rejects_unsupported_schema():
