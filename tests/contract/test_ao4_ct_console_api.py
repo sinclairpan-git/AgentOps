@@ -435,3 +435,28 @@ def test_ao5_ct_011_repository_snapshot_uses_latest_stage_adapter_state():
 
     assert snapshot["consoleData"]["runs"][0]["l5_state"] == "degraded"
     assert snapshot["consoleData"]["quality"][0]["primary_action"] == "补齐缺失证据"
+
+
+def test_ao5_ct_012_http_routes_ignore_query_string():
+    repository = InMemoryRepository()
+    server = ThreadingHTTPServer(("127.0.0.1", 0), create_http_handler(repository))
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        event_response, event_payload = _json_request(
+            server,
+            "POST",
+            "/v1/events?source=console",
+            payload={"events": [base_event("stage_started")]},
+        )
+        snapshot_response, snapshot = _json_response(server, "/v1/console/snapshot?source=console")
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+    assert event_response.status == 202
+    assert event_payload["accepted"] == ["evt_stage_started"]
+    assert snapshot_response.status == 200
+    assert snapshot["source_detail"]["mode"] == "repository_backed"
+    assert snapshot["consoleData"]["runs"][0]["run_id"] == "run_1"

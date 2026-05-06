@@ -7,6 +7,7 @@ import json
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
+from urllib.parse import urlsplit
 
 from agentops import __version__
 from agentops.api.ingestion import ingest_events_batch
@@ -44,14 +45,15 @@ def create_http_handler(repository: InMemoryRepository | None = None) -> type[Ba
                 )
                 return
 
-            if self.path == "/v1/health":
+            request_path = self._request_path()
+            if request_path == "/v1/health":
                 self._send_json(
                     HTTPStatus.OK,
                     {"service": "agentops-api", "status": "healthy", "version": __version__, "snapshot_provider": "ready"},
                 )
                 return
 
-            if self.path == "/v1/console/snapshot":
+            if request_path == "/v1/console/snapshot":
                 self._send_json(HTTPStatus.OK, build_console_snapshot(repository=live_repository))
                 return
 
@@ -68,7 +70,8 @@ def create_http_handler(repository: InMemoryRepository | None = None) -> type[Ba
                 )
                 return
 
-            if self.path == "/v1/events":
+            request_path = self._request_path()
+            if request_path == "/v1/events":
                 payload = self._read_json()
                 if payload is None:
                     self._send_json(
@@ -99,6 +102,9 @@ def create_http_handler(repository: InMemoryRepository | None = None) -> type[Ba
         def _origin_allowed(self) -> bool:
             origin = self.headers.get("Origin")
             return origin is None or origin in ALLOWED_ORIGINS
+
+        def _request_path(self) -> str:
+            return urlsplit(self.path).path
 
         def _read_json(self) -> dict[str, Any] | None:
             try:
