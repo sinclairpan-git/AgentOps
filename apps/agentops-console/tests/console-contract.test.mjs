@@ -142,6 +142,33 @@ assert.equal(
 assert.equal(
   validateSnapshot({
     ...validApiSnapshot,
+    consoleData: { ...consoleData, risks: null }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: { ...consoleData, summary: null }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      summary: {
+        ...consoleData.summary,
+        metrics: null
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
     consoleData: {
       ...consoleData,
       sdlcRuns: [{

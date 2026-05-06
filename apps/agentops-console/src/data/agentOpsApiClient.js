@@ -107,10 +107,38 @@ export function validateSnapshot(snapshot) {
   if (!requiredKeys.every((key) => Object.prototype.hasOwnProperty.call(snapshot.consoleData, key))) {
     return false;
   }
+  if (!snapshotShapeIsSafe(snapshot.consoleData)) {
+    return false;
+  }
   if (containsForbiddenKey(snapshot, "raw_payload")) {
     return false;
   }
   return statesAreKnown(snapshot.consoleData) && verifiedLoadedProofIsSafe(snapshot.consoleData);
+}
+
+export function snapshotShapeIsSafe(consoleData) {
+  if (!isRecord(consoleData.summary) || !isRecord(consoleData.summary.adapter)) {
+    return false;
+  }
+  if (!Array.isArray(consoleData.summary.metrics)) {
+    return false;
+  }
+
+  const requiredCollections = [
+    "runs",
+    "evidence",
+    "approvals",
+    "policies",
+    "quality",
+    "risks",
+    "connectors",
+    "sdlcRuns"
+  ];
+  return requiredCollections.every((key) => Array.isArray(consoleData[key]));
+}
+
+function isRecord(value) {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 
 export function routesAreComplete(routes) {
