@@ -6,6 +6,7 @@ from collections import defaultdict
 from datetime import UTC, datetime
 from typing import Any
 
+from agentops.core.agent_store import discover_agent_store_gaps
 from agentops.core.l5_gate import evaluate_l5_gate
 from agentops.storage.repository import InMemoryRepository
 
@@ -116,6 +117,19 @@ def _console_data_from_repository(repository: InMemoryRepository) -> dict[str, A
                 ",".join(sorted({event["event_type"] for event in events})),
                 "AI-SDLC 负责人",
                 "补齐缺失证据" if evaluation["missing_evidence"] or evaluation["failed_conditions"] else "保持基线",
+            )
+        )
+
+    for gap in discover_agent_store_gaps(repository):
+        risk_models.append(
+            _risk(
+                str(gap["gap_id"]),
+                "Agent Store",
+                str(gap["severity"]),
+                "degraded",
+                str(gap["owner_hint"]),
+                str(gap["primary_action"]),
+                "risks",
             )
         )
 
@@ -276,7 +290,11 @@ def _policies_from_grants(grants: tuple[dict[str, Any], ...]) -> list[dict[str, 
 def _repository_connectors(repository: InMemoryRepository, *, event_count: int | None = None) -> list[dict[str, str]]:
     now = datetime.now(UTC).isoformat()
     event_count = repository.raw_event_count() if event_count is None else event_count
+    metadata_count = len(repository.agent_store_metadata_records())
+    agent_store_status = "healthy" if metadata_count else "degraded"
+    agent_store_action = f"{metadata_count} 条元数据快照" if metadata_count else "等待 Agent Store 元数据同步"
     return [
+        _connector("conn_agent_store", "Agent Store", agent_store_status, now, agent_store_action, "req_conn_agent_store"),
         _connector("conn_ingestion", "事件接入", "healthy", now, "无", "req_conn_ingestion"),
         _connector("conn_repository", "运行事实仓库", "healthy", now, f"{event_count} 条事件", "req_conn_repository"),
         _connector("conn_sdlc", "Ai_AutoSDLC", "materialized", now, "需要 verified_loaded 机器证明", "req_conn_sdlc"),

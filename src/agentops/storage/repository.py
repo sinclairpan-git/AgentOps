@@ -27,6 +27,8 @@ class InMemoryRepository:
     grant_consumptions: dict[str, dict[str, Any]] = field(default_factory=dict)
     raw_access_requests: dict[str, dict[str, Any]] = field(default_factory=dict)
     raw_access_grants: dict[str, dict[str, Any]] = field(default_factory=dict)
+    agent_store_agents: dict[str, dict[str, Any]] = field(default_factory=dict)
+    agent_store_skills: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     def write_event(self, event: dict[str, Any], evidence_mode: str = "managed") -> str:
         event_id = event["event_id"]
@@ -128,3 +130,39 @@ class InMemoryRepository:
         with self._lock:
             self.raw_access_grants[grant["raw_grant_id"]] = dict(grant)
             return dict(grant)
+
+    def upsert_agent_store_metadata(self, metadata: dict[str, Any]) -> dict[str, Any]:
+        agent_id = str(metadata["agent_id"])
+        version = str(metadata.get("version") or metadata.get("agent_version") or "unknown")
+        record = {
+            **metadata,
+            "agent_id": agent_id,
+            "version": version,
+            "synced_at": str(metadata.get("synced_at") or utc_now()),
+        }
+        with self._lock:
+            self.agent_store_agents[f"{agent_id}@{version}"] = dict(record)
+            for skill in record.get("skills", []):
+                if isinstance(skill, dict):
+                    skill_id = str(skill.get("skill_id") or skill.get("name") or "")
+                    if skill_id:
+                        self.agent_store_skills[f"{agent_id}@{version}:{skill_id}"] = {
+                            **skill,
+                            "skill_id": skill_id,
+                            "agent_id": agent_id,
+                            "version": version,
+                        }
+            return dict(record)
+
+    def get_agent_store_metadata(self, agent_id: str, version: str) -> dict[str, Any] | None:
+        with self._lock:
+            record = self.agent_store_agents.get(f"{agent_id}@{version}")
+            return dict(record) if record else None
+
+    def has_agent_store_skill(self, agent_id: str, version: str, skill_id: str) -> bool:
+        with self._lock:
+            return f"{agent_id}@{version}:{skill_id}" in self.agent_store_skills
+
+    def agent_store_metadata_records(self) -> tuple[dict[str, Any], ...]:
+        with self._lock:
+            return tuple(dict(record) for record in self.agent_store_agents.values())
