@@ -399,3 +399,39 @@ def test_ao5_ct_010_repository_snapshot_parses_policy_state_known_string_false_s
     assert snapshot["consoleData"]["runs"][0]["policy_state"] == "block"
     assert snapshot["consoleData"]["runs"][0]["l5_state"] == "degraded"
     assert snapshot["consoleData"]["evidence"][0]["raw_access_state"] == "degraded"
+
+
+def test_ao5_ct_011_repository_snapshot_uses_latest_stage_adapter_state():
+    repository = InMemoryRepository()
+    first_stage = base_event("stage_started", sequence_no=1)
+    first_stage["payload"]["adapter_state"] = "verified_loaded"
+    second_stage = base_event(
+        "stage_started",
+        event_id="evt_stage_started_retry",
+        idempotency_key="stage_started_retry:run_1",
+        sequence_no=9,
+    )
+    second_stage["payload"]["stage_id"] = "execute"
+    second_stage["payload"]["stage_name"] = "execute"
+    second_stage["payload"]["adapter_state"] = "materialized"
+
+    for index, event_type in enumerate(
+        [
+            "stage_completed",
+            "gate_result",
+            "verification_result",
+            "violation_scan_completed",
+            "artifact_generated",
+            "generation_snapshot",
+            "l5_eligibility_input",
+        ],
+        start=2,
+    ):
+        repository.write_event(base_event(event_type, sequence_no=index))
+    repository.write_event(first_stage)
+    repository.write_event(second_stage)
+
+    snapshot = build_console_snapshot(repository=repository)
+
+    assert snapshot["consoleData"]["runs"][0]["l5_state"] == "degraded"
+    assert snapshot["consoleData"]["quality"][0]["primary_action"] == "补齐缺失证据"

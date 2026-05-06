@@ -115,7 +115,7 @@ def _console_data_from_repository(repository: InMemoryRepository) -> dict[str, A
                 evaluation["evidence_level"],
                 ",".join(sorted({event["event_type"] for event in events})),
                 "AI-SDLC 负责人",
-                "补齐缺失证据" if evaluation["missing_evidence"] else "保持基线",
+                "补齐缺失证据" if evaluation["missing_evidence"] or evaluation["failed_conditions"] else "保持基线",
             )
         )
 
@@ -151,9 +151,9 @@ def _console_data_from_repository(repository: InMemoryRepository) -> dict[str, A
 
 
 def _governance_state(events: list[dict[str, Any]]) -> str:
-    for event in events:
+    for event in reversed(events):
         payload = _event_payload(event)
-        if event.get("event_type") == "stage_started" and isinstance(payload, dict):
+        if event.get("event_type") == "stage_started":
             return str(payload.get("adapter_state") or "materialized")
     return "materialized"
 
