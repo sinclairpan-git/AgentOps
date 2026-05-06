@@ -1,0 +1,39 @@
+{
+  "url": "http://127.0.0.1:5173/",
+  "captured_at": "2026-05-06T04:46:00Z",
+  "tool": "playwright-cli",
+  "desktop": {
+    "viewport": "1440x1000",
+    "title": "AgentOps 控制台",
+    "bodyTextLength": 609,
+    "hasGovernanceConsole": true,
+    "hasMaterializedCopy": true,
+    "screenshot": "desktop-overview.png"
+  },
+  "mobile": {
+    "viewport": "390x844",
+    "menuButtonVisible": true,
+    "riskHeadingVisible": true,
+    "bodyTextLength": 326,
+    "screenshot": "mobile-risk-triage.png"
+  },
+  "routes": [
+    { "label": "总览", "headingVisible": true },
+    { "label": "运行记录", "headingVisible": true },
+    { "label": "证据检索", "headingVisible": true },
+    { "label": "审批中心", "headingVisible": true },
+    { "label": "策略中心", "headingVisible": true },
+    { "label": "质量中心", "headingVisible": true },
+    { "label": "风险处置", "headingVisible": true },
+    { "label": "连接器状态", "headingVisible": true },
+    { "label": "Ai_AutoSDLC 运行", "headingVisible": true }
+  ],
+  "console": {
+    "errors": 0,
+    "warnings": 0,
+    "notes": [
+      "Only Vue Devtools informational messages were observed after the compiler build fix."
+    ]
+  },
+  "pass": true
+}

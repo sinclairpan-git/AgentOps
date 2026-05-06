@@ -9,8 +9,11 @@ const repoRoot = resolve(root, "..", "..");
 const readText = (path) => readFileSync(resolve(root, path), "utf8");
 const readRepoText = (path) => readFileSync(resolve(repoRoot, path), "utf8");
 
+const { consoleData } = await import(`file://${resolve(root, "src/data/mockAgentOpsData.js")}`);
 const packageJson = JSON.parse(readText("package.json"));
 const packageLock = readText("package-lock.json");
+const indexSource = readText("index.html");
+const viteConfigSource = readText("vite.config.js");
 const providerSource = readText("src/provider/enterpriseVue2Provider.js");
 const mainSource = readText("src/main.js");
 const appShellSource = readText("src/components/AppShell.js");
@@ -58,6 +61,10 @@ assert.match(providerSource, /allowFullVueUse:\s*false/);
 assert.match(providerSource, /installedVersion:\s*"1\.27\.5"/);
 assert.doesNotMatch(providerSource, /Vue\.use\(\s*ErComponents\s*\)/);
 assert.doesNotMatch(mainSource, /Vue\.use\(\s*ErComponents\s*\)/);
+assert.match(mainSource, /import Vue from "vue"/);
+assert.match(viteConfigSource, /find:\s*\/\^vue\$\/,/);
+assert.match(viteConfigSource, /vue\/dist\/vue\.esm\.js/);
+assert.match(indexSource, /<link rel="icon" href="data:," \/>/);
 assert.doesNotMatch(packageLock, /registry\.npmjs\.org\/@sxf|registry\.npmjs\.org\/@uedc|@sxf%2f|@uedc%2f|code\.sangfor|mq\.code\.sangfor/);
 
 assert.match(techStack, /source:\s*project-vendor/);
@@ -90,6 +97,27 @@ assert.ok(
   mockDataSource.includes('verified_loaded: "unverified"'),
   "mock data must not present verified_loaded as active without machine-verifiable proof"
 );
+
+for (const sdlcRun of consoleData.sdlcRuns) {
+  const proofSource = String(sdlcRun.proof_source || "");
+  const capturedAt = String(sdlcRun.captured_at || "");
+  const proofPending = /待采集|待接入|CLI 预演|AGENTS\.md/.test(`${proofSource} ${capturedAt}`);
+
+  if (proofPending) {
+    assert.equal(
+      sdlcRun.verified_loaded,
+      "unverified",
+      `${sdlcRun.id} must stay unverified until machine-verifiable proof is captured`
+    );
+  }
+
+  if (sdlcRun.verified_loaded === "verified_loaded") {
+    assert.ok(
+      !proofPending && capturedAt && proofSource,
+      `${sdlcRun.id} verified_loaded requires non-pending proof source and captured_at`
+    );
+  }
+}
 
 for (const removedEnglishText of [
   "Governance Console",
