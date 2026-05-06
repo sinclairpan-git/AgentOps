@@ -8,6 +8,7 @@ verify semantics without requiring an HTTP server dependency.
 def create_app() -> dict[str, str]:
     return {
         "ingestion": "POST /v1/events",
+        "ingestion_compatibility_alias": "POST /v1/events/batch",
         "credentials": "/v1/bootstrap/credentials",
         "evidence": "/v1/runs/{run_id}/evidence-summary",
         "policy": "/v1/policy/decision",

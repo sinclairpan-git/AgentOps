@@ -357,6 +357,7 @@ def test_ao5_ct_008_api_assembly_truth_tracks_http_ingestion_route():
     app = create_app()
 
     assert app["ingestion"] == "POST /v1/events"
+    assert app["ingestion_compatibility_alias"] == "POST /v1/events/batch"
     assert app["console_snapshot"] == "/v1/console/snapshot"
 
 
@@ -460,3 +461,26 @@ def test_ao5_ct_012_http_routes_ignore_query_string():
     assert snapshot_response.status == 200
     assert snapshot["source_detail"]["mode"] == "repository_backed"
     assert snapshot["consoleData"]["runs"][0]["run_id"] == "run_1"
+
+
+def test_ao5_ct_013_events_batch_alias_stays_backward_compatible():
+    repository = InMemoryRepository()
+    server = ThreadingHTTPServer(("127.0.0.1", 0), create_http_handler(repository))
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        response, payload = _json_request(
+            server,
+            "POST",
+            "/v1/events/batch",
+            payload={"events": [base_event("stage_started")]},
+        )
+        _, snapshot = _json_response(server, "/v1/console/snapshot")
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+    assert response.status == 202
+    assert payload["accepted"] == ["evt_stage_started"]
+    assert snapshot["consoleData"]["summary"]["metrics"][0]["value"] == 1

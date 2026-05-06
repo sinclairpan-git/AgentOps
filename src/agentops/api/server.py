@@ -71,7 +71,7 @@ def create_http_handler(repository: InMemoryRepository | None = None) -> type[Ba
                 return
 
             request_path = self._request_path()
-            if request_path == "/v1/events":
+            if request_path in {"/v1/events", "/v1/events/batch"}:
                 payload = self._read_json()
                 if payload is None:
                     self._send_json(
