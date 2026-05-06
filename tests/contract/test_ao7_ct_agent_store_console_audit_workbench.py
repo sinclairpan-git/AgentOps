@@ -220,6 +220,48 @@ def test_ao7_ct_004c_store_summary_reuses_precomputed_agent_store_audit_context(
     assert discover_calls <= 2
 
 
+def test_ao7_ct_004d_audit_generation_failure_surfaces_degraded_record(monkeypatch):
+    repository = InMemoryRepository()
+    repository.write_event(base_event("stage_started"))
+
+    def failing_audit(*args, **kwargs):
+        raise RuntimeError("unexpected audit failure")
+
+    monkeypatch.setattr(console_snapshot_api, "build_run_audit", failing_audit)
+
+    agent_store = console_snapshot_api.build_console_snapshot(repository=repository)["consoleData"]["agentStore"]
+
+    assert agent_store["runAudits"][0]["run_id"] == "run_1"
+    assert agent_store["runAudits"][0]["registration_state"] == "degraded"
+    assert agent_store["runAudits"][0]["processing_error"] == "Agent Store 审计生成失败"
+    assert agent_store["storeSummaries"][0]["risk_state"] == "warning"
+    assert agent_store["storeSummaries"][0]["missing_evidence"] == ["agent_store_audit"]
+
+
+def test_ao7_ct_004e_summary_generation_failure_surfaces_degraded_summary(monkeypatch):
+    repository = InMemoryRepository()
+    sync_agent_store_metadata(
+        repository,
+        {
+            "agent_id": "agent.ai-sdlc",
+            "version": "1.0.0",
+            "skills": [{"skill_id": "refine"}],
+        },
+    )
+    repository.write_event(base_event("stage_started"))
+
+    def failing_summary(*args, **kwargs):
+        raise RuntimeError("unexpected summary failure")
+
+    monkeypatch.setattr(console_snapshot_api, "build_agent_store_echo_summary", failing_summary)
+
+    agent_store = console_snapshot_api.build_console_snapshot(repository=repository)["consoleData"]["agentStore"]
+
+    assert agent_store["runAudits"][0]["registration_state"] == "governed"
+    assert agent_store["storeSummaries"][0]["run_audit"]["registration_state"] == "degraded"
+    assert agent_store["storeSummaries"][0]["processing_error"] == "运行 run_1 的 Agent Store 回显摘要生成失败"
+
+
 def test_ao7_ct_005_registry_map_is_read_only_agent_store_metadata():
     repository = InMemoryRepository()
     sync_agent_store_metadata(

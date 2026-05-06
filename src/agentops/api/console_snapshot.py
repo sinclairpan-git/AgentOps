@@ -329,6 +329,9 @@ def _agent_store_workbench(repository: InMemoryRepository, events_by_run: dict[s
         try:
             audit = build_run_audit(repository, run_id, events=events, discovery_gaps=raw_gaps)
         except Exception:
+            audit = _agent_store_failed_audit(run_id, events)
+            audits.append(_agent_store_audit(audit))
+            summaries.append(_agent_store_summary(_agent_store_failed_summary(run_id, audit)))
             continue
         audits.append(_agent_store_audit(audit))
         try:
@@ -341,7 +344,7 @@ def _agent_store_workbench(repository: InMemoryRepository, events_by_run: dict[s
                 discovery_gaps=raw_gaps,
             )
         except Exception:
-            continue
+            summary = _agent_store_failed_summary(run_id, audit)
         summaries.append(_agent_store_summary(summary))
 
     return {
@@ -376,6 +379,77 @@ def _agent_store_evidence_summary(run_id: str, events: list[dict[str, Any]]) -> 
     }
 
 
+def _agent_store_failed_audit(run_id: str, events: list[dict[str, Any]]) -> dict[str, Any]:
+    first = events[0] if events else {}
+    agent_id = str(first.get("agent_id") or "unknown_agent")
+    version = str(first.get("agent_version") or first.get("version") or "unknown")
+    return {
+        "audit_id": f"audit_run_{_slug(run_id)}",
+        "run_id": run_id,
+        "agent_id": agent_id,
+        "version": version,
+        "registration_state": "degraded",
+        "event_count": len(events),
+        "raw_access_state": "summary_only",
+        "discovery_gap_ids": [],
+        "related_agent_versions": [_agent_version_label(event) for event in events] or [f"{agent_id}@{version}"],
+        "deep_links": {
+            "agent_id": agent_id,
+            "version": version,
+            "session_id": str(first.get("session_id") or f"sess_{run_id}"),
+            "run_id": run_id,
+            "installation_id": str(first.get("installation_id") or "unknown_installation"),
+            "trace_id": str(first.get("trace_id") or f"trace_{run_id}"),
+            "audit_id": f"audit_run_{_slug(run_id)}",
+            "return_url": f"/agent-store/agents/{agent_id}/runs/{run_id}",
+        },
+        "processing_error": "Agent Store 审计生成失败",
+    }
+
+
+def _agent_store_failed_summary(run_id: str, audit: dict[str, Any]) -> dict[str, Any]:
+    now = datetime.now(UTC)
+    return {
+        "agent_id": str(audit["agent_id"]),
+        "agent_version": str(audit["version"]),
+        "metadata_state": "unknown",
+        "registry_fact_owner": "Agent Store",
+        "risk_state": "warning",
+        "evidence_level": "pending",
+        "confidence": 0.5,
+        "missing_evidence": ["agent_store_audit"],
+        "policy_requirement": {
+            "required_by": "AgentOps",
+            "source": "runtime_policy",
+            "issuer": "AgentOps Policy Service",
+            "policy_owner": "安全/IAM",
+            "policy_version": "runtime-v2",
+            "can_ignore": False,
+            "affected_actions": ["运行审计", "高风险 Skill 调用"],
+        },
+        "discovery_gap_ids": [],
+        "run_audit": {
+            "audit_id": str(audit["audit_id"]),
+            "registration_state": "degraded",
+            "event_count": int(audit["event_count"]),
+        },
+        "calculated_at": now.isoformat(),
+        "valid_until": now.isoformat(),
+        "deep_links": dict(audit["deep_links"]),
+        "processing_error": f"运行 {run_id} 的 Agent Store 回显摘要生成失败",
+    }
+
+
+def _agent_version_label(event: dict[str, Any]) -> str:
+    agent_id = str(event.get("agent_id") or "unknown_agent")
+    version = str(event.get("agent_version") or event.get("version") or "unknown")
+    return f"{agent_id}@{version}"
+
+
+def _slug(value: str) -> str:
+    return "".join(ch if ch.isalnum() else "_" for ch in value).strip("_") or "unknown"
+
+
 def _agent_store_confidence(evidence_level: str) -> float:
     return {
         "L5": 1.0,
@@ -403,7 +477,7 @@ def _agent_store_gap(gap: dict[str, Any]) -> dict[str, Any]:
 
 
 def _agent_store_audit(audit: dict[str, Any]) -> dict[str, Any]:
-    return {
+    model = {
         "id": str(audit["audit_id"]),
         "audit_id": str(audit["audit_id"]),
         "run_id": str(audit["run_id"]),
@@ -416,10 +490,13 @@ def _agent_store_audit(audit: dict[str, Any]) -> dict[str, Any]:
         "related_agent_versions": [str(version) for version in audit["related_agent_versions"]],
         "deep_links": {str(key): str(value) for key, value in audit["deep_links"].items()},
     }
+    if audit.get("processing_error"):
+        model["processing_error"] = str(audit["processing_error"])
+    return model
 
 
 def _agent_store_summary(summary: dict[str, Any]) -> dict[str, Any]:
-    return {
+    model = {
         "id": f"{summary['agent_id']}@{summary['agent_version']}:{summary['run_audit']['audit_id']}",
         "agent_id": str(summary["agent_id"]),
         "agent_version": str(summary["agent_version"]),
@@ -447,6 +524,9 @@ def _agent_store_summary(summary: dict[str, Any]) -> dict[str, Any]:
         "calculated_at": str(summary["calculated_at"]),
         "valid_until": str(summary["valid_until"]),
     }
+    if summary.get("processing_error"):
+        model["processing_error"] = str(summary["processing_error"])
+    return model
 
 
 def _agent_store_registry_record(record: dict[str, Any]) -> dict[str, Any]:
