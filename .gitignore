@@ -8,5 +8,7 @@ __pycache__/
 node_modules/
 apps/agentops-console/dist/
 apps/agentops-console/vite-dev.*.log
+build/
+dist/
 ai-sdlc-offline-*.tar.gz
 ai-sdlc-offline-*/

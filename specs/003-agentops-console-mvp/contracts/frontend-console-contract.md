@@ -179,7 +179,7 @@ AgentOps Console 必须遵守 SDLC `016-frontend-enterprise-vue2-provider-baseli
 
 | matrix_id | viewport | 验收 |
 |---|---|---|
-| `desktop-1440` | 1440x1000 | 首页无空白、导航可切换、八页可达 |
+| `desktop-1440` | 1440x1000 | 首页无空白、导航可切换、九页可达，包含 Quality Center |
 | `mobile-390` | 390x844 | 导航可操作、关键按钮不遮挡、状态 badge 不溢出 |
 
 验收口径：
@@ -187,7 +187,20 @@ AgentOps Console 必须遵守 SDLC `016-frontend-enterprise-vue2-provider-baseli
 - 首屏必须是 AgentOps Console 产品界面，不是营销页。
 - 文字不得互相遮挡。
 - 页面主内容不得空白。
+- Quality Center 必须纳入桌面/移动导航与截图验收，且 `quality_drop`、browser gate、contract gap 状态可见。
 - Evidence、Policy、Approval、Adapter 四类安全红线必须可见。
 - 键盘 Tab 能到达主导航、筛选按钮和主要动作按钮。
 - 焦点态必须可见，文字与状态 badge 保持基础对比度。
 - 截图产物命名建议：`ao3-console-<matrix_id>-<page_id>.png`。
+
+## 6. 跨平台工程验收
+
+AgentOps Console 的三端兼容声明必须依赖目标平台 CI 证据：
+
+- GitHub Actions 必须覆盖 Windows、Linux、macOS。
+- 前端必须在三端执行 `npm ci --audit=false`、`npm test`、`npm run build`。
+- 后端必须在三端执行 `uv sync --locked`、`uv run ruff check src tests`、`uv run pytest tests -q`。
+- 后端必须在三端分别执行 `uv build --sdist --wheel --out-dir dist/python` 并上传独立 artifact。
+- 前端必须在三端分别上传 `apps/agentops-console/dist/**` 独立 artifact。
+- 本地 macOS 验证、Windows 验证或 Linux 验证都不能单独替代其他平台证据。
+- 企业私有依赖不得因外部 `npm audit` 默认泄露到公共服务。

@@ -1,0 +1,139 @@
+name: AgentOps Cross Platform
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - main
+      - "feature/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: agentops-cross-platform-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (${{ matrix.os }}, Python ${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
+        python-version:
+          - "3.11"
+          - "3.12"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Sync Python dependencies
+        run: uv sync --locked
+
+      - name: Ruff
+        run: uv run ruff check src tests
+
+      - name: Pytest
+        run: uv run pytest tests -q
+
+      - name: Build Python package
+        run: uv build --sdist --wheel --out-dir dist/python
+
+      - name: Upload Python package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: agentops-python-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: dist/python/*
+          if-no-files-found: error
+
+  frontend:
+    name: Frontend (${{ matrix.os }}, Node ${{ matrix.node-version }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
+        node-version:
+          - "22"
+          - "24"
+
+    defaults:
+      run:
+        working-directory: apps/agentops-console
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+          cache-dependency-path: apps/agentops-console/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci --audit=false
+
+      - name: Contract tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Upload console package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: agentops-console-${{ matrix.os }}-node${{ matrix.node-version }}
+          path: apps/agentops-console/dist/**
+          if-no-files-found: error
+
+  compatibility-result:
+    name: Compatibility Result
+    runs-on: ubuntu-latest
+    needs:
+      - backend
+      - frontend
+    if: always()
+
+    steps:
+      - name: Check matrix results
+        run: |
+          echo "backend: ${{ needs.backend.result }}"
+          echo "frontend: ${{ needs.frontend.result }}"
+
+          if [ "${{ needs.backend.result }}" != "success" ]; then
+            echo "Backend matrix did not succeed."
+            exit 1
+          fi
+
+          if [ "${{ needs.frontend.result }}" != "success" ]; then
+            echo "Frontend matrix did not succeed."
+            exit 1
+          fi
+
+          echo "AgentOps cross-platform test and package matrix succeeded."

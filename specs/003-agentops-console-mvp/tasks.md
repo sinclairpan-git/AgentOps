@@ -18,7 +18,7 @@ related_doc:
 Batch 1: frontend formal baseline and provider constraints
 Batch 2: Vue2 console scaffold and enterprise provider wrapper
 Batch 3: AgentOps core pages and safety states
-Batch 4: browser verification, adversarial review, and close
+Batch 4: browser verification, cross-platform engineering gates, adversarial review, and close
 ```
 
 ---
@@ -180,6 +180,22 @@ Batch 4: browser verification, adversarial review, and close
   2. `npm run build` 通过
   3. Python 现有 contract tests 不回归
 - **验证**：`npm test`、`npm run build`、`uv run pytest tests -q`
+
+### Task 4.1a 建立 Windows/Linux/macOS 工程兼容与云端打包门禁
+
+- **任务编号**：T41a
+- **优先级**：P0
+- **依赖**：T41
+- **文件**：`.github/workflows/agentops-cross-platform.yml`、`docs/engineering/cross-platform-compatibility.md`、`tests/unit/test_github_actions_contracts.py`
+- **可并行**：是
+- **验收标准**：
+  1. GitHub Actions 后端矩阵覆盖 `ubuntu-latest`、`macos-latest`、`windows-latest` 与 Python 3.11/3.12
+  2. GitHub Actions 前端矩阵覆盖 `ubuntu-latest`、`macos-latest`、`windows-latest` 与 Node 22/24
+  3. workflow 明确执行 `uv sync --locked`、`ruff`、`pytest`、`npm ci --audit=false`、`npm test`、`npm run build`
+  4. workflow 必须在每个 OS/Python runner 上传独立 Python package artifact
+  5. workflow 必须在每个 OS/Node runner 上传独立 Console package artifact
+  6. 工程文档明确目标平台证据不能被本机验证替代，且不默认外发私有依赖清单做 `npm audit`
+- **验证**：`uv run pytest tests/unit/test_github_actions_contracts.py -q`
 
 ### Task 4.2 完成浏览器与视觉验收
 

@@ -20,7 +20,7 @@ related_doc:
 **前端入口**：`apps/agentops-console/`。  
 **组件库策略**：本期实现项目内 `enterprise-vue2-provider` 白名单包装层，只暴露 Console MVP 用到的基础 UI 能力；不得默认全量注册公司组件库。  
 **数据来源**：阶段 3 使用 mock data adapter，字段对齐 001/002 Python view model 与 contract summary；后续 HTTP adapter 另起工作项。  
-**测试**：前端单元/静态约束、浏览器截图验证、现有 Python contract tests、AI-SDLC constraints。  
+**测试**：前端单元/静态约束、浏览器截图验证、现有 Python contract tests、AI-SDLC constraints、GitHub Actions 三端测试与打包矩阵。  
 **目标平台**：本地浏览器可运行的 AgentOps 管理控制台，后续可纳入 SDLC managed delivery/browser gate。  
 **约束**：unknown 不得显示 healthy；高风险未知不得显示 allow；Evidence 不泄露 raw_payload；adapter dry-run 不得标记 verified_loaded；移动端不得遮挡关键操作。
 
@@ -33,6 +33,7 @@ related_doc:
 | Prefer contract-level verification before closure | 先冻结 AO3-CT-001 到 AO3-CT-006，再实现页面与浏览器验证 |
 | Keep docs and code traceable | `tasks.md` 逐项绑定 docs、frontend files、验证命令和执行归档 |
 | Respect framework frontend provider truth | 对齐 `016`，企业组件库只能作为 Provider 能力来源，禁止全量 `Vue.use` 默认入口 |
+| Cross-platform claims require target evidence | 参考 Ai_AutoSDLC `181`，AgentOps 的 Windows/Linux/macOS 兼容性必须由 GitHub Actions 目标平台矩阵证明 |
 
 ## 项目结构
 
@@ -46,6 +47,10 @@ specs/003-agentops-console-mvp/
 ├── task-execution-log.md
 └── contracts/
     └── frontend-console-contract.md
+.github/workflows/
+└── agentops-cross-platform.yml
+docs/engineering/
+└── cross-platform-compatibility.md
 ```
 
 ### 源码结构
@@ -120,6 +125,13 @@ tests/frontend/
 **验证方式**：`npm test/build`、Playwright 或 browser gate、Python 回归、ruff、AI-SDLC close-check。  
 **回退方式**：修复 P0/P1 阻断后重新跑同一门禁。
 
+### Phase 3a：跨平台工程门禁
+
+**目标**：参考 Ai_AutoSDLC 的跨平台 release-gate 思路，为 AgentOps 建立 Windows/Linux/macOS 工程验证与云端分别打包矩阵。  
+**产物**：`.github/workflows/agentops-cross-platform.yml`、`docs/engineering/cross-platform-compatibility.md`、workflow contract tests。  
+**验证方式**：静态 workflow contract test + 本地 Python/Node 验证；目标平台测试和包产物证明以 GitHub Actions 运行结果为准。  
+**回退方式**：保留本地验证命令，但不得宣称三端兼容或云端包可用。
+
 ### Phase 4：对抗评审与 close
 
 **目标**：两个常驻对抗 agent 完成 UX 与 AI-Native/SDLC 审查，全部 P0/P1 清零后归档。  
@@ -168,6 +180,8 @@ tests/frontend/
 | Approval/Grant 状态不误导 | AO3-CT-005 | AO2 回归 |
 | dry-run 不等于 verified_loaded | AO3-CT-006 | AGENTS.md 对账 |
 | 移动端无遮挡 | Playwright/mobile screenshot | 人工视觉审查 |
+| Windows/Linux/macOS 兼容 | GitHub Actions matrix | workflow contract test |
+| 三端分别打包 | GitHub Actions package artifacts | artifact upload contract test |
 
 ## 开放问题
 
