@@ -160,6 +160,24 @@ assert.equal(
 assert.equal(
   validateSnapshot({
     ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      summary: {
+        ...consoleData.summary,
+        adapter: {
+          ...consoleData.summary.adapter,
+          status: "verified_loaded",
+          proof_source: "AGENTS.md",
+          captured_at: "待采集"
+        }
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
     consoleData: { ...consoleData, connectors: [{ id: "conn_bad", status: "surprise_green" }] }
   }),
   false

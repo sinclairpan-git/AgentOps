@@ -150,14 +150,22 @@ export function statesAreKnown(consoleData) {
 }
 
 export function verifiedLoadedProofIsSafe(consoleData) {
-  return (consoleData.sdlcRuns || []).every((sdlcRun) => {
-    if (sdlcRun.verified_loaded !== "verified_loaded") {
-      return true;
-    }
-    const proofText = `${sdlcRun.proof_source || ""} ${sdlcRun.captured_at || ""}`;
-    const proofPending = /待采集|待接入|CLI 预演|AGENTS\.md/.test(proofText);
-    return Boolean(sdlcRun.proof_source && sdlcRun.captured_at && !proofPending);
+  const adapterProofSafe = proofStateIsSafe({
+    verified_loaded: consoleData.summary?.adapter?.status,
+    proof_source: consoleData.summary?.adapter?.proof_source,
+    captured_at: consoleData.summary?.adapter?.captured_at
   });
+  const runProofsSafe = (consoleData.sdlcRuns || []).every(proofStateIsSafe);
+  return adapterProofSafe && runProofsSafe;
+}
+
+export function proofStateIsSafe(proofState) {
+  if (proofState.verified_loaded !== "verified_loaded") {
+    return true;
+  }
+  const proofText = `${proofState.proof_source || ""} ${proofState.captured_at || ""}`;
+  const proofPending = /待采集|待接入|CLI 预演|AGENTS\.md/.test(proofText);
+  return Boolean(proofState.proof_source && proofState.captured_at && !proofPending);
 }
 
 export async function loadAgentOpsSnapshot(fetchImpl = fetch, baseUrl = apiBaseUrl(), timeoutMs = SNAPSHOT_TIMEOUT_MS) {

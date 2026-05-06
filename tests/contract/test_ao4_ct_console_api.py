@@ -7,6 +7,7 @@ from threading import Thread
 
 import pytest
 
+from agentops import __version__
 from agentops.api.console_snapshot import build_console_snapshot
 from agentops.api.server import create_http_handler
 
@@ -71,7 +72,7 @@ def test_ao4_ct_002_health_snapshot_and_not_found_are_json(http_server):
     not_found_response, not_found = _json_response(http_server, "/missing")
 
     assert health_response.status == 200
-    assert health == {"service": "agentops-api", "status": "healthy", "version": "0.1.0", "snapshot_provider": "ready"}
+    assert health == {"service": "agentops-api", "status": "healthy", "version": __version__, "snapshot_provider": "ready"}
     assert snapshot_response.status == 200
     assert snapshot["schema_version"] == "agentops.console.snapshot.v1"
     assert not_found_response.status == 404
