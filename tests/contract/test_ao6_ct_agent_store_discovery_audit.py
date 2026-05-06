@@ -128,6 +128,35 @@ def test_ao6_ct_003a_metadata_refresh_removes_stale_skills():
     assert gaps[0]["skill_id"] == "refine"
 
 
+def test_ao6_ct_003b_metadata_refresh_accepts_null_skills():
+    repository = InMemoryRepository()
+    sync_agent_store_metadata(
+        repository,
+        {
+            "agent_id": "agent.ai-sdlc",
+            "version": "1.0.0",
+            "skills": [{"skill_id": "refine"}],
+        },
+    )
+    sync_agent_store_metadata(
+        repository,
+        {
+            "agent_id": "agent.ai-sdlc",
+            "version": "1.0.0",
+            "skills": None,
+        },
+    )
+    repository.write_event(base_event("stage_started"))
+
+    gaps = list_agent_store_discovery_gaps(repository)
+
+    assert repository.get_agent_store_metadata("agent.ai-sdlc", "1.0.0")["skills"] is None
+    assert repository.has_agent_store_skill("agent.ai-sdlc", "1.0.0", "refine") is False
+    assert len(gaps) == 1
+    assert gaps[0]["gap_type"] == "skill_unregistered"
+    assert gaps[0]["skill_id"] == "refine"
+
+
 def test_ao6_ct_004_run_audit_contains_deep_links_and_no_raw_payload():
     repository = InMemoryRepository()
     sync_agent_store_metadata(
