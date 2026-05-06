@@ -187,6 +187,35 @@ def test_ao6_ct_004_run_audit_contains_deep_links_and_no_raw_payload():
     assert "raw_payload" not in str(audit)
 
 
+def test_ao6_ct_004a_run_audit_marks_mixed_agent_run_as_suspected():
+    repository = InMemoryRepository()
+    sync_agent_store_metadata(
+        repository,
+        {
+            "agent_id": "agent.ai-sdlc",
+            "version": "1.0.0",
+            "skills": [{"skill_id": "refine"}],
+        },
+    )
+    repository.write_event(base_event("stage_started"))
+    repository.write_event(
+        base_event(
+            "stage_started",
+            event_id="evt_stage_started_v2",
+            idempotency_key="stage_started_v2:run_1",
+            sequence_no=2,
+            agent_version="2.0.0",
+        )
+    )
+
+    audit = get_run_audit(repository, "run_1")
+
+    assert audit["registration_state"] == "suspected"
+    assert audit["discovery_gap_ids"] == ["gap_agent_agent_ai_sdlc_2_0_0"]
+    assert audit["related_agent_versions"] == ["agent.ai-sdlc@1.0.0", "agent.ai-sdlc@2.0.0"]
+    assert "raw_payload" not in str(audit)
+
+
 def test_ao6_ct_005_agent_store_echo_summary_includes_policy_requirement_and_audit():
     repository = InMemoryRepository()
     sync_agent_store_metadata(

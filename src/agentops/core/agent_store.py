@@ -96,7 +96,7 @@ def build_run_audit(repository: InMemoryRepository, run_id: str) -> dict[str, An
     gaps = [
         gap
         for gap in discover_agent_store_gaps(repository)
-        if run_id in gap["affected_runs"] and gap["agent_id"] == agent_id and gap["version"] == version
+        if run_id in gap["affected_runs"]
     ]
     registration_state = "governed" if metadata and not gaps else "suspected"
 
@@ -110,6 +110,12 @@ def build_run_audit(repository: InMemoryRepository, run_id: str) -> dict[str, An
         "event_ids": [str(event["event_id"]) for event in events],
         "raw_access_state": "summary_only",
         "discovery_gap_ids": [gap["gap_id"] for gap in gaps],
+        "related_agent_versions": sorted(
+            {
+                f"{event.get('agent_id') or 'unknown_agent'}@{event.get('agent_version') or event.get('version') or 'unknown'}"
+                for event in events
+            }
+        ),
         "deep_links": {
             "agent_id": agent_id,
             "version": version,
