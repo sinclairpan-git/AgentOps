@@ -43,7 +43,8 @@ def build_console_snapshot(*, generated_at: str | None = None, repository: InMem
 
 def _console_data_from_repository(repository: InMemoryRepository) -> dict[str, Any]:
     events_by_run: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for event in repository.raw_events.values():
+    raw_events = repository.raw_event_records()
+    for event in raw_events:
         run_id = str(event.get("run_id") or _event_payload(event).get("run_id") or "unknown_run")
         events_by_run[run_id].append(event)
 
@@ -119,7 +120,7 @@ def _console_data_from_repository(repository: InMemoryRepository) -> dict[str, A
         )
 
     run_count = len(run_models)
-    approvals = [_approval_from_record(approval) for approval in repository.approvals.values()]
+    approvals = [_approval_from_record(approval) for approval in repository.approval_records()]
     approval_pending_count = sum(1 for approval in approvals if approval["status"] in {"pending", "escalated"})
     metrics = [
         {"label": "今日运行", "value": run_count, "status": "healthy" if run_count else "empty", "detail": f"{l5_count} 条 L5，{degraded_count} 条降级，{pending_count} 条待补偿"},
@@ -141,11 +142,11 @@ def _console_data_from_repository(repository: InMemoryRepository) -> dict[str, A
         "runs": run_models,
         "evidence": evidence_models,
         "approvals": approvals,
-        "policies": _policies_from_repository(repository),
+        "policies": _policies_from_grants(repository.grant_records()),
         "risks": risk_models,
         "quality": quality_models,
-        "connectors": _repository_connectors(repository),
-        "sdlcRuns": _repository_sdlc_runs(repository),
+        "connectors": _repository_connectors(repository, event_count=len(raw_events)),
+        "sdlcRuns": _repository_sdlc_runs(repository, event_count=len(raw_events)),
     }
 
 
@@ -235,41 +236,43 @@ def _approval_from_record(approval: dict[str, Any]) -> dict[str, str]:
     }
 
 
-def _policies_from_repository(repository: InMemoryRepository) -> list[dict[str, str]]:
-    if not repository.grants:
+def _policies_from_grants(grants: tuple[dict[str, Any], ...]) -> list[dict[str, str]]:
+    if not grants:
         return [
             _policy("pol_repository_default", "warn", "本地事实接入", "require_online", "runtime-v2", "无", "audit_repository_default")
         ]
     return [
         _policy(
-            str(grant_id),
+            str(grant.get("grant_id") or "grant_unknown"),
             "conditional_allow" if grant.get("status") == "active" else "block",
             str(grant.get("resource_scope") or "未声明动作"),
             "require_online",
             str(grant.get("policy_version") or "runtime-v2"),
             str(grant.get("expires_at") or "待确认"),
-            str(grant.get("audit_id") or f"audit_{grant_id}"),
+            str(grant.get("audit_id") or f"audit_{grant.get('grant_id') or 'grant_unknown'}"),
         )
-        for grant_id, grant in sorted(repository.grants.items())
+        for grant in sorted(grants, key=lambda item: str(item.get("grant_id") or "grant_unknown"))
     ]
 
 
-def _repository_connectors(repository: InMemoryRepository) -> list[dict[str, str]]:
+def _repository_connectors(repository: InMemoryRepository, *, event_count: int | None = None) -> list[dict[str, str]]:
     now = datetime.now(UTC).isoformat()
+    event_count = repository.raw_event_count() if event_count is None else event_count
     return [
         _connector("conn_ingestion", "事件接入", "healthy", now, "无", "req_conn_ingestion"),
-        _connector("conn_repository", "运行事实仓库", "healthy", now, f"{len(repository.raw_events)} 条事件", "req_conn_repository"),
+        _connector("conn_repository", "运行事实仓库", "healthy", now, f"{event_count} 条事件", "req_conn_repository"),
         _connector("conn_sdlc", "Ai_AutoSDLC", "materialized", now, "需要 verified_loaded 机器证明", "req_conn_sdlc"),
         _connector("conn_evidence", "证据存储", "healthy", now, "仅展示摘要", "req_conn_evidence"),
         _connector("conn_policy", "策略服务", "healthy", now, "本地内核策略摘要", "req_conn_policy"),
     ]
 
 
-def _repository_sdlc_runs(repository: InMemoryRepository) -> list[dict[str, str]]:
+def _repository_sdlc_runs(repository: InMemoryRepository, *, event_count: int | None = None) -> list[dict[str, str]]:
     now = datetime.now(UTC).isoformat()
+    event_count = repository.raw_event_count() if event_count is None else event_count
     return [
         _sdlc_run("sdlc_repository_snapshot", "console repository snapshot", "materialized", "dry_run_passed", "InMemoryRepository", now),
-        _sdlc_run("sdlc_repository_events", "ingestion event count", "materialized", "dry_run_passed", f"{len(repository.raw_events)} 条事件", now),
+        _sdlc_run("sdlc_repository_events", "ingestion event count", "materialized", "dry_run_passed", f"{event_count} 条事件", now),
     ]
 
 
