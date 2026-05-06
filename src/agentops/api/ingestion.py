@@ -15,6 +15,16 @@ def ingest_events_batch(events: list[dict[str, Any]], repository: InMemoryReposi
     rejected: list[dict] = []
 
     for event in events:
+        if not isinstance(event, dict):
+            rejected.append(
+                {
+                    "event_id": "unknown",
+                    "error_code": "EVENT_SCHEMA_INVALID",
+                    "retryable": False,
+                    "human_action_required": True,
+                }
+            )
+            continue
         try:
             validate_event_envelope(event)
             outcome = repository.write_event(event, evidence_mode=evidence_mode_for(event))

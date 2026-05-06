@@ -317,6 +317,32 @@ def test_ao5_ct_006_event_post_request_errors_are_json_and_cors_is_enforced():
     assert forbidden["error_code"] == "ORIGIN_FORBIDDEN"
 
 
+def test_ao5_ct_006_event_post_non_object_items_are_contract_safe_json():
+    repository = InMemoryRepository()
+    server = ThreadingHTTPServer(("127.0.0.1", 0), create_http_handler(repository))
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        response, payload = _json_request(server, "POST", "/v1/events", payload={"events": [42]})
+        _, snapshot = _json_response(server, "/v1/console/snapshot")
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+    assert response.status == 400
+    assert payload["accepted"] == []
+    assert payload["rejected"] == [
+        {
+            "event_id": "unknown",
+            "error_code": "EVENT_SCHEMA_INVALID",
+            "retryable": False,
+            "human_action_required": True,
+        }
+    ]
+    assert snapshot["consoleData"]["runs"] == []
+
+
 def test_ao5_ct_007_repository_backed_adapter_truth_stays_unverified():
     repository = InMemoryRepository()
     repository.write_event(base_event("stage_started"))
