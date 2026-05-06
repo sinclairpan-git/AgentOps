@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from threading import RLock
@@ -140,7 +141,7 @@ class InMemoryRepository:
             version_value = "unknown"
         version = str(version_value)
         record = {
-            **metadata,
+            **deepcopy(metadata),
             "agent_id": agent_id,
             "version": version,
             "synced_at": str(metadata.get("synced_at") or utc_now()),
@@ -150,7 +151,7 @@ class InMemoryRepository:
             skills = []
         with self._lock:
             agent_key = f"{agent_id}@{version}"
-            self.agent_store_agents[f"{agent_id}@{version}"] = dict(record)
+            self.agent_store_agents[f"{agent_id}@{version}"] = deepcopy(record)
             stale_skill_keys = [key for key in self.agent_store_skills if key.startswith(f"{agent_key}:")]
             for key in stale_skill_keys:
                 self.agent_store_skills.pop(key)
@@ -159,17 +160,17 @@ class InMemoryRepository:
                     skill_id = str(skill.get("skill_id") or skill.get("name") or "")
                     if skill_id:
                         self.agent_store_skills[f"{agent_id}@{version}:{skill_id}"] = {
-                            **skill,
+                            **deepcopy(skill),
                             "skill_id": skill_id,
                             "agent_id": agent_id,
                             "version": version,
                         }
-            return dict(record)
+            return deepcopy(record)
 
     def get_agent_store_metadata(self, agent_id: str, version: str) -> dict[str, Any] | None:
         with self._lock:
             record = self.agent_store_agents.get(f"{agent_id}@{version}")
-            return dict(record) if record else None
+            return deepcopy(record) if record else None
 
     def has_agent_store_skill(self, agent_id: str, version: str, skill_id: str) -> bool:
         with self._lock:
@@ -177,4 +178,4 @@ class InMemoryRepository:
 
     def agent_store_metadata_records(self) -> tuple[dict[str, Any], ...]:
         with self._lock:
-            return tuple(dict(record) for record in self.agent_store_agents.values())
+            return tuple(deepcopy(record) for record in self.agent_store_agents.values())

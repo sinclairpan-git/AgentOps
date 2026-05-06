@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from copy import deepcopy
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from agentops.core.errors import AgentOpsError
@@ -158,6 +159,8 @@ def build_agent_store_echo_summary(
     discovery_gaps = [gap for gap in discover_agent_store_gaps(repository) if run_id in gap["affected_runs"]]
     registered = metadata is not None and not discovery_gaps
     risk_state = "normal" if registered and evidence_summary.get("evidence_level") == "L5" else "warning"
+    calculated_at = datetime.now(UTC)
+    valid_until = calculated_at + timedelta(days=30)
 
     return {
         "schema_version": "agentops.agent_store.echo.v1",
@@ -178,8 +181,8 @@ def build_agent_store_echo_summary(
             "registration_state": run_audit["registration_state"],
             "event_count": run_audit["event_count"],
         },
-        "calculated_at": "2026-05-06T00:00:00Z",
-        "valid_until": "2026-06-05T00:00:00Z",
+        "calculated_at": _iso_utc(calculated_at),
+        "valid_until": _iso_utc(valid_until),
         "deep_links": run_audit["deep_links"],
     }
 
@@ -242,6 +245,10 @@ def _require(data: dict[str, Any], fields: set[str], error_code: str) -> None:
     missing = sorted(field for field in fields if field not in data or data[field] in (None, ""))
     if missing:
         raise AgentOpsError(error_code, f"Missing required fields: {', '.join(missing)}.")
+
+
+def _iso_utc(value: datetime) -> str:
+    return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
 def _slug(value: str) -> str:

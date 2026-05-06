@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
+
 import pytest
 
 from agentops.api.agent_store import get_run_audit, list_agent_store_discovery_gaps, sync_agent_store_metadata
@@ -188,6 +190,25 @@ def test_ao6_ct_003b_metadata_refresh_accepts_null_skills():
     assert gaps[0]["skill_id"] == "refine"
 
 
+def test_ao6_ct_003c_agent_store_metadata_reads_are_isolated_from_repository_state():
+    repository = InMemoryRepository()
+    sync_agent_store_metadata(
+        repository,
+        {
+            "agent_id": "agent.ai-sdlc",
+            "version": "1.0.0",
+            "skills": [{"skill_id": "refine"}],
+        },
+    )
+
+    metadata = repository.get_agent_store_metadata("agent.ai-sdlc", "1.0.0")
+    metadata["skills"][0]["skill_id"] = "polluted"
+    fresh_metadata = repository.get_agent_store_metadata("agent.ai-sdlc", "1.0.0")
+
+    assert fresh_metadata["skills"] == [{"skill_id": "refine"}]
+    assert repository.has_agent_store_skill("agent.ai-sdlc", "1.0.0", "refine") is True
+
+
 def test_ao6_ct_004_run_audit_contains_deep_links_and_no_raw_payload():
     repository = InMemoryRepository()
     sync_agent_store_metadata(
@@ -358,6 +379,28 @@ def test_ao6_ct_005c_agent_store_echo_summary_policy_requirement_is_isolated():
     fresh_summary = get_agent_store_summary("agent.ai-sdlc", "1.0.0", evidence_summary(), repository=repository)
 
     assert fresh_summary["policy_requirement"]["affected_actions"] == ["运行审计", "高风险 Skill 调用"]
+
+
+def test_ao6_ct_005d_agent_store_echo_summary_uses_runtime_validity_window():
+    repository = InMemoryRepository()
+    sync_agent_store_metadata(
+        repository,
+        {
+            "agent_id": "agent.ai-sdlc",
+            "version": "1.0.0",
+            "skills": [{"skill_id": "refine"}],
+        },
+    )
+    repository.write_event(base_event("stage_started"))
+    before = datetime.now(UTC) - timedelta(seconds=1)
+
+    summary = get_agent_store_summary("agent.ai-sdlc", "1.0.0", evidence_summary(), repository=repository)
+
+    after = datetime.now(UTC) + timedelta(seconds=1)
+    calculated_at = datetime.fromisoformat(summary["calculated_at"].replace("Z", "+00:00"))
+    valid_until = datetime.fromisoformat(summary["valid_until"].replace("Z", "+00:00"))
+    assert before <= calculated_at <= after
+    assert valid_until == calculated_at + timedelta(days=30)
 
 
 def test_ao6_ct_006_agent_store_echo_summary_rejects_unsupported_schema():
