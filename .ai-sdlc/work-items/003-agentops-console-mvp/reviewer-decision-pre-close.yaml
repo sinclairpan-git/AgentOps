@@ -1,0 +1,6 @@
+checkpoint: pre_close
+decision: approve
+target: dev_reviewed
+reason: AgentOps Console MVP Phase 3/4 browser gate、中文化、Vue compiler build 修复、release gate evidence 与工程门禁已通过对抗评审；uv run ai-sdlc run --dry-run 已在 close 阶段 PASS。剩余 uv run ai-sdlc verify constraints 命中 003-agentops-console-mvp feature-contract surface missing（draft_prd/final_prd、reviewer decision、backend delegation/fallback、release-gate evidence），该检查实际硬编码 Ai_AutoSDLC 003-cross-cutting authoring framework surfaces，不属于 AgentOps 产品实现缺口；本工作项不伪造 src/ai_sdlc 框架源码。
+next_action: 提交 003 close candidate，并使用路径版 uv run ai-sdlc workitem close-check --wi specs/003-agentops-console-mvp --json 复核；verify constraints 误报作为框架规则问题单独追踪。
+timestamp: '2026-05-06T04:58:00Z'
