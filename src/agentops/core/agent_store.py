@@ -23,7 +23,9 @@ DEFAULT_POLICY_REQUIREMENT = {
 def consume_agent_store_metadata(repository: InMemoryRepository, metadata: dict[str, Any]) -> dict[str, Any]:
     """Cache Agent Store metadata without becoming the registration source."""
 
-    _require(metadata, {"agent_id", "version"}, "AGENT_STORE_METADATA_INVALID")
+    _require(metadata, {"agent_id"}, "AGENT_STORE_METADATA_INVALID")
+    if metadata.get("version") in (None, "") and metadata.get("agent_version") in (None, ""):
+        raise AgentOpsError("AGENT_STORE_METADATA_INVALID", "Missing required fields: version.")
     record = repository.upsert_agent_store_metadata(metadata)
     return {
         "agent_id": record["agent_id"],

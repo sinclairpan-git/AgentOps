@@ -39,6 +39,23 @@ def test_ao6_ct_001_agent_store_metadata_is_consumed_not_owned():
     assert repository.has_agent_store_skill("agent.ai-sdlc", "1.0.0", "refine") is True
 
 
+def test_ao6_ct_001a_agent_store_metadata_accepts_agent_version_alias():
+    repository = InMemoryRepository()
+
+    result = sync_agent_store_metadata(
+        repository,
+        {
+            "agent_id": "agent.ai-sdlc",
+            "agent_version": "1.0.0",
+            "skills": [{"skill_id": "refine"}],
+        },
+    )
+
+    assert result["version"] == "1.0.0"
+    assert repository.get_agent_store_metadata("agent.ai-sdlc", "1.0.0")["agent_version"] == "1.0.0"
+    assert repository.has_agent_store_skill("agent.ai-sdlc", "1.0.0", "refine") is True
+
+
 def test_ao6_ct_002_unregistered_agent_is_discovered_without_raw_payload():
     repository = InMemoryRepository()
     repository.write_event(base_event("stage_started", agent_id="agent.unknown", agent_version="0.1.0"))
