@@ -10,11 +10,28 @@
     "test": "node tests/console-contract.test.mjs"
   },
   "dependencies": {
+    "@sxf/er-config": "file:../../vendor/enterprise-vue2/sxf-er-config-1.4.0.tgz",
     "@sxf/er-components": "file:../../vendor/enterprise-vue2/sxf-er-components-1.27.5.tgz",
+    "@sxf/er-feature": "file:../../vendor/enterprise-vue2/sxf-er-feature-0.1.0.tgz",
+    "@sxf/er-lib": "file:../../vendor/enterprise-vue2/sxf-er-lib-1.0.0.tgz",
+    "@sxf/er-style": "file:../../vendor/enterprise-vue2/sxf-er-style-1.2.1.tgz",
+    "@sxf/er-utils": "file:../../vendor/enterprise-vue2/sxf-er-utils-1.4.0.tgz",
+    "@sxf/er-validator": "file:../../vendor/enterprise-vue2/sxf-er-validator-1.2.0.tgz",
+    "@sxf/er-widget": "file:../../vendor/enterprise-vue2/sxf-er-widget-1.15.2.tgz",
+    "@sxf/intl": "file:../../vendor/enterprise-vue2/sxf-intl-2.5.3.tgz",
+    "@sxf/jquery": "file:../../vendor/enterprise-vue2/sxf-jquery-1.0.6.tgz",
     "@sxf/sf-theme": "file:../../vendor/enterprise-vue2/sxf-sf-theme-0.2.5.tgz",
-    "vue": "2.7.16"
+    "@sxf/vtv-icon": "file:../../vendor/enterprise-vue2/sxf-vtv-icon-1.0.272.tgz",
+    "@sxf/vue-intl": "file:../../vendor/enterprise-vue2/sxf-vue-intl-1.11.4.tgz",
+    "@uedc/sf-layout": "file:../../vendor/enterprise-vue2/uedc-sf-layout-1.15.0.tgz",
+    "jquery": "file:../../vendor/enterprise-vue2/sxf-jquery-1.0.6.tgz",
+    "lodash-es": "file:../../vendor/enterprise-vue2/lodash-es-4.18.1.tgz",
+    "v-viewer": "file:../../vendor/enterprise-vue2/v-viewer-1.7.4.tgz",
+    "viewerjs": "file:../../vendor/enterprise-vue2/viewerjs-1.11.7.tgz",
+    "vue": "file:../../vendor/enterprise-vue2/vue-2.7.16.tgz",
+    "vue-runtime-helpers": "file:../../vendor/enterprise-vue2/vue-runtime-helpers-1.1.2.tgz"
   },
   "devDependencies": {
-    "vite": "^5.4.11"
+    "vite": "file:../../vendor/enterprise-vue2/vite-5.4.21.tgz"
   }
 }
