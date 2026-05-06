@@ -6,7 +6,7 @@ from collections import defaultdict
 from datetime import UTC, datetime
 from typing import Any
 
-from agentops.core.agent_store import discover_agent_store_gaps
+from agentops.core.agent_store import build_agent_store_echo_summary, build_run_audit, discover_agent_store_gaps
 from agentops.core.l5_gate import evaluate_l5_gate
 from agentops.storage.repository import InMemoryRepository
 
@@ -20,6 +20,7 @@ ROUTES = [
     {"id": "policies", "label": "策略中心", "icon": "!"},
     {"id": "quality", "label": "质量中心", "icon": "质"},
     {"id": "risks", "label": "风险处置", "icon": "△"},
+    {"id": "agent-store-audit", "label": "Agent Store 审计", "icon": "AS"},
     {"id": "connectors", "label": "连接器状态", "icon": "∞"},
     {"id": "sdlc-runs", "label": "Ai_AutoSDLC 运行", "icon": "SD"},
 ]
@@ -127,9 +128,9 @@ def _console_data_from_repository(repository: InMemoryRepository) -> dict[str, A
                 "Agent Store",
                 str(gap["severity"]),
                 "degraded",
-                str(gap["owner_hint"]),
+                _localized_owner_hint(str(gap["owner_hint"])),
                 str(gap["primary_action"]),
-                "risks",
+                "agent-store-audit",
             )
         )
 
@@ -159,6 +160,7 @@ def _console_data_from_repository(repository: InMemoryRepository) -> dict[str, A
         "policies": _policies_from_grants(repository.grant_records()),
         "risks": risk_models,
         "quality": quality_models,
+        "agentStore": _agent_store_workbench(repository, events_by_run),
         "connectors": _repository_connectors(repository, event_count=len(raw_events)),
         "sdlcRuns": _repository_sdlc_runs(repository, event_count=len(raw_events)),
     }
@@ -312,6 +314,239 @@ def _repository_sdlc_runs(repository: InMemoryRepository, *, event_count: int | 
     ]
 
 
+def _agent_store_workbench(repository: InMemoryRepository, events_by_run: dict[str, list[dict[str, Any]]]) -> dict[str, Any]:
+    raw_gaps = discover_agent_store_gaps(repository)
+    gaps = [_agent_store_gap(gap) for gap in raw_gaps]
+    agent_store_events_by_run: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for events in events_by_run.values():
+        for event in events:
+            agent_store_events_by_run[_agent_store_run_id(event)].append(event)
+
+    audits = []
+    summaries = []
+    for run_id in sorted(agent_store_events_by_run):
+        events = sorted(agent_store_events_by_run[run_id], key=_event_sequence_no)
+        try:
+            audit = build_run_audit(repository, run_id, events=events, discovery_gaps=raw_gaps)
+        except Exception:
+            audit = _agent_store_failed_audit(run_id, events)
+            audits.append(_agent_store_audit(audit))
+            summaries.append(_agent_store_summary(_agent_store_failed_summary(run_id, audit)))
+            continue
+        audits.append(_agent_store_audit(audit))
+        try:
+            summary = build_agent_store_echo_summary(
+                repository,
+                str(audit["agent_id"]),
+                str(audit["version"]),
+                _agent_store_evidence_summary(run_id, events),
+                run_audit=audit,
+                discovery_gaps=raw_gaps,
+            )
+        except Exception:
+            summary = _agent_store_failed_summary(run_id, audit)
+        summaries.append(_agent_store_summary(summary))
+
+    return {
+        "discoveryGaps": gaps,
+        "runAudits": audits,
+        "storeSummaries": summaries,
+        "registryMap": [_agent_store_registry_record(record) for record in repository.agent_store_metadata_records()],
+    }
+
+
+def _agent_store_run_id(event: dict[str, Any]) -> str:
+    payload = _event_payload(event)
+    for candidate in (event.get("run_id"), payload.get("run_id")):
+        if candidate not in (None, ""):
+            return str(candidate)
+    return str(event.get("event_id") or "unknown_run")
+
+
+def _agent_store_evidence_summary(run_id: str, events: list[dict[str, Any]]) -> dict[str, Any]:
+    l5_input = _last_payload(events, "l5_eligibility_input")
+    evaluation = evaluate_l5_gate(
+        events,
+        governance_state=_governance_state(events),
+        outbox_status=str(l5_input.get("outbox_status", "delivered")),
+        policy_state_known=_strict_bool(l5_input.get("policy_state_known"), default=False),
+    )
+    return {
+        "run_id": run_id,
+        "evidence_level": str(evaluation["evidence_level"]),
+        "confidence": _agent_store_confidence(str(evaluation["evidence_level"])),
+        "missing_evidence": list(evaluation["missing_evidence"]),
+    }
+
+
+def _agent_store_failed_audit(run_id: str, events: list[dict[str, Any]]) -> dict[str, Any]:
+    first = events[0] if events else {}
+    agent_id = str(first.get("agent_id") or "unknown_agent")
+    version = str(first.get("agent_version") or first.get("version") or "unknown")
+    return {
+        "audit_id": f"audit_run_{_slug(run_id)}",
+        "run_id": run_id,
+        "agent_id": agent_id,
+        "version": version,
+        "registration_state": "degraded",
+        "event_count": len(events),
+        "raw_access_state": "summary_only",
+        "discovery_gap_ids": [],
+        "related_agent_versions": [_agent_version_label(event) for event in events] or [f"{agent_id}@{version}"],
+        "deep_links": {
+            "agent_id": agent_id,
+            "version": version,
+            "session_id": str(first.get("session_id") or f"sess_{run_id}"),
+            "run_id": run_id,
+            "installation_id": str(first.get("installation_id") or "unknown_installation"),
+            "trace_id": str(first.get("trace_id") or f"trace_{run_id}"),
+            "audit_id": f"audit_run_{_slug(run_id)}",
+            "return_url": f"/agent-store/agents/{agent_id}/runs/{run_id}",
+        },
+        "processing_error": "Agent Store 审计生成失败",
+    }
+
+
+def _agent_store_failed_summary(run_id: str, audit: dict[str, Any]) -> dict[str, Any]:
+    now = datetime.now(UTC)
+    return {
+        "agent_id": str(audit["agent_id"]),
+        "agent_version": str(audit["version"]),
+        "metadata_state": "unknown",
+        "registry_fact_owner": "Agent Store",
+        "risk_state": "warning",
+        "evidence_level": "pending",
+        "confidence": 0.5,
+        "missing_evidence": ["agent_store_audit"],
+        "policy_requirement": {
+            "required_by": "AgentOps",
+            "source": "runtime_policy",
+            "issuer": "AgentOps Policy Service",
+            "policy_owner": "安全/IAM",
+            "policy_version": "runtime-v2",
+            "can_ignore": False,
+            "affected_actions": ["运行审计", "高风险 Skill 调用"],
+        },
+        "discovery_gap_ids": [],
+        "run_audit": {
+            "audit_id": str(audit["audit_id"]),
+            "registration_state": "degraded",
+            "event_count": int(audit["event_count"]),
+        },
+        "calculated_at": now.isoformat(),
+        "valid_until": now.isoformat(),
+        "deep_links": dict(audit["deep_links"]),
+        "processing_error": f"运行 {run_id} 的 Agent Store 回显摘要生成失败",
+    }
+
+
+def _agent_version_label(event: dict[str, Any]) -> str:
+    agent_id = str(event.get("agent_id") or "unknown_agent")
+    version = str(event.get("agent_version") or event.get("version") or "unknown")
+    return f"{agent_id}@{version}"
+
+
+def _slug(value: str) -> str:
+    return "".join(ch if ch.isalnum() else "_" for ch in value).strip("_") or "unknown"
+
+
+def _agent_store_confidence(evidence_level: str) -> float:
+    return {
+        "L5": 1.0,
+        "L4": 0.8,
+        "L3": 0.6,
+        "pending": 0.5,
+    }.get(evidence_level, 0.4)
+
+
+def _agent_store_gap(gap: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": str(gap["gap_id"]),
+        "gap_id": str(gap["gap_id"]),
+        "gap_type": str(gap["gap_type"]),
+        "agent_id": str(gap["agent_id"]),
+        "version": str(gap["version"]),
+        "skill_id": str(gap["skill_id"]),
+        "state": str(gap["state"]),
+        "severity": str(gap["severity"]),
+        "affected_runs": [str(run_id) for run_id in gap["affected_runs"]],
+        "owner_hint": _localized_owner_hint(str(gap["owner_hint"])),
+        "primary_action": str(gap["primary_action"]),
+        "audit_id": str(gap["audit_id"]),
+    }
+
+
+def _agent_store_audit(audit: dict[str, Any]) -> dict[str, Any]:
+    model = {
+        "id": str(audit["audit_id"]),
+        "audit_id": str(audit["audit_id"]),
+        "run_id": str(audit["run_id"]),
+        "agent_id": str(audit["agent_id"]),
+        "version": str(audit["version"]),
+        "registration_state": str(audit["registration_state"]),
+        "event_count": int(audit["event_count"]),
+        "raw_access_state": str(audit["raw_access_state"]),
+        "discovery_gap_ids": [str(gap_id) for gap_id in audit["discovery_gap_ids"]],
+        "related_agent_versions": [str(version) for version in audit["related_agent_versions"]],
+        "deep_links": {str(key): str(value) for key, value in audit["deep_links"].items()},
+    }
+    if audit.get("processing_error"):
+        model["processing_error"] = str(audit["processing_error"])
+    return model
+
+
+def _agent_store_summary(summary: dict[str, Any]) -> dict[str, Any]:
+    model = {
+        "id": f"{summary['agent_id']}@{summary['agent_version']}:{summary['run_audit']['audit_id']}",
+        "agent_id": str(summary["agent_id"]),
+        "agent_version": str(summary["agent_version"]),
+        "metadata_state": str(summary["metadata_state"]),
+        "registry_fact_owner": str(summary["registry_fact_owner"]),
+        "risk_state": str(summary["risk_state"]),
+        "evidence_level": str(summary["evidence_level"]),
+        "confidence": float(summary["confidence"]),
+        "missing_evidence": [str(item) for item in summary["missing_evidence"]],
+        "policy_requirement": {
+            "required_by": str(summary["policy_requirement"]["required_by"]),
+            "source": str(summary["policy_requirement"]["source"]),
+            "issuer": str(summary["policy_requirement"]["issuer"]),
+            "policy_owner": str(summary["policy_requirement"]["policy_owner"]),
+            "policy_version": str(summary["policy_requirement"]["policy_version"]),
+            "can_ignore": bool(summary["policy_requirement"]["can_ignore"]),
+            "affected_actions": [str(action) for action in summary["policy_requirement"]["affected_actions"]],
+        },
+        "discovery_gap_ids": [str(gap_id) for gap_id in summary["discovery_gap_ids"]],
+        "run_audit": {
+            "audit_id": str(summary["run_audit"]["audit_id"]),
+            "registration_state": str(summary["run_audit"]["registration_state"]),
+            "event_count": int(summary["run_audit"]["event_count"]),
+        },
+        "calculated_at": str(summary["calculated_at"]),
+        "valid_until": str(summary["valid_until"]),
+    }
+    if summary.get("processing_error"):
+        model["processing_error"] = str(summary["processing_error"])
+    return model
+
+
+def _agent_store_registry_record(record: dict[str, Any]) -> dict[str, Any]:
+    skills = record.get("skills") or []
+    skill_count = len(skills) if isinstance(skills, list | tuple) else 0
+    return {
+        "id": f"{record['agent_id']}@{record['version']}",
+        "agent_id": str(record["agent_id"]),
+        "version": str(record["version"]),
+        "metadata_state": "consumed",
+        "fact_owner": "Agent Store",
+        "skill_count": skill_count,
+        "synced_at": str(record.get("synced_at") or "待同步"),
+    }
+
+
+def _localized_owner_hint(owner_hint: str) -> str:
+    return "Agent 负责人" if owner_hint == "Agent Owner" else owner_hint
+
+
 def _console_data() -> dict[str, Any]:
     return {
         "summary": {
@@ -385,6 +620,89 @@ def _console_data() -> dict[str, Any]:
             _quality("qs_003", "证据完整性", "redaction_failed", "91%", "ev_003 已保留哈希", "证据负责人", "修复脱敏"),
             _quality("qs_004", "策略可解释性", "unknown", "需证明", "策略要求摘要", "安全/IAM", "刷新 SLO"),
         ],
+        "agentStore": {
+            "discoveryGaps": [
+                {
+                    "id": "gap_agent_agent_store_0_1_0",
+                    "gap_id": "gap_agent_agent_store_0_1_0",
+                    "gap_type": "agent_unregistered",
+                    "agent_id": "agent.store",
+                    "version": "0.1.0",
+                    "skill_id": "",
+                    "state": "suspected",
+                    "severity": "高",
+                    "affected_runs": ["run_20260506_004"],
+                    "owner_hint": "Agent 负责人",
+                    "primary_action": "通知负责人补齐 Agent Store 注册事实",
+                    "audit_id": "audit_gap_agent_agent_store_0_1_0",
+                }
+            ],
+            "runAudits": [
+                {
+                    "id": "audit_run_run_20260506_004",
+                    "audit_id": "audit_run_run_20260506_004",
+                    "run_id": "run_20260506_004",
+                    "agent_id": "agent.store",
+                    "version": "0.1.0",
+                    "registration_state": "suspected",
+                    "event_count": 3,
+                    "raw_access_state": "summary_only",
+                    "discovery_gap_ids": ["gap_agent_agent_store_0_1_0"],
+                    "related_agent_versions": ["agent.store@0.1.0"],
+                    "deep_links": {
+                        "agent_id": "agent.store",
+                        "version": "0.1.0",
+                        "session_id": "sess_store_004",
+                        "run_id": "run_20260506_004",
+                        "installation_id": "inst_store",
+                        "trace_id": "trace_store_004",
+                        "audit_id": "audit_run_run_20260506_004",
+                        "return_url": "/agent-store/agents/agent.store/runs/run_20260506_004",
+                    },
+                }
+            ],
+            "storeSummaries": [
+                {
+                    "id": "agent.store@0.1.0:audit_run_run_20260506_004",
+                    "agent_id": "agent.store",
+                    "agent_version": "0.1.0",
+                    "metadata_state": "unregistered",
+                    "registry_fact_owner": "Agent Store",
+                    "risk_state": "warning",
+                    "evidence_level": "L3",
+                    "confidence": 0.6,
+                    "missing_evidence": ["l5_eligibility_input"],
+                    "policy_requirement": {
+                        "required_by": "AgentOps",
+                        "source": "runtime_policy",
+                        "issuer": "AgentOps Policy Service",
+                        "policy_owner": "安全/IAM",
+                        "policy_version": "runtime-v2",
+                        "can_ignore": False,
+                        "affected_actions": ["运行审计", "高风险 Skill 调用"],
+                    },
+                    "discovery_gap_ids": ["gap_agent_agent_store_0_1_0"],
+                    "run_audit": {
+                        "audit_id": "audit_run_run_20260506_004",
+                        "registration_state": "suspected",
+                        "event_count": 3,
+                    },
+                    "calculated_at": "2026-05-06T05:20:00Z",
+                    "valid_until": "2026-06-05T05:20:00Z",
+                }
+            ],
+            "registryMap": [
+                {
+                    "id": "agent.publisher@1.0.0",
+                    "agent_id": "agent.publisher",
+                    "version": "1.0.0",
+                    "metadata_state": "consumed",
+                    "fact_owner": "Agent Store",
+                    "skill_count": 2,
+                    "synced_at": "2026-05-06T05:18:00Z",
+                }
+            ],
+        },
         "connectors": [
             _connector("conn_agent_store", "Agent Store", "healthy", "2026-05-06 05:20", "无", "req_conn_agent_store"),
             _connector("conn_sdlc", "Ai_AutoSDLC", "materialized", "2026-05-06 05:20", "需要 verified_loaded 证明", "req_conn_sdlc"),

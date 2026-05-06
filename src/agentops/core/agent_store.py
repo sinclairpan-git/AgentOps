@@ -91,8 +91,17 @@ def discover_agent_store_gaps(repository: InMemoryRepository) -> list[dict[str, 
     return sorted(discovery.values(), key=lambda item: (item["gap_type"], item["agent_id"], item["skill_id"]))
 
 
-def build_run_audit(repository: InMemoryRepository, run_id: str) -> dict[str, Any]:
-    events = [event for event in repository.raw_event_records() if _event_run_id(event) == run_id]
+def build_run_audit(
+    repository: InMemoryRepository,
+    run_id: str,
+    *,
+    events: list[dict[str, Any]] | None = None,
+    discovery_gaps: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    if events is None:
+        events = [event for event in repository.raw_event_records() if _event_run_id(event) == run_id]
+    else:
+        events = [event for event in events if _event_run_id(event) == run_id]
     if not events:
         raise AgentOpsError("RUN_NOT_FOUND", "Run audit source events were not found.")
 
@@ -100,9 +109,10 @@ def build_run_audit(repository: InMemoryRepository, run_id: str) -> dict[str, An
     first = events[0]
     agent_id, version = _run_agent_identity(events)
     metadata = repository.get_agent_store_metadata(agent_id, version)
+    discovery_gaps = discovery_gaps if discovery_gaps is not None else discover_agent_store_gaps(repository)
     gaps = [
         gap
-        for gap in discover_agent_store_gaps(repository)
+        for gap in discovery_gaps
         if run_id in gap["affected_runs"]
     ]
     registration_state = "governed" if metadata and not gaps else "suspected"
@@ -143,20 +153,24 @@ def build_agent_store_echo_summary(
     evidence_summary: dict[str, Any],
     *,
     consumer_schema_version: str = "1.0",
+    run_audit: dict[str, Any] | None = None,
+    discovery_gaps: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     if not consumer_schema_version.startswith("1."):
         raise AgentOpsError("SUMMARY_SCHEMA_UNSUPPORTED", "Unsupported Agent Store summary schema.")
 
     metadata = repository.get_agent_store_metadata(agent_id, version)
     run_id = str(evidence_summary["run_id"])
-    run_audit = build_run_audit(repository, run_id)
+    if run_audit is None:
+        run_audit = build_run_audit(repository, run_id, discovery_gaps=discovery_gaps)
     if run_audit["agent_id"] != agent_id or run_audit["version"] != version:
         raise AgentOpsError(
             "STORE_SUMMARY_RUN_MISMATCH",
             "Run audit does not match the requested Agent Store summary target.",
         )
-    discovery_gaps = [gap for gap in discover_agent_store_gaps(repository) if run_id in gap["affected_runs"]]
-    registered = metadata is not None and not discovery_gaps
+    discovery_gaps = discovery_gaps if discovery_gaps is not None else discover_agent_store_gaps(repository)
+    run_gaps = [gap for gap in discovery_gaps if run_id in gap["affected_runs"]]
+    registered = metadata is not None and not run_gaps
     risk_state = "normal" if registered and evidence_summary.get("evidence_level") == "L5" else "warning"
     calculated_at = datetime.now(UTC)
     valid_until = calculated_at + timedelta(days=30)
@@ -174,7 +188,7 @@ def build_agent_store_echo_summary(
         "risk_state": risk_state,
         "approval_state": "none",
         "policy_requirement": deepcopy(DEFAULT_POLICY_REQUIREMENT),
-        "discovery_gap_ids": [gap["gap_id"] for gap in discovery_gaps],
+        "discovery_gap_ids": [gap["gap_id"] for gap in run_gaps],
         "run_audit": {
             "audit_id": run_audit["audit_id"],
             "registration_state": run_audit["registration_state"],
