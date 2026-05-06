@@ -8,7 +8,8 @@ export const AppShell = {
   props: {
     routes: { type: Array, required: true },
     activeRoute: { type: String, required: true },
-    summary: { type: Object, required: true }
+    summary: { type: Object, required: true },
+    sourceState: { type: Object, required: true }
   },
   data() {
     return {
@@ -64,6 +65,19 @@ export const AppShell = {
             <span class="proof-copy">{{ summary.adapter.copy }}</span>
           </div>
         </header>
+        <section class="source-banner" :class="'source-banner--' + sourceState.status">
+          <status-badge :status="sourceState.status" />
+          <div>
+            <strong>{{ sourceState.label }}</strong>
+            <p>{{ sourceState.copy }}</p>
+            <div class="source-actions">
+              <small>{{ sourceState.request_id }}</small>
+              <button class="ent-button ent-button--secondary source-action" type="button" @click="$emit('refresh-snapshot')">
+                {{ sourceState.primary_action }}
+              </button>
+            </div>
+          </div>
+        </section>
         <section class="content-region">
           <slot />
         </section>

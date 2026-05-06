@@ -1,5 +1,5 @@
 import { AppShell } from "./components/AppShell.js";
-import { consoleData, routes } from "./data/mockAgentOpsData.js";
+import { initialSnapshot, loadAgentOpsSnapshot } from "./data/agentOpsApiClient.js";
 import { OverviewView } from "./views/OverviewView.js";
 import { RunsView } from "./views/RunsView.js";
 import { EvidenceExplorerView } from "./views/EvidenceExplorerView.js";
@@ -28,20 +28,33 @@ export default {
     AppShell
   },
   data() {
+    const snapshot = initialSnapshot();
     return {
       activeRoute: "overview",
-      routes,
-      consoleData
+      routes: snapshot.routes,
+      consoleData: snapshot.consoleData,
+      sourceState: snapshot.sourceState
     };
+  },
+  async mounted() {
+    await this.refreshSnapshot();
+  },
+  methods: {
+    async refreshSnapshot() {
+      const loading = initialSnapshot();
+      this.sourceState = loading.sourceState;
+      const snapshot = await loadAgentOpsSnapshot();
+      this.routes = snapshot.routes;
+      this.consoleData = snapshot.consoleData;
+      this.sourceState = snapshot.sourceState;
+    },
+    navigate(routeId) {
+      this.activeRoute = routeId;
+    }
   },
   computed: {
     activeView() {
       return views[this.activeRoute] || OverviewView;
-    }
-  },
-  methods: {
-    navigate(routeId) {
-      this.activeRoute = routeId;
     }
   },
   template: `
@@ -49,7 +62,9 @@ export default {
       :routes="routes"
       :active-route="activeRoute"
       :summary="consoleData.summary"
+      :source-state="sourceState"
       @navigate="navigate"
+      @refresh-snapshot="refreshSnapshot"
     >
       <component
         :is="activeView"

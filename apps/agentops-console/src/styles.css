@@ -156,6 +156,47 @@ button {
   padding: 28px;
 }
 
+.source-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 18px 28px 0;
+  border: 1px solid #dbe3ef;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 12px 14px;
+}
+
+.source-banner strong {
+  display: block;
+  margin-bottom: 3px;
+}
+
+.source-banner p,
+.source-banner small {
+  margin: 0;
+  color: #5c6b80;
+  font-size: 13px;
+}
+
+.source-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.source-action {
+  min-height: 30px;
+  padding: 5px 10px;
+}
+
+.source-banner--degraded {
+  border-color: #f3d38a;
+  background: #fffaf0;
+}
+
 .page-heading {
   display: flex;
   align-items: flex-end;
@@ -403,6 +444,10 @@ dd {
 
   .content-region {
     padding: 18px;
+  }
+
+  .source-banner {
+    margin: 14px 18px 0;
   }
 
   .page-heading h3 {
