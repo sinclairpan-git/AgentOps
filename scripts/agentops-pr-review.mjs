@@ -469,6 +469,107 @@ function checkConnectorWorkbenchTestsAndContracts() {
   }
 }
 
+function checkSdlcRunWorkbenchBackend() {
+  const path = "src/agentops/api/console_snapshot.py";
+  if (!requireFile(path, "P1", "缺少后端 Ai_AutoSDLC 运行工作台", "PR 涉及 015 Ai_AutoSDLC Runs，但后端 snapshot 文件不存在，Console 无法形成可验证数据域。")) {
+    return;
+  }
+  const text = readText(path);
+  const required = [
+    "def _sdlc_run_workbench",
+    "\"reporter\": [_sdlc_reporter_item",
+    "\"outbox\": [_sdlc_outbox_item",
+    "\"eligibility\": [_sdlc_eligibility_item",
+    "Reporter active 必须有 machine-verifiable proof",
+    "Outbox delivered",
+    "不构成 verified_loaded",
+    "failed_conditions"
+  ];
+  for (const needle of required) {
+    if (!text.includes(needle)) {
+      addFinding("P1", path, "_sdlc_run_workbench", "Ai_AutoSDLC 运行工作台后端契约不完整", `后端 snapshot 必须包含 ${needle}，否则 Reporter、Outbox 或 L5 条件无法被审计。`);
+    }
+  }
+  for (const forbidden of ["raw_payload", "download_url", "raw_url", "raw_access_url", "original_url", "pull_request_body"]) {
+    if (text.includes(`"${forbidden}"`) || text.includes(`'${forbidden}'`)) {
+      addFinding("P0", path, forbidden, "后端 Ai_AutoSDLC 工作台暴露红线字段", `后端工作台不得生成 ${forbidden} 字段，只能展示运行证明摘要和审计引用。`);
+    }
+  }
+}
+
+function checkSdlcRunWorkbenchFrontendValidator() {
+  const path = "apps/agentops-console/src/data/agentOpsApiClient.js";
+  if (!requireFile(path, "P1", "缺少前端快照校验器", "PR 涉及 015 Ai_AutoSDLC Runs，但前端 validator 不存在，无法阻断危险快照。")) {
+    return;
+  }
+  const text = readText(path);
+  const required = [
+    "sdlcRunWorkbenchIsComplete",
+    "legacySdlcRunWorkbench",
+    "sdlcWorkbenchRowsMatchRuns",
+    "sdlcReporterMatchesRun",
+    "sdlcOutboxMatchesRun",
+    "sdlcEligibilityMatchesRun",
+    "sdlcDryRunState",
+    "Reporter active",
+    "Outbox delivered",
+    "governance_loaded",
+    "failed_conditions",
+    "sdlcProofVerified",
+    "verified_loaded"
+  ];
+  for (const needle of required) {
+    if (!text.includes(needle)) {
+      addFinding("P1", path, "sdlcRunWorkbenchIsComplete", "Ai_AutoSDLC 运行工作台状态绑定不完整", `前端 validator 必须包含 ${needle}，否则 materialized/unverified 可能被伪装成治理已激活。`);
+    }
+  }
+}
+
+function checkSdlcRunWorkbenchUi() {
+  const path = "apps/agentops-console/src/views/SdlcRunsView.js";
+  if (!requireFile(path, "P2", "缺少 Ai_AutoSDLC Runs 页面", "Ai_AutoSDLC 运行页面不存在，用户无法区分 dry-run、Reporter、Outbox 和 L5 条件。")) {
+    return;
+  }
+  const text = readText(path);
+  for (const needle of ["Reporter 与凭证", "Outbox 投递", "L5 条件", "运行证明工作台", "不执行 Outbox Replay", "verified_loaded"]) {
+    if (!text.includes(needle)) {
+      addFinding("P2", path, "Ai_AutoSDLC 运行", "Ai_AutoSDLC 中文工作台信号不足", `页面必须展示“${needle}”，让大陆用户明确运行证明、投递、L5 条件和只读边界。`);
+    }
+  }
+}
+
+function checkSdlcRunWorkbenchTestsAndContracts() {
+  const contractTest = "tests/contract/test_ao15_ct_console_sdlc_run_workbench.py";
+  const frontendTest = "apps/agentops-console/tests/console-contract.test.mjs";
+  const specContract = "specs/015-console-sdlc-run-workbench/contracts/sdlc-run-workbench-contract.md";
+  for (const path of [contractTest, frontendTest, specContract]) {
+    requireFile(path, "P1", "缺少 015 契约或测试产物", `${path} 是 Ai_AutoSDLC Run Workbench 云端 review 的必要证据。`);
+  }
+  if (fileExists(frontendTest)) {
+    const text = readText(frontendTest);
+    for (const needle of [
+      "legacyV1SnapshotWithoutSdlcRunWorkbench",
+      "legacyUnsafeSdlcRunSnapshot",
+      "sdlcSummarySpoofedVerifiedLoaded",
+      "sdlcDryRunStateSpoofedPassed",
+      "sdlcReporterProofSourceSpoofed",
+      "sdlcRunWorkbench: null",
+      "proof_state: \"verified_loaded\"",
+      "保持治理加载证明",
+      "reporter_status: \"active\"",
+      "outbox_status: \"healthy\"",
+      "evidence_level: \"L5\"",
+      "raw_access_url",
+      "Reporter active",
+      "Outbox Replay"
+    ]) {
+      if (!text.includes(needle)) {
+        addFinding("P1", frontendTest, "validateSnapshot", "Ai_AutoSDLC 工作台前端负例覆盖不足", `console-contract.test.mjs 必须覆盖 ${needle}，否则伪治理激活或伪 L5 风险不会被云端 review 捕获。`);
+      }
+    }
+  }
+}
+
 function stripSafeNegations(value) {
   return value
     .replace(/不自动批准/g, "")
@@ -539,8 +640,9 @@ function buildMarkdown(paths) {
     "- 状态绑定红线：`permission_denied` 和 `redaction_failed` 不能被篡改为 active/approved 授权态。",
     "- 审批 Grant 红线：`pending`、`escalated`、`revoked` 不得被篡改为有效 Grant 或已授权态。",
     "- 连接器健康红线：`materialized/unverified` 不得被当作 `verified_loaded`，降级连接器不得提升为健康态，DLQ/Outbox Replay 不得在 Console 执行。",
+    "- Ai_AutoSDLC 红线：Reporter active、Outbox delivered 和 L5 healthy 必须由 verified_loaded 机器证明支撑。",
     "- 生命周期红线：不得自动批准、自动写回、自动下架、自动发布或自动合并。",
-    "- 前端体验红线：大陆用户界面以中文为主，Evidence Vault、人工审批工作台与连接器健康工作台必须展示申请、授权、审计轨迹、DLQ、回放和只读边界。",
+    "- 前端体验红线：大陆用户界面以中文为主，Evidence Vault、人工审批工作台、连接器健康工作台与 Ai_AutoSDLC 运行工作台必须展示申请、授权、审计轨迹、DLQ、回放和只读边界。",
     ""
   ];
 
@@ -620,6 +722,10 @@ async function main() {
   checkConnectorWorkbenchFrontendValidator();
   checkConnectorWorkbenchUi();
   checkConnectorWorkbenchTestsAndContracts();
+  checkSdlcRunWorkbenchBackend();
+  checkSdlcRunWorkbenchFrontendValidator();
+  checkSdlcRunWorkbenchUi();
+  checkSdlcRunWorkbenchTestsAndContracts();
   checkUnsafeLifecycleText(paths);
   checkWorkflowItself(paths);
 

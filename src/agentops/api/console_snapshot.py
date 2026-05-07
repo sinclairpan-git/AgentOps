@@ -174,6 +174,7 @@ def _with_workbenches(console_data: dict[str, Any]) -> dict[str, Any]:
         "evidenceVault": _evidence_vault_workbench(console_data),
         "approvalWorkbench": _approval_workbench(console_data),
         "connectorWorkbench": _connector_workbench(console_data),
+        "sdlcRunWorkbench": _sdlc_run_workbench(console_data),
         "actionWorkbench": _action_workbench(console_data),
     }
     return {
@@ -194,6 +195,107 @@ def _evidence_vault_workbench(console_data: dict[str, Any]) -> dict[str, Any]:
             "脱敏失败时只保留哈希和告警，不生成下载链接。",
             "本阶段只读展示申请与授权状态，不自动批准、不自动写回。",
         ],
+    }
+
+
+def _sdlc_run_workbench(console_data: dict[str, Any]) -> dict[str, Any]:
+    sdlc_runs = list(console_data.get("sdlcRuns", []))
+    verified_count = sum(1 for item in sdlc_runs if _sdlc_proof_verified(item))
+    pending_count = len(sdlc_runs) - verified_count
+    status = "verified_loaded" if sdlc_runs and verified_count == len(sdlc_runs) else "materialized"
+    return {
+        "summary": {
+            "id": "sdlc_run_summary",
+            "adapter_status": str(console_data.get("summary", {}).get("adapter", {}).get("status", "materialized")),
+            "proof_state": "verified_loaded" if status == "verified_loaded" else "unverified",
+            "dry_run_state": _sdlc_dry_run_state(sdlc_runs),
+            "reporter_ready": verified_count,
+            "pending_proofs": pending_count,
+            "primary_action": "保持治理加载证明" if status == "verified_loaded" else "补齐 verified_loaded 机器证明",
+            "safety_note": "CLI dry-run、AGENTS.md 或本地仓库事实不构成 verified_loaded 治理激活证明。",
+        },
+        "reporter": [_sdlc_reporter_item(item) for item in sdlc_runs],
+        "outbox": [_sdlc_outbox_item(item) for item in sdlc_runs],
+        "eligibility": [_sdlc_eligibility_item(item) for item in sdlc_runs],
+        "guardrails": [
+            "Reporter active 必须有 machine-verifiable proof，不得由 dry-run 或 AGENTS.md 推导。",
+            "Outbox delivered 只表示投递状态，不在 Console 执行 Outbox Replay 或事件重放。",
+            "materialized/unverified 只能说明配置已生成或 CLI 预演成功，不构成 verified_loaded 治理激活证明。",
+            "L5 条件缺失必须展示 failed_conditions 和下一步动作，不得显示为 healthy。",
+            "Ai_AutoSDLC 运行工作台不得展示原始载荷、下载链接、PR 原文、diff、patch 或外部 URL。",
+        ],
+    }
+
+
+def _sdlc_dry_run_state(items: list[dict[str, Any]]) -> str:
+    if not items:
+        return "empty"
+    return "dry_run_passed" if all(item.get("dry_run_status") == "dry_run_passed" for item in items) else "pending"
+
+
+def _sdlc_proof_verified(item: dict[str, Any]) -> bool:
+    proof_text = f"{item.get('proof_source', '')} {item.get('captured_at', '')}"
+    pending = any(marker in proof_text for marker in ("待采集", "待接入", "CLI 预演", "AGENTS.md"))
+    return item.get("verified_loaded") == "verified_loaded" and bool(item.get("proof_source")) and bool(item.get("captured_at")) and not pending
+
+
+def _sdlc_run_ref(item: dict[str, Any]) -> str:
+    return str(item.get("run_id") or item.get("id") or "unknown_sdlc_run")
+
+
+def _sdlc_reporter_item(item: dict[str, Any]) -> dict[str, Any]:
+    verified = _sdlc_proof_verified(item)
+    run_ref = _sdlc_run_ref(item)
+    adapter_status = str(item.get("adapter_status", "materialized"))
+    return {
+        "id": f"sdlc_reporter_{_slug(run_ref)}",
+        "run_id": run_ref,
+        "command": str(item.get("command", "Ai_AutoSDLC run")),
+        "reporter_status": "active" if verified else "materialized",
+        "integration_mode": "enterprise_managed",
+        "credential_status": "active" if verified else "unverified",
+        "source_signed": "active" if verified else "unverified",
+        "identity_confidence": "verified_loaded" if verified else "unverified",
+        "governance_state": adapter_status,
+        "proof_source": str(item.get("proof_source", "")),
+        "primary_action": "保持 Reporter 心跳" if verified else "补齐治理加载证明",
+        "safety_note": "只读 Reporter 摘要，不签发凭证、不绑定设备、不执行企业激活。",
+    }
+
+
+def _sdlc_outbox_item(item: dict[str, Any]) -> dict[str, Any]:
+    verified = _sdlc_proof_verified(item)
+    run_ref = _sdlc_run_ref(item)
+    return {
+        "id": f"sdlc_outbox_{_slug(run_ref)}",
+        "run_id": run_ref,
+        "outbox_status": "healthy" if verified else "pending",
+        "sequence_state": "healthy" if verified else "pending",
+        "pending_events": "0" if verified else "待验证",
+        "oldest_pending_age": "0 分钟" if verified else "待采集",
+        "replay_boundary": "只读摘要，不在 Console 执行 Outbox Replay 或事件重放。",
+        "evidence_impact": "可进入 L5 复核" if verified else "pending L5 verification，不提升证据等级。",
+        "audit_id": f"audit_sdlc_{_slug(run_ref)}",
+        "safety_note": "Outbox Replay 必须由后端审批流程执行，本页不提供重放按钮。",
+    }
+
+
+def _sdlc_eligibility_item(item: dict[str, Any]) -> dict[str, Any]:
+    verified = _sdlc_proof_verified(item)
+    run_ref = _sdlc_run_ref(item)
+    failed_conditions = "无" if verified else "governance_loaded,source_signed,outbox_delivered"
+    return {
+        "id": f"sdlc_eligibility_{_slug(run_ref)}",
+        "run_id": run_ref,
+        "evidence_level": "L5" if verified else "pending",
+        "l5_result": "healthy" if verified else "pending",
+        "failed_conditions": failed_conditions,
+        "policy_state_known": "allow" if verified else "unknown",
+        "governance_loaded": "verified_loaded" if verified else "unverified",
+        "verification_fresh": "healthy" if verified else "pending",
+        "outbox_delivered": "healthy" if verified else "pending",
+        "next_action": "保持证据链" if verified else "补齐 verified_loaded、签名来源和 Outbox delivered 证明",
+        "safety_note": "Eligibility 仅解释 L5 条件，不覆盖 AgentOps 后端最终等级判定。",
     }
 
 

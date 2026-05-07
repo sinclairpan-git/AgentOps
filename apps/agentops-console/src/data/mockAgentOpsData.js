@@ -131,6 +131,98 @@ export const consoleData = {
 
 const slug = (value) => String(value).replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "unknown";
 
+const sdlcProofVerified = (item) => {
+  const proofText = `${item.proof_source || ""} ${item.captured_at || ""}`;
+  const proofPending = /待采集|待接入|CLI 预演|AGENTS\.md/.test(proofText);
+  return item.verified_loaded === "verified_loaded" && item.proof_source && item.captured_at && !proofPending;
+};
+
+const sdlcRunRef = (item) => item.run_id || item.id || "unknown_sdlc_run";
+
+const sdlcDryRunState = (items) => {
+  if (!items.length) {
+    return "empty";
+  }
+  return items.every((item) => item.dry_run_status === "dry_run_passed") ? "dry_run_passed" : "pending";
+};
+
+const sdlcReporterItem = (item) => {
+  const verified = sdlcProofVerified(item);
+  const runId = sdlcRunRef(item);
+  return {
+    id: `sdlc_reporter_${slug(runId)}`,
+    run_id: runId,
+    command: item.command,
+    reporter_status: verified ? "active" : "materialized",
+    integration_mode: "enterprise_managed",
+    credential_status: verified ? "active" : "unverified",
+    source_signed: verified ? "active" : "unverified",
+    identity_confidence: verified ? "verified_loaded" : "unverified",
+    governance_state: item.adapter_status,
+    proof_source: item.proof_source,
+    primary_action: verified ? "保持 Reporter 心跳" : "补齐治理加载证明",
+    safety_note: "只读 Reporter 摘要，不签发凭证、不绑定设备、不执行企业激活。"
+  };
+};
+
+const sdlcOutboxItem = (item) => {
+  const verified = sdlcProofVerified(item);
+  const runId = sdlcRunRef(item);
+  return {
+    id: `sdlc_outbox_${slug(runId)}`,
+    run_id: runId,
+    outbox_status: verified ? "healthy" : "pending",
+    sequence_state: verified ? "healthy" : "pending",
+    pending_events: verified ? "0" : "待验证",
+    oldest_pending_age: verified ? "0 分钟" : "待采集",
+    replay_boundary: "只读摘要，不在 Console 执行 Outbox Replay 或事件重放。",
+    evidence_impact: verified ? "可进入 L5 复核" : "pending L5 verification，不提升证据等级。",
+    audit_id: `audit_sdlc_${slug(runId)}`,
+    safety_note: "Outbox Replay 必须由后端审批流程执行，本页不提供重放按钮。"
+  };
+};
+
+const sdlcEligibilityItem = (item) => {
+  const verified = sdlcProofVerified(item);
+  const runId = sdlcRunRef(item);
+  return {
+    id: `sdlc_eligibility_${slug(runId)}`,
+    run_id: runId,
+    evidence_level: verified ? "L5" : "pending",
+    l5_result: verified ? "healthy" : "pending",
+    failed_conditions: verified ? "无" : "governance_loaded,source_signed,outbox_delivered",
+    policy_state_known: verified ? "allow" : "unknown",
+    governance_loaded: verified ? "verified_loaded" : "unverified",
+    verification_fresh: verified ? "healthy" : "pending",
+    outbox_delivered: verified ? "healthy" : "pending",
+    next_action: verified ? "保持证据链" : "补齐 verified_loaded、签名来源和 Outbox delivered 证明",
+    safety_note: "Eligibility 仅解释 L5 条件，不覆盖 AgentOps 后端最终等级判定。"
+  };
+};
+
+consoleData.sdlcRunWorkbench = {
+  summary: {
+    id: "sdlc_run_summary",
+    adapter_status: consoleData.summary.adapter.status,
+    proof_state: "unverified",
+    dry_run_state: sdlcDryRunState(consoleData.sdlcRuns),
+    reporter_ready: 0,
+    pending_proofs: consoleData.sdlcRuns.length,
+    primary_action: "补齐 verified_loaded 机器证明",
+    safety_note: "CLI dry-run、AGENTS.md 或本地仓库事实不构成 verified_loaded 治理激活证明。"
+  },
+  reporter: consoleData.sdlcRuns.map((item) => sdlcReporterItem(item)),
+  outbox: consoleData.sdlcRuns.map((item) => sdlcOutboxItem(item)),
+  eligibility: consoleData.sdlcRuns.map((item) => sdlcEligibilityItem(item)),
+  guardrails: [
+    "Reporter active 必须有 machine-verifiable proof，不得由 dry-run 或 AGENTS.md 推导。",
+    "Outbox delivered 只表示投递状态，不在 Console 执行 Outbox Replay 或事件重放。",
+    "materialized/unverified 只能说明配置已生成或 CLI 预演成功，不构成 verified_loaded 治理激活证明。",
+    "L5 条件缺失必须展示 failed_conditions 和下一步动作，不得显示为 healthy。",
+    "Ai_AutoSDLC 运行工作台不得展示原始载荷、下载链接、PR 原文、diff、patch 或外部 URL。"
+  ]
+};
+
 const echoTargets = (actionId) => {
   if (actionId.startsWith("action_gap_")) {
     return ["Agent Store 审计", "风险处置", "通知中心"];
