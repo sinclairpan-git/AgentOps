@@ -1,0 +1,10 @@
+schema_version: frontend-generation-governance/v1
+owner: AgentOps
+generation_rules:
+  - Console 文案面向中国大陆用户，除固定名词和契约字段外使用中文。
+  - 页面只能展示只读复核和联调摘要，不执行生产写操作。
+  - 前端不得展示原始载荷、下载链接、PR 原文、token 值或私钥。
+  - materialized/unverified 不得展示为 verified_loaded。
+verification:
+  command: npm test
+  working_directory: apps/agentops-console

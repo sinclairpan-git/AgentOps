@@ -1,12 +1,12 @@
 pipeline_started_at: '2026-05-04T06:14:47+00:00'
-pipeline_last_updated: '2026-05-07T15:01:03+00:00'
+pipeline_last_updated: '2026-05-07T15:23:33+00:00'
 current_stage: close
 feature:
-  id: 018-agent-store-credential-status-query
-  spec_dir: specs/018-agent-store-credential-status-query
-  design_branch: design/018-agent-store-credential-status-query-docs
-  feature_branch: feature/018-agent-store-credential-status-query-dev
-  current_branch: codex/018-agent-store-credential-status-query
+  id: 019-console-credential-handoff-workbench
+  spec_dir: specs/019-console-credential-handoff-workbench
+  design_branch: design/019-console-credential-handoff-workbench-docs
+  feature_branch: feature/019-console-credential-handoff-workbench-dev
+  current_branch: codex/019-console-credential-handoff-workbench
   docs_baseline_ref: ''
   docs_baseline_at: ''
 multi_agent:
@@ -16,33 +16,33 @@ multi_agent:
 prd_source: /Users/sinclairpan/project/AI-Native底座开发文档/AgentOps_项目_PRD.md
 completed_stages:
 - stage: init
-  completed_at: '2026-05-07T15:01:03+00:00'
+  completed_at: '2026-05-07T15:23:33+00:00'
   artifacts: []
 - stage: refine
-  completed_at: '2026-05-07T15:01:03+00:00'
+  completed_at: '2026-05-07T15:23:33+00:00'
   artifacts:
   - spec.md
 - stage: design
-  completed_at: '2026-05-07T15:01:03+00:00'
+  completed_at: '2026-05-07T15:23:33+00:00'
   artifacts:
   - plan.md
 - stage: decompose
-  completed_at: '2026-05-07T15:01:03+00:00'
+  completed_at: '2026-05-07T15:23:33+00:00'
   artifacts:
   - tasks.md
 - stage: verify
-  completed_at: '2026-05-07T15:01:03+00:00'
+  completed_at: '2026-05-07T15:23:33+00:00'
   artifacts:
   - task-execution-log.md
   - tasks.md
 - stage: execute
-  completed_at: '2026-05-07T15:01:03+00:00'
+  completed_at: '2026-05-07T15:23:33+00:00'
   artifacts:
   - development-summary.md
   - task-execution-log.md
 execute_progress: null
 ai_decisions_count: 0
 execution_mode: auto
-linked_wi_id: 018-agent-store-credential-status-query
+linked_wi_id: 019-console-credential-handoff-workbench
 linked_plan_uri: specs/012-console-evidence-vault-workbench/plan.md
 last_synced_at: '2026-05-07T04:33:49+00:00'

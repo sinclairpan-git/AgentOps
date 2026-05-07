@@ -8,6 +8,7 @@ import { PolicyCenterView } from "./views/PolicyCenterView.js";
 import { QualityCenterView } from "./views/QualityCenterView.js";
 import { RiskTriageView } from "./views/RiskTriageView.js";
 import { AgentStoreAuditView } from "./views/AgentStoreAuditView.js";
+import { CredentialHandoffView } from "./views/CredentialHandoffView.js";
 import { ConnectorStatusView } from "./views/ConnectorStatusView.js";
 import { SdlcRunsView } from "./views/SdlcRunsView.js";
 
@@ -20,6 +21,7 @@ const views = {
   quality: QualityCenterView,
   risks: RiskTriageView,
   "agent-store-audit": AgentStoreAuditView,
+  "credential-handoff": CredentialHandoffView,
   connectors: ConnectorStatusView,
   "sdlc-runs": SdlcRunsView
 };

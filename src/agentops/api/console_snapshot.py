@@ -6,11 +6,14 @@ from collections import defaultdict
 from datetime import UTC, datetime
 from typing import Any
 
+from agentops.api.credentials import CREDENTIAL_STATUS_SCHEMA_VERSION, get_credential_status
 from agentops.core.agent_store import build_agent_store_echo_summary, build_run_audit, discover_agent_store_gaps
+from agentops.core.errors import AgentOpsError
 from agentops.core.l5_gate import evaluate_l5_gate
 from agentops.storage.repository import InMemoryRepository
 
 SCHEMA_VERSION = "agentops.console.snapshot.v1"
+CONSOLE_CREDENTIAL_STATUS_SCHEMA_VERSION = "agentops_credential_status.v1"
 
 ROUTES = [
     {"id": "overview", "label": "总览", "icon": "⌂"},
@@ -21,6 +24,7 @@ ROUTES = [
     {"id": "quality", "label": "质量中心", "icon": "质"},
     {"id": "risks", "label": "风险处置", "icon": "△"},
     {"id": "agent-store-audit", "label": "Agent Store 审计", "icon": "AS"},
+    {"id": "credential-handoff", "label": "凭证联调", "icon": "凭"},
     {"id": "connectors", "label": "连接器状态", "icon": "∞"},
     {"id": "sdlc-runs", "label": "Ai_AutoSDLC 运行", "icon": "SD"},
 ]
@@ -162,6 +166,7 @@ def _console_data_from_repository(repository: InMemoryRepository) -> dict[str, A
         "risks": risk_models,
         "quality": quality_models,
         "agentStore": _agent_store_workbench(repository, events_by_run),
+        "credentialHandoff": _credential_handoff_workbench(repository),
         "connectors": _repository_connectors(repository, event_count=len(raw_events)),
         "sdlcRuns": _repository_sdlc_runs(repository, event_count=len(raw_events)),
     }
@@ -1643,6 +1648,82 @@ def _repository_sdlc_runs(repository: InMemoryRepository, *, event_count: int | 
     ]
 
 
+def _credential_handoff_workbench(repository: InMemoryRepository) -> dict[str, Any]:
+    rows = [_credential_handoff_row(repository, record) for record in repository.credential_bootstrap_records()]
+    issued_count = sum(1 for row in rows if row["bootstrap_status"] == "credential_issued")
+    verified_count = sum(1 for row in rows if row["bootstrap_status"] == "signature_verified")
+    return {
+        "summary": {
+            "id": "credential_handoff_summary",
+            "schema_version": CONSOLE_CREDENTIAL_STATUS_SCHEMA_VERSION,
+            "bootstrap_count": len(rows),
+            "credential_issued": issued_count,
+            "signature_verified": verified_count,
+            "agentops_fact_owner": "agentops",
+            "agent_store_boundary": "display_only_no_active_inference",
+            "verified_loaded": "not_asserted",
+            "l5_status": "not_asserted",
+            "primary_action": "等待签名测试事件" if issued_count and not verified_count else "展示 AgentOps 回显结果",
+            "safety_note": "凭证联调只展示 AgentOps 事实回显，不把 credential 或签名测试事件提升为 verified_loaded 或 L5。",
+        },
+        "sessions": rows,
+        "guardrails": [
+            "Agent Store 只能消费 bootstrap_status、next_action、installation_id 和 device_id 等回显字段。",
+            "Agent Store 不得本地推导 active，不得签发 ReporterCredential、IngestionToken 或 DeviceKey。",
+            "signature_verified 只表示签名测试事件通过，不构成 verified_loaded 或 L5。",
+            "控制台不展示 token 值、私钥、原始载荷、下载链接、PR 原文或外部 URL。",
+        ],
+    }
+
+
+def _credential_handoff_row(repository: InMemoryRepository, record: dict[str, Any]) -> dict[str, Any]:
+    session = dict(record["bootstrap_session"])
+    bootstrap_id = str(session["bootstrap_id"])
+    try:
+        status = get_credential_status(repository, bootstrap_id)
+    except AgentOpsError:
+        status = {
+            "schema_version": CREDENTIAL_STATUS_SCHEMA_VERSION,
+            "bootstrap_id": bootstrap_id,
+            "bootstrap_status": str(session.get("bootstrap_status") or session.get("status") or "pending"),
+            "credential_status": "pending",
+            "credential_id": "待签发",
+            "token_id": "待签发",
+            "device_key_id": "待签发",
+            "installation_id": str(session.get("installation_id") or "待确认"),
+            "device_id": str(session.get("device_id") or "待确认"),
+            "expires_at": str(session.get("expires_at") or "待确认"),
+            "next_action": "issue_credential",
+            "signature_test_event_id": None,
+            "agentops_fact_owner": "agentops",
+            "agent_store_consumer_boundary": "display_only_no_active_inference",
+            "verified_loaded": "not_asserted",
+            "l5_status": "not_asserted",
+        }
+    return {
+        "id": f"credential_handoff_{_slug(bootstrap_id)}",
+        "schema_version": str(status["schema_version"]),
+        "bootstrap_id": bootstrap_id,
+        "bootstrap_status": str(status["bootstrap_status"]),
+        "credential_status": str(status["credential_status"]),
+        "credential_id": str(status["credential_id"]),
+        "token_id": "已隐藏",
+        "device_key_id": str(status["device_key_id"]),
+        "installation_id": str(status["installation_id"]),
+        "device_id": str(status["device_id"]),
+        "expires_at": str(status["expires_at"]),
+        "next_action": str(status["next_action"]),
+        "signature_test_event_id": str(status.get("signature_test_event_id") or "待接收"),
+        "agentops_fact_owner": str(status["agentops_fact_owner"]),
+        "agent_store_consumer_boundary": str(status["agent_store_consumer_boundary"]),
+        "allowed_actions": "display_status,show_next_action",
+        "forbidden_actions": "infer_active,issue_credential,issue_ingestion_token,issue_device_key",
+        "verified_loaded": str(status["verified_loaded"]),
+        "l5_status": str(status["l5_status"]),
+        "display_scope": "只读回显，不包含 token 值、token_id 明文、私钥或原始载荷。",
+    }
+
+
 def _agent_store_workbench(repository: InMemoryRepository, events_by_run: dict[str, list[dict[str, Any]]]) -> dict[str, Any]:
     raw_gaps = discover_agent_store_gaps(repository)
     gaps = [_agent_store_gap(gap) for gap in raw_gaps]
@@ -2046,6 +2127,73 @@ def _console_data() -> dict[str, Any]:
                     "skill_count": 2,
                     "synced_at": "2026-05-06T05:18:00Z",
                 }
+            ],
+        },
+        "credentialHandoff": {
+            "summary": {
+                "id": "credential_handoff_summary",
+                "schema_version": CREDENTIAL_STATUS_SCHEMA_VERSION,
+                "bootstrap_count": 2,
+                "credential_issued": 1,
+                "signature_verified": 1,
+                "agentops_fact_owner": "agentops",
+                "agent_store_boundary": "display_only_no_active_inference",
+                "verified_loaded": "not_asserted",
+                "l5_status": "not_asserted",
+                "primary_action": "展示 AgentOps 回显结果",
+                "safety_note": "凭证联调只展示 AgentOps 事实回显，不把 credential 或签名测试事件提升为 verified_loaded 或 L5。",
+            },
+            "sessions": [
+                {
+                    "id": "credential_handoff_boot_inst_fixture",
+                    "schema_version": CREDENTIAL_STATUS_SCHEMA_VERSION,
+                    "bootstrap_id": "boot-inst-fixture",
+                    "bootstrap_status": "credential_issued",
+                    "credential_status": "active",
+                    "credential_id": "cred-inst-fixture",
+                    "token_id": "已隐藏",
+                    "device_key_id": "store-device-key-1",
+                    "installation_id": "inst-fixture",
+                    "device_id": "device-fixture",
+                    "expires_at": "2026-05-07T15:00:00Z",
+                    "next_action": "send_signature_test_event",
+                    "signature_test_event_id": "待接收",
+                    "agentops_fact_owner": "agentops",
+                    "agent_store_consumer_boundary": "display_only_no_active_inference",
+                    "allowed_actions": "display_status,show_next_action",
+                    "forbidden_actions": "infer_active,issue_credential,issue_ingestion_token,issue_device_key",
+                    "verified_loaded": "not_asserted",
+                    "l5_status": "not_asserted",
+                    "display_scope": "只读回显，不包含 token 值、token_id 明文、私钥或原始载荷。",
+                },
+                {
+                    "id": "credential_handoff_boot_inst_verified",
+                    "schema_version": CREDENTIAL_STATUS_SCHEMA_VERSION,
+                    "bootstrap_id": "boot-inst-verified",
+                    "bootstrap_status": "signature_verified",
+                    "credential_status": "active",
+                    "credential_id": "cred-inst-verified",
+                    "token_id": "已隐藏",
+                    "device_key_id": "store-device-key-2",
+                    "installation_id": "inst-verified",
+                    "device_id": "device-verified",
+                    "expires_at": "2026-05-07T15:00:00Z",
+                    "next_action": "display_activation_result",
+                    "signature_test_event_id": "evt_signature_test_verified",
+                    "agentops_fact_owner": "agentops",
+                    "agent_store_consumer_boundary": "display_only_no_active_inference",
+                    "allowed_actions": "display_status,show_next_action",
+                    "forbidden_actions": "infer_active,issue_credential,issue_ingestion_token,issue_device_key",
+                    "verified_loaded": "not_asserted",
+                    "l5_status": "not_asserted",
+                    "display_scope": "只读回显，不包含 token 值、token_id 明文、私钥或原始载荷。",
+                },
+            ],
+            "guardrails": [
+                "Agent Store 只能消费 bootstrap_status、next_action、installation_id 和 device_id 等回显字段。",
+                "Agent Store 不得本地推导 active，不得签发 ReporterCredential、IngestionToken 或 DeviceKey。",
+                "signature_verified 只表示签名测试事件通过，不构成 verified_loaded 或 L5。",
+                "控制台不展示 token 值、私钥、原始载荷、下载链接、PR 原文或外部 URL。",
             ],
         },
         "connectors": [

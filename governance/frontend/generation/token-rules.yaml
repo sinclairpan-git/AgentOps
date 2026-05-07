@@ -1,0 +1,16 @@
+schema_version: frontend-token-rules/v1
+forbidden_tokens:
+  - raw_payload
+  - raw_url
+  - download_url
+  - token_value
+  - private_key
+  - pull_request_body
+allowed_fixed_terms:
+  - AgentOps
+  - Agent Store
+  - Ai_AutoSDLC
+  - Evidence Vault
+  - verified_loaded
+  - signature_verified
+  - active

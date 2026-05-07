@@ -1,0 +1,11 @@
+schema_version: frontend-report-types/v1
+reports:
+  - id: frontend_contract_observations
+    required: true
+    description: 前端契约观测结果。
+  - id: frontend_contract_drift
+    required: true
+    description: 前端契约漂移诊断。
+  - id: compatibility_gate_result
+    required: true
+    description: 多平台兼容性门禁结果。

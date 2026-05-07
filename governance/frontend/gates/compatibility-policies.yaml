@@ -1,0 +1,11 @@
+schema_version: frontend-compatibility-policies/v1
+platforms:
+  - macos-latest
+  - ubuntu-latest
+  - windows-latest
+node_versions:
+  - 22
+  - 24
+required_checks:
+  - Frontend
+  - Compatibility Gate Result

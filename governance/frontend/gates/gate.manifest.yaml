@@ -1,0 +1,8 @@
+schema_version: frontend-gate-manifest/v1
+owner: AgentOps
+artifacts:
+  - gate-matrix.yaml
+  - compatibility-policies.yaml
+  - policy.yaml
+verification:
+  static_contract_test: apps/agentops-console/tests/console-contract.test.mjs

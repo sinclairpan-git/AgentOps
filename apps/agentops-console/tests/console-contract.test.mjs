@@ -31,6 +31,7 @@ const viewSources = [
   "src/views/QualityCenterView.js",
   "src/views/RiskTriageView.js",
   "src/views/AgentStoreAuditView.js",
+  "src/views/CredentialHandoffView.js",
   "src/views/ConnectorStatusView.js",
   "src/views/SdlcRunsView.js"
 ].map(readText).join("\n");
@@ -76,6 +77,7 @@ assert.match(apiClientSource, /\/v1\/console\/snapshot/);
 assert.match(appSource, /loadAgentOpsSnapshot/);
 assert.match(appSource, /refreshSnapshot/);
 assert.match(appSource, /AgentStoreAuditView/);
+assert.match(appSource, /CredentialHandoffView/);
 assert.match(appShellSource, /sourceState/);
 assert.match(appShellSource, /refresh-snapshot/);
 assert.match(appShellSource, /else\s*\{\s*this\.\$emit\("close-action-detail"\);\s*\}/);
@@ -131,6 +133,12 @@ for (const expectedChineseText of [
   "质量中心",
   "风险处置",
   "Agent Store 审计",
+  "凭证联调",
+  "凭证状态回显",
+  "签名测试通过",
+  "Agent Store 只消费展示字段",
+  "不得本地推导 active",
+  "不构成 verified_loaded 或 L5",
   "发现队列",
   "负责人",
   "影响运行",
@@ -177,6 +185,7 @@ const validApiSnapshot = {
     { id: "quality", label: "质量中心", icon: "质" },
     { id: "risks", label: "风险处置", icon: "△" },
     { id: "agent-store-audit", label: "Agent Store 审计", icon: "AS" },
+    { id: "credential-handoff", label: "凭证联调", icon: "凭" },
     { id: "connectors", label: "连接器状态", icon: "∞" },
     { id: "sdlc-runs", label: "Ai_AutoSDLC 运行", icon: "SD" }
   ] : [],
@@ -553,6 +562,36 @@ assert.equal(
   validateSnapshot({
     ...validApiSnapshot,
     consoleData: sdlcSummarySpoofedVerifiedLoaded
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      credentialHandoff: {
+        ...consoleData.credentialHandoff,
+        sessions: consoleData.credentialHandoff.sessions.map((item) =>
+          item.bootstrap_id === "boot-inst-fixture" ? { ...item, token_id: "token-inst-fixture" } : item
+        )
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      credentialHandoff: {
+        ...consoleData.credentialHandoff,
+        sessions: consoleData.credentialHandoff.sessions.map((item) =>
+          item.bootstrap_id === "boot-inst-fixture" ? { ...item, signature: "sig-fixture" } : item
+        )
+      }
+    }
   }),
   false
 );

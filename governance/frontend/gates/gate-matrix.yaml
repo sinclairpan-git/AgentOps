@@ -1,0 +1,11 @@
+schema_version: frontend-gate-matrix/v1
+gates:
+  - id: zh_cn_copy
+    description: 大陆用户界面中文优先。
+    command: npm test
+  - id: sensitive_material_redline
+    description: 阻断原始载荷、下载链接、token 值和私钥。
+    command: npm test
+  - id: readonly_boundary
+    description: 阻断自动生命周期动作和未证明激活。
+    command: npm test

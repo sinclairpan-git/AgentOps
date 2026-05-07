@@ -1,0 +1,15 @@
+schema_version: frontend-page-recipe/v1
+page_id: credential-status-query
+recipe_id: agentops-credential-status-v1
+steps:
+  - id: validate-status-contract
+    description: 校验 AgentOps 后端凭证状态查询契约。
+    expected:
+      - 返回 agentops_credential_status.v1。
+      - bootstrap_status 和 next_action 来自 AgentOps 事实。
+      - verified_loaded 和 l5_status 保持 not_asserted。
+  - id: validate-store-boundary
+    description: 校验 Agent Store 消费边界。
+    expected:
+      - Agent Store 只能展示状态和下一步动作。
+      - Agent Store 不得本地推导 active 或签发凭证。

@@ -1,0 +1,10 @@
+schema_version: frontend-page-implementation/v1
+page_id: evidence-vault-workbench
+feature_id: 012-console-evidence-vault-workbench
+source_files:
+  - apps/agentops-console/src/views/EvidenceExplorerView.js
+  - apps/agentops-console/src/data/agentOpsApiClient.js
+  - apps/agentops-console/src/data/mockAgentOpsData.js
+test_files:
+  - apps/agentops-console/tests/console-contract.test.mjs
+  - tests/contract/test_ao12_ct_console_evidence_vault_workbench.py

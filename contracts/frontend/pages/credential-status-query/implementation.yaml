@@ -1,0 +1,9 @@
+schema_version: frontend-page-implementation/v1
+page_id: credential-status-query
+feature_id: 018-agent-store-credential-status-query
+source_files:
+  - src/agentops/api/credentials.py
+  - src/agentops/api/server.py
+  - specs/001-agentops-trusted-loop/contracts/agentops-api.openapi.yaml
+test_files:
+  - tests/contract/test_ao18_ct_agent_store_credential_status.py

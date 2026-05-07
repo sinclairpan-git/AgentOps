@@ -1,10 +1,15 @@
 schema_version: frontend-page-contract/v1
-page_id: evidence
+page_id: evidence-vault-workbench
 feature_id: 012-console-evidence-vault-workbench
 title: 证据检索与 Evidence Vault
 locale: zh-CN
 routes:
   - evidence
+implementation:
+  source_files:
+    - apps/agentops-console/src/views/EvidenceExplorerView.js
+    - apps/agentops-console/src/data/agentOpsApiClient.js
+    - apps/agentops-console/src/data/mockAgentOpsData.js
 required_text:
   - 原文访问申请
   - 限时授权

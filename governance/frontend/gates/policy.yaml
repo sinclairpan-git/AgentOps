@@ -1,0 +1,16 @@
+schema_version: frontend-gate-policy/v1
+owner: AgentOps
+policy:
+  language: zh-CN-first
+  forbidden_material:
+    - raw_payload
+    - download_url
+    - raw_url
+    - token_value
+    - private_key
+  required_boundaries:
+    - readonly_console
+    - no_automatic_lifecycle_action
+    - no_verified_loaded_without_machine_proof
+evidence:
+  contract_test: apps/agentops-console/tests/console-contract.test.mjs

@@ -208,6 +208,10 @@ def test_adversarial_pr_review_script_enforces_agentops_redlines() -> None:
     assert "display_only_no_active_inference" in script
     assert "CREDENTIAL_STATUS_NOT_FOUND" in script
     assert "test_ao18_cct_003_agent_store_reads_credential_issued_status" in script
+    assert "CredentialHandoffView" in script
+    assert "credentialHandoffIsSafe" in script
+    assert "test_ao19_ct_002_repository_snapshot_shows_agentops_status_without_store_inference" in script
+    assert "test_ao19_ct_003_signature_verified_is_display_result_not_verified_loaded" in script
     assert "test_cct_001_agent_store_handoff_fixture_issues_credential" in script
     assert "test_cct_006_unknown_major_schema_returns_unsupported_error" in script
     assert "Reporter active" in script

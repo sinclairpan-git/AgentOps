@@ -32,7 +32,11 @@ const labels = {
   registered: "已注册",
   unregistered: "未注册",
   normal: "正常",
-  warning: "需关注"
+  warning: "需关注",
+  authenticated: "已认证",
+  credential_issued: "凭证已签发",
+  signature_verified: "签名已验证",
+  not_asserted: "未声明"
 };
 
 export const StatusBadge = {
@@ -47,7 +51,7 @@ export const StatusBadge = {
     tone() {
       if (["healthy", "allow", "approved", "verified_loaded", "governed", "registered", "normal"].includes(this.status)) return "good";
       if (["block", "rejected", "revoked", "redaction_failed", "permission_denied"].includes(this.status)) return "bad";
-      if (["degraded", "unknown", "expired", "unsupported", "unverified", "suspected", "unregistered", "warning"].includes(this.status)) return "warn";
+      if (["degraded", "unknown", "expired", "unsupported", "unverified", "suspected", "unregistered", "warning", "not_asserted"].includes(this.status)) return "warn";
       return "info";
     }
   },

@@ -71,36 +71,40 @@ specs:
   path: specs/018-agent-store-credential-status-query
   depends_on:
   - 017-signed-test-event-credential-activation
+- id: 019-console-credential-handoff-workbench
+  path: specs/019-console-credential-handoff-workbench
+  depends_on:
+  - 018-agent-store-credential-status-query
 truth_snapshot:
-  generated_at: '2026-05-07T15:02:08Z'
+  generated_at: '2026-05-07T15:36:34Z'
   generated_by: ai-sdlc program truth sync
   generator_version: program_truth_snapshot_v1
-  repo_revision: '6228440'
-  authoring_hash: 1389dd76ba53808dfd7c30897eab2eaf8d147a56fb627dc0a46c7f9a0f70258c
+  repo_revision: 05a71ad
+  authoring_hash: c37bdaf7b416a585eaa5c173e5dc2bf49ea8ade5dcec0ab313464699802dba2c
   source_hashes: {}
-  snapshot_hash: cc44de42f7ac30ef107aac9d3a6173d781ee8a91e46b4f8f036191ab40fc34f0
+  snapshot_hash: b4ab14e755c76d190dd5cb781f137007f969dc4dead883b2d4b5ca0a61ffbb43
   computed_capabilities: []
   source_inventory:
     state: complete
-    total_sources: 90
-    mapped_sources: 90
+    total_sources: 95
+    mapped_sources: 95
     unmapped_sources: 0
     missing_sources: 2
-    phase_signal_count: 104
-    deferred_signal_count: 134
-    non_goal_signal_count: 24
+    phase_signal_count: 106
+    deferred_signal_count: 136
+    non_goal_signal_count: 25
     layer_totals:
-      spec: 18
-      plan: 18
-      tasks: 18
-      execution: 18
-      close: 18
+      spec: 19
+      plan: 19
+      tasks: 19
+      execution: 19
+      close: 19
     layer_materialized:
-      spec: 18
-      plan: 18
-      tasks: 18
-      execution: 16
-      close: 18
+      spec: 19
+      plan: 19
+      tasks: 19
+      execution: 17
+      close: 19
     entries:
     - path: specs/001-agentops-trusted-loop/spec.md
       source_type: spec_doc
@@ -909,6 +913,51 @@ truth_snapshot:
       mapped: true
       exists: true
       mapping_ref: 018-agent-store-credential-status-query
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 0
+    - path: specs/019-console-credential-handoff-workbench/spec.md
+      source_type: spec_doc
+      truth_layer: spec
+      mapped: true
+      exists: true
+      mapping_ref: 019-console-credential-handoff-workbench
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 1
+    - path: specs/019-console-credential-handoff-workbench/plan.md
+      source_type: plan_doc
+      truth_layer: plan
+      mapped: true
+      exists: true
+      mapping_ref: 019-console-credential-handoff-workbench
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 0
+    - path: specs/019-console-credential-handoff-workbench/tasks.md
+      source_type: tasks_doc
+      truth_layer: tasks
+      mapped: true
+      exists: true
+      mapping_ref: 019-console-credential-handoff-workbench
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 0
+    - path: specs/019-console-credential-handoff-workbench/task-execution-log.md
+      source_type: execution_log
+      truth_layer: execution
+      mapped: true
+      exists: true
+      mapping_ref: 019-console-credential-handoff-workbench
+      phase_signal_count: 2
+      deferred_signal_count: 2
+      non_goal_signal_count: 0
+    - path: specs/019-console-credential-handoff-workbench/development-summary.md
+      source_type: development_summary
+      truth_layer: close
+      mapped: true
+      exists: true
+      mapping_ref: 019-console-credential-handoff-workbench
       phase_signal_count: 0
       deferred_signal_count: 0
       non_goal_signal_count: 0

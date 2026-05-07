@@ -1,0 +1,17 @@
+schema_version: frontend-page-recipe/v1
+page_id: credential-handoff-workbench
+recipe_id: credential-handoff-workbench-v1
+steps:
+  - id: open-credential-handoff
+    description: 打开 AgentOps Console 的凭证联调页。
+    expected:
+      - 页面展示“凭证联调”“凭证状态回显”“签名测试通过”。
+  - id: inspect-boundaries
+    description: 查看 Agent Store 消费边界。
+    expected:
+      - 页面展示“不得本地推导 active”。
+      - 页面展示“不构成 verified_loaded 或 L5”。
+  - id: validate-secret-redlines
+    description: 检查敏感材料红线。
+    expected:
+      - 页面不展示 token 值、私钥、原始载荷或下载链接。

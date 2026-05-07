@@ -1,0 +1,20 @@
+schema_version: frontend-generation-whitelist/v1
+allowed_fixed_terms:
+  - AgentOps
+  - Agent Store
+  - Ai_AutoSDLC
+  - Evidence Vault
+  - Console
+  - PR
+  - DLQ
+  - Outbox Replay
+  - verified_loaded
+  - signature_verified
+  - active
+allowed_files:
+  - apps/agentops-console/src/App.js
+  - apps/agentops-console/src/views/CredentialHandoffView.js
+  - apps/agentops-console/src/data/agentOpsApiClient.js
+  - apps/agentops-console/src/data/mockAgentOpsData.js
+  - apps/agentops-console/src/components/StatusBadge.js
+  - apps/agentops-console/tests/console-contract.test.mjs

@@ -1,0 +1,10 @@
+schema_version: frontend-hard-rules/v1
+rules:
+  - id: zh_cn_first
+    text: Console 可见文案以中文为主。
+  - id: no_raw_material
+    text: 不展示原始载荷、下载链接、PR 原文、token 值或私钥。
+  - id: no_verified_loaded_spoofing
+    text: 没有机器证明时不得展示 verified_loaded。
+  - id: no_automatic_lifecycle
+    text: 不自动批准、不自动写回、不自动发布、不自动合并。
