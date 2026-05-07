@@ -62,7 +62,22 @@ def test_ao11_ct_002_metrics_are_summary_only_and_safe():
     assert not _contains_url_or_forbidden_key(adoption)
 
 
-def test_ao11_ct_003_explanation_chains_have_quality_contract_fields():
+def test_ao11_ct_003_empty_repository_reports_zero_activity():
+    adoption = build_console_snapshot(repository=InMemoryRepository())["consoleData"]["adoption"]
+    metrics = adoption["metrics"]
+    sdlc_segment = next(segment for segment in adoption["segments"] if segment["id"] == "segment_sdlc_runs")
+
+    assert metrics["generated_lines"] == 0
+    assert metrics["retained_lines"] == 0
+    assert metrics["human_modified_lines"] == 0
+    assert metrics["deleted_lines"] == 0
+    assert metrics["retention_rate"] == "0%"
+    assert sdlc_segment["status"] == "empty"
+    assert sdlc_segment["retention_rate"] == "0%"
+    assert sdlc_segment["affected_agents"] == "0"
+
+
+def test_ao11_ct_004_explanation_chains_have_quality_contract_fields():
     chains = build_console_snapshot(repository=_repository())["consoleData"]["adoption"]["explanationChains"]
 
     for chain in chains:
@@ -75,7 +90,7 @@ def test_ao11_ct_003_explanation_chains_have_quality_contract_fields():
         assert "0 分" not in chain["explanation"]
 
 
-def test_ao11_ct_004_review_signals_do_not_execute_lifecycle_actions():
+def test_ao11_ct_005_review_signals_do_not_execute_lifecycle_actions():
     adoption = build_console_snapshot(repository=_repository())["consoleData"]["adoption"]
     combined_text = f"{adoption['reviewSignals']} {adoption['guardrails']}"
 

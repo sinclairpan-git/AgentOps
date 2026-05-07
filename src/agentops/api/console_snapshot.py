@@ -305,7 +305,7 @@ def _adoption_workbench(console_data: dict[str, Any]) -> dict[str, Any]:
     quality = list(console_data.get("quality", []))
     risks = list(console_data.get("risks", []))
     evidence = list(console_data.get("evidence", []))
-    run_count = max(len(runs), 1)
+    run_count = len(runs)
     degraded_quality = sum(1 for item in quality if str(item.get("status")) not in {"healthy", "normal"})
     blocked_risks = sum(1 for item in risks if str(item.get("state")) in {"block", "redaction_failed", "unverified", "degraded"})
     generated_lines = run_count * 180
@@ -324,7 +324,7 @@ def _adoption_workbench(console_data: dict[str, Any]) -> dict[str, Any]:
             "rework_rounds": max(degraded_quality, blocked_risks),
             "pr_review_findings": review_findings,
             "ci_failure_types": ci_failure_types,
-            "retention_rate": f"{round(retained_lines / generated_lines * 100)}%",
+            "retention_rate": f"{round(retained_lines / generated_lines * 100)}%" if generated_lines else "0%",
         },
         "explanationChains": [_quality_explanation_chain(item) for item in quality],
         "segments": _adoption_segments(console_data, retained_lines=retained_lines, generated_lines=generated_lines),
@@ -403,12 +403,13 @@ def _quality_confidence(status: str) -> float:
 
 def _adoption_segments(console_data: dict[str, Any], *, retained_lines: int, generated_lines: int) -> list[dict[str, str]]:
     agent_store_summary_count = len(console_data.get("agentStore", {}).get("storeSummaries", []))
-    retention_rate = f"{round(retained_lines / max(generated_lines, 1) * 100)}%"
+    retention_rate = f"{round(retained_lines / generated_lines * 100)}%" if generated_lines else "0%"
+    sdlc_status = "empty" if generated_lines == 0 else "healthy" if retained_lines >= generated_lines * 0.75 else "degraded"
     return [
         {
             "id": "segment_sdlc_runs",
             "title": "Ai_AutoSDLC 标准路径",
-            "status": "healthy" if retained_lines >= generated_lines * 0.75 else "degraded",
+            "status": sdlc_status,
             "retention_rate": retention_rate,
             "affected_agents": str(len(console_data.get("runs", []))),
             "owner": "SDLC 负责人",
