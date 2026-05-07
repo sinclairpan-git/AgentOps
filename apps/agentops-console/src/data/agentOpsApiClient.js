@@ -476,6 +476,11 @@ function vaultRequestMatchesEvidence(request, evidence) {
       request.primary_action === "查看授权记录" &&
       /限时/.test(request.ttl_summary);
   }
+  if (state === "degraded") {
+    return request.status === "pending" &&
+      request.primary_action === "等待审批" &&
+      request.ttl_summary === "待补偿";
+  }
   if (state === "permission_denied") {
     return request.status === "permission_denied" &&
       request.primary_action === "补充申请理由" &&
@@ -503,6 +508,11 @@ function vaultGrantMatchesEvidence(grant, evidence) {
     return grant.status === "active" &&
       /限定/.test(grant.scope) &&
       /15 分钟/.test(grant.expires_at);
+  }
+  if (state === "degraded") {
+    return grant.status === "pending" &&
+      /待补偿/.test(grant.scope) &&
+      grant.expires_at === "待补偿";
   }
   if (state === "permission_denied") {
     return grant.status === "rejected" &&

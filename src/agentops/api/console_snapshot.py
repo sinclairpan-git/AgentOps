@@ -262,6 +262,8 @@ def _evidence_vault_reason(evidence: dict[str, Any]) -> str:
     state = str(evidence["raw_access_state"])
     if state == "approved_limited":
         return "复核窗口已获得限定范围授权，仅查看授权记录。"
+    if state == "degraded":
+        return "运行降级，需先补齐 L5/治理证据后再申请原文访问。"
     if state == "redaction_failed":
         return "脱敏失败，需要先修复脱敏或补充审批理由。"
     if state == "permission_denied":
@@ -272,6 +274,8 @@ def _evidence_vault_reason(evidence: dict[str, Any]) -> str:
 def _evidence_vault_ttl(state: str) -> str:
     if state == "approved_limited":
         return "15 分钟限时窗口"
+    if state == "degraded":
+        return "待补偿"
     if state == "permission_denied":
         return "未授权"
     if state == "redaction_failed":
@@ -282,6 +286,8 @@ def _evidence_vault_ttl(state: str) -> str:
 def _evidence_vault_primary_action(state: str) -> str:
     if state == "approved_limited":
         return "查看授权记录"
+    if state == "degraded":
+        return "等待审批"
     if state == "permission_denied":
         return "补充申请理由"
     if state == "redaction_failed":
@@ -294,6 +300,8 @@ def _evidence_vault_scope(evidence: dict[str, Any]) -> str:
     denied_scope = str(evidence.get("denied_scope") or "")
     if state == "approved_limited":
         return "限定复核字段"
+    if state == "degraded":
+        return denied_scope or "待补偿范围"
     if denied_scope:
         return denied_scope
     return "待审批范围"
@@ -302,6 +310,8 @@ def _evidence_vault_scope(evidence: dict[str, Any]) -> str:
 def _evidence_vault_expires_at(state: str) -> str:
     if state == "approved_limited":
         return "快照生成后 15 分钟"
+    if state == "degraded":
+        return "待补偿"
     if state == "permission_denied":
         return "未授权"
     if state == "redaction_failed":
@@ -312,6 +322,8 @@ def _evidence_vault_expires_at(state: str) -> str:
 def _evidence_vault_stage(state: str) -> str:
     if state == "approved_limited":
         return "授权"
+    if state == "degraded":
+        return "降级"
     if state == "permission_denied":
         return "拒绝"
     if state == "redaction_failed":
@@ -323,6 +335,8 @@ def _evidence_vault_audit_summary(evidence: dict[str, Any]) -> str:
     state = str(evidence["raw_access_state"])
     if state == "redaction_failed":
         return "脱敏失败，审计仅保留哈希和告警。"
+    if state == "degraded":
+        return "运行降级，原文访问保持待审批，仅展示摘要和哈希。"
     if state == "permission_denied":
         return "访问被拒绝，需补充限定范围申请理由。"
     if state == "approved_limited":

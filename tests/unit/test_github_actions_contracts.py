@@ -6,6 +6,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = ROOT / ".github" / "workflows" / "agentops-cross-platform.yml"
+ADVERSARIAL_REVIEW_WORKFLOW = ROOT / ".github" / "workflows" / "agentops-adversarial-pr-review.yml"
+ADVERSARIAL_REVIEW_SCRIPT = ROOT / "scripts" / "agentops-pr-review.mjs"
 ENGINEERING_DOC = ROOT / "docs" / "engineering" / "cross-platform-compatibility.md"
 BRANCH_GOVERNANCE_DOC = ROOT / "docs" / "engineering" / "github-branch-governance.md"
 
@@ -138,3 +140,33 @@ def test_github_branch_governance_is_documented() -> None:
     assert "Pull Request" in doc
     assert "Compatibility Gate Result" in doc
     assert "non-fast-forward" in doc
+
+
+def test_adversarial_pr_review_workflow_posts_review_comments() -> None:
+    assert ADVERSARIAL_REVIEW_WORKFLOW.exists(), "AgentOps adversarial PR review workflow must exist"
+    workflow = ADVERSARIAL_REVIEW_WORKFLOW.read_text(encoding="utf-8")
+
+    assert "AgentOps Adversarial PR Review" in workflow
+    assert "workflow_dispatch:" in workflow
+    assert "pull_request:" in workflow
+    assert "pull-requests: write" in workflow
+    assert "issues: write" in workflow
+    assert "Adversarial Review Result" in workflow
+    assert "node scripts/agentops-pr-review.mjs" in workflow
+    assert "POST_REVIEW_COMMENT: \"true\"" in workflow
+
+
+def test_adversarial_pr_review_script_enforces_agentops_redlines() -> None:
+    assert ADVERSARIAL_REVIEW_SCRIPT.exists(), "AgentOps adversarial review script must exist"
+    script = ADVERSARIAL_REVIEW_SCRIPT.read_text(encoding="utf-8")
+
+    assert "permission_denied" in script
+    assert "redaction_failed" in script
+    assert "grant.status === \\\"active\\\"" in script
+    assert "raw_payload" in script
+    assert "download_url" in script
+    assert "raw_access_url" in script
+    assert "自动批准" in script
+    assert "自动写回" in script
+    assert "AgentOps 云端对抗 Review" in script
+    assert "process.exit(1)" in script

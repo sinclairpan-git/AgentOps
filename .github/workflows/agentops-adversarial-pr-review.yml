@@ -1,0 +1,67 @@
+name: AgentOps Adversarial PR Review
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "Pull request number to review"
+        required: true
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: agentops-adversarial-pr-review-${{ github.event.pull_request.number || inputs.pr_number }}
+  cancel-in-progress: true
+
+jobs:
+  adversarial-review:
+    name: Adversarial Review Result
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Checkout workflow_dispatch PR head
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+        run: gh pr checkout "$PR_NUMBER"
+
+      - name: Resolve PR base
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
+        run: |
+          BASE_REF="$(gh pr view "$PR_NUMBER" --json baseRefName --jq .baseRefName)"
+          git fetch origin "$BASE_REF" --depth=1
+          echo "BASE_REF=origin/$BASE_REF" >> "$GITHUB_ENV"
+          echo "PR_NUMBER=$PR_NUMBER" >> "$GITHUB_ENV"
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      - name: Run AgentOps adversarial review
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ env.PR_NUMBER }}
+          BASE_REF: ${{ env.BASE_REF }}
+          HEAD_REF: HEAD
+          POST_REVIEW_COMMENT: "true"
+        run: node scripts/agentops-pr-review.mjs --base "$BASE_REF" --head HEAD --pr "$PR_NUMBER" --post-comment

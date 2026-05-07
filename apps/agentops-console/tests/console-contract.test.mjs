@@ -284,6 +284,98 @@ assert.equal(
   }),
   false
 );
+const degradedEvidence = {
+  ...consoleData.evidence[0],
+  evidence_id: "ev_degraded_001",
+  id: "ev_degraded_001",
+  run_id: "run_degraded_001",
+  raw_access_state: "degraded",
+  audit_id: "audit_degraded_001",
+  summary: "运行降级，仅展示摘要和哈希。",
+  denied_scope: ""
+};
+const degradedConsoleData = {
+  ...consoleData,
+  evidence: [degradedEvidence],
+  evidenceVault: {
+    ...consoleData.evidenceVault,
+    requests: [{
+      id: "vault_req_ev_degraded_001",
+      evidence_id: "ev_degraded_001",
+      run_id: "run_degraded_001",
+      requester: "证据负责人",
+      reason: "运行降级，需先补齐 L5/治理证据后再申请原文访问。",
+      status: "pending",
+      denied_scope: "",
+      audit_id: "audit_degraded_001",
+      ttl_summary: "待补偿",
+      primary_action: "等待审批",
+      safety_note: "仅记录原文访问申请摘要，不展示 Evidence Vault 原文。"
+    }],
+    grants: [{
+      id: "vault_grant_ev_degraded_001",
+      evidence_id: "ev_degraded_001",
+      requester: "证据负责人",
+      status: "pending",
+      scope: "待补偿范围",
+      expires_at: "待补偿",
+      audit_id: "audit_degraded_001",
+      consumption_policy: "只读复核窗口内可查看授权记录；不提供原文下载。"
+    }],
+    auditTrail: [{
+      id: "vault_audit_ev_degraded_001",
+      evidence_id: "ev_degraded_001",
+      stage: "降级",
+      occurred_at: "快照生成时",
+      summary: "运行降级，原文访问保持待审批，仅展示摘要和哈希。",
+      owner: "证据负责人",
+      status: "degraded",
+      audit_id: "audit_degraded_001"
+    }]
+  }
+};
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: degradedConsoleData
+  }),
+  true
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...degradedConsoleData,
+      evidenceVault: {
+        ...degradedConsoleData.evidenceVault,
+        grants: [{
+          ...degradedConsoleData.evidenceVault.grants[0],
+          status: "active",
+          scope: "限定复核字段",
+          expires_at: "快照生成后 15 分钟"
+        }]
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...degradedConsoleData,
+      evidenceVault: {
+        ...degradedConsoleData.evidenceVault,
+        requests: [{
+          ...degradedConsoleData.evidenceVault.requests[0],
+          primary_action: "申请原文访问",
+          ttl_summary: "待审批"
+        }]
+      }
+    }
+  }),
+  false
+);
 assert.equal(
   validateSnapshot({
     ...validApiSnapshot,

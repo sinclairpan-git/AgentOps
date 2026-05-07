@@ -67,7 +67,7 @@ def test_ao12_ct_002_requests_grants_and_audits_have_contract_fields():
         assert request["evidence_id"]
         assert request["run_id"]
         assert request["audit_id"]
-        assert request["primary_action"] in {"申请原文访问", "查看授权记录", "补充申请理由", "仅查看哈希告警"}
+        assert request["primary_action"] in {"申请原文访问", "查看授权记录", "补充申请理由", "仅查看哈希告警", "等待审批"}
         assert "不展示 Evidence Vault 原文" in request["safety_note"]
 
     for grant in evidence_vault["grants"]:
@@ -106,3 +106,16 @@ def test_ao12_ct_005_empty_repository_reports_safe_empty_vault():
     assert evidence_vault["grants"] == []
     assert evidence_vault["auditTrail"] == []
     assert "默认不展示原文" in " ".join(evidence_vault["guardrails"])
+
+
+def test_ao12_ct_006_degraded_repository_evidence_keeps_raw_access_pending():
+    evidence_vault = build_console_snapshot(repository=_repository())["consoleData"]["evidenceVault"]
+
+    assert evidence_vault["requests"][0]["status"] == "pending"
+    assert evidence_vault["requests"][0]["primary_action"] == "等待审批"
+    assert evidence_vault["requests"][0]["ttl_summary"] == "待补偿"
+    assert evidence_vault["grants"][0]["status"] == "pending"
+    assert evidence_vault["grants"][0]["scope"] == "待补偿范围"
+    assert evidence_vault["grants"][0]["expires_at"] == "待补偿"
+    assert evidence_vault["auditTrail"][0]["stage"] == "降级"
+    assert evidence_vault["auditTrail"][0]["status"] == "degraded"
