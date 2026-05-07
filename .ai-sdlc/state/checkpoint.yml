@@ -1,12 +1,12 @@
 pipeline_started_at: '2026-05-04T06:14:47+00:00'
-pipeline_last_updated: '2026-05-07T13:44:33+00:00'
+pipeline_last_updated: '2026-05-07T14:38:30+00:00'
 current_stage: close
 feature:
-  id: 016-cross-project-credential-handoff-consumer
-  spec_dir: specs/016-cross-project-credential-handoff-consumer
-  design_branch: design/016-cross-project-credential-handoff-consumer-docs
-  feature_branch: feature/016-cross-project-credential-handoff-consumer-dev
-  current_branch: codex/016-cross-project-credential-handoff-consumer
+  id: 017-signed-test-event-credential-activation
+  spec_dir: specs/017-signed-test-event-credential-activation
+  design_branch: design/017-signed-test-event-credential-activation-docs
+  feature_branch: feature/017-signed-test-event-credential-activation-dev
+  current_branch: codex/017-signed-test-event-credential-activation
   docs_baseline_ref: ''
   docs_baseline_at: ''
 multi_agent:
@@ -16,33 +16,33 @@ multi_agent:
 prd_source: /Users/sinclairpan/project/AI-Native底座开发文档/AgentOps_项目_PRD.md
 completed_stages:
 - stage: init
-  completed_at: '2026-05-07T13:44:33+00:00'
+  completed_at: '2026-05-07T14:38:30+00:00'
   artifacts: []
 - stage: refine
-  completed_at: '2026-05-07T13:44:33+00:00'
+  completed_at: '2026-05-07T14:38:30+00:00'
   artifacts:
   - spec.md
 - stage: design
-  completed_at: '2026-05-07T13:44:33+00:00'
+  completed_at: '2026-05-07T14:38:30+00:00'
   artifacts:
   - plan.md
 - stage: decompose
-  completed_at: '2026-05-07T13:44:33+00:00'
+  completed_at: '2026-05-07T14:38:30+00:00'
   artifacts:
   - tasks.md
 - stage: verify
-  completed_at: '2026-05-07T13:44:33+00:00'
+  completed_at: '2026-05-07T14:38:30+00:00'
   artifacts:
   - task-execution-log.md
   - tasks.md
 - stage: execute
-  completed_at: '2026-05-07T13:44:33+00:00'
+  completed_at: '2026-05-07T14:38:30+00:00'
   artifacts:
   - development-summary.md
   - task-execution-log.md
 execute_progress: null
 ai_decisions_count: 0
 execution_mode: auto
-linked_wi_id: 016-cross-project-credential-handoff-consumer
+linked_wi_id: 017-signed-test-event-credential-activation
 linked_plan_uri: specs/012-console-evidence-vault-workbench/plan.md
 last_synced_at: '2026-05-07T04:33:49+00:00'
