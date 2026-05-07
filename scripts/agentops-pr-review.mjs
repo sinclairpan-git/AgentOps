@@ -639,6 +639,69 @@ function checkCrossProjectCredentialHandoff() {
   }
 }
 
+function checkSignedTestEventActivation() {
+  const ingestionApi = "src/agentops/api/ingestion.py";
+  const repository = "src/agentops/storage/repository.py";
+  const envelope = "src/agentops/core/envelope.py";
+  const contractTest = "tests/contract/test_ao17_ct_signed_test_event_activation.py";
+  const spec = "specs/017-signed-test-event-credential-activation/spec.md";
+  for (const path of [ingestionApi, repository, envelope, contractTest, spec]) {
+    requireFile(path, "P1", "缺少 signed test event 激活契约", `${path} 是 AgentOps 017 signed test event 激活闭环的必要证据。`);
+  }
+  if (fileExists(envelope)) {
+    const text = readText(envelope);
+    for (const needle of ["signature_test_event", "SIGNATURE_TEST_PAYLOAD_REQUIRED_FIELDS", "bootstrap_id", "credential_id", "token_id", "device_key_id"]) {
+      if (!text.includes(needle)) {
+        addFinding("P1", envelope, "SIGNATURE_TEST_EVENT_TYPE", "signature_test_event payload 契约不完整", `EventEnvelope 必须冻结 ${needle}，否则 Ai_AutoSDLC signed test event 无法稳定互通。`);
+      }
+    }
+  }
+  if (fileExists(repository)) {
+    const text = readText(repository);
+    for (const needle of [
+      "validate_signature_test_event",
+      "mark_signature_test_verified",
+      "SIGNATURE_TEST_CREDENTIAL_NOT_FOUND",
+      "EVENT_INGESTION_TOKEN_MISMATCH",
+      "EVENT_DEVICE_KEY_MISMATCH",
+      "EVENT_IDENTITY_MISMATCH",
+      "signature_verified"
+    ]) {
+      if (!text.includes(needle)) {
+        addFinding("P1", repository, "validate_signature_test_event", "signed test event 绑定校验不完整", `Repository 必须包含 ${needle}，否则 credential_issued 可能被误推进为 verified。`);
+      }
+    }
+  }
+  if (fileExists(ingestionApi)) {
+    const text = readText(ingestionApi);
+    for (const needle of ["SIGNATURE_TEST_EVENT_TYPE", "validate_signature_test_event", "mark_signature_test_verified"]) {
+      if (!text.includes(needle)) {
+        addFinding("P1", ingestionApi, "ingest_events_batch", "Ingestion 未接入 signed test event 激活", `Ingestion 必须包含 ${needle}，否则 signed test event 不会推进 bootstrap 状态。`);
+      }
+    }
+  }
+  if (fileExists(contractTest)) {
+    const text = readText(contractTest);
+    for (const needle of [
+      "test_ao17_cct_004_signed_test_event_verifies_bootstrap",
+      "SIGNATURE_TEST_CREDENTIAL_NOT_FOUND",
+      "EVENT_INGESTION_TOKEN_MISMATCH",
+      "EVENT_DEVICE_KEY_INACTIVE",
+      "EVENT_IDENTITY_MISMATCH",
+      "EVENT_PAYLOAD_INVALID",
+      "deduplicated",
+      "signature_verified"
+    ]) {
+      if (!text.includes(needle)) {
+        addFinding("P1", contractTest, "test_ao17_cct_004", "AO17-CCT-004 测试覆盖不足", `CCT-004 必须覆盖 ${needle}。`);
+      }
+    }
+  }
+  if (fileExists(spec) && !readText(spec).includes("不把 `signature_verified`")) {
+    addFinding("P1", spec, "非目标", "缺少 verified_loaded 边界", "017 spec 必须明确 signature_verified 不等于 verified_loaded 或 L5。");
+  }
+}
+
 function stripSafeNegations(value) {
   return value
     .replace(/不自动批准/g, "")
@@ -796,6 +859,7 @@ async function main() {
   checkSdlcRunWorkbenchUi();
   checkSdlcRunWorkbenchTestsAndContracts();
   checkCrossProjectCredentialHandoff();
+  checkSignedTestEventActivation();
   checkUnsafeLifecycleText(paths);
   checkWorkflowItself(paths);
 

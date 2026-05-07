@@ -8,6 +8,8 @@ from datetime import UTC, datetime
 from threading import RLock
 from typing import Any
 
+from agentops.core.errors import AgentOpsError
+
 
 def utc_now() -> str:
     return datetime.now(UTC).isoformat()
@@ -85,6 +87,14 @@ class InMemoryRepository:
         with self._lock:
             if bootstrap_id not in self.credentials_by_bootstrap:
                 self.credentials_by_bootstrap[bootstrap_id] = dict(credentials)
+                if bootstrap_id in self.bootstrap_sessions:
+                    session = dict(self.bootstrap_sessions[bootstrap_id])
+                    session["status"] = "credential_issued"
+                    session["bootstrap_status"] = "credential_issued"
+                    session["credential_id"] = credentials["credential_id"]
+                    session["token_id"] = credentials["token_id"]
+                    session["device_key_id"] = credentials["device_key_id"]
+                    self.bootstrap_sessions[bootstrap_id] = session
                 if handoff_identity is not None:
                     self.credential_identities_by_bootstrap[bootstrap_id] = dict(handoff_identity)
                 if idempotency_key is not None and handoff_identity is not None:
@@ -98,6 +108,46 @@ class InMemoryRepository:
     def mark_bootstrap_nonces(self, *nonces: str) -> None:
         with self._lock:
             self.used_bootstrap_nonces.update(nonces)
+
+    def validate_signature_test_event(self, event: dict[str, Any]) -> str:
+        payload = event["payload"]
+        bootstrap_id = payload["bootstrap_id"]
+        with self._lock:
+            credentials = self.credentials_by_bootstrap.get(bootstrap_id)
+            if not credentials:
+                raise AgentOpsError("SIGNATURE_TEST_CREDENTIAL_NOT_FOUND", "No credential has been issued for this bootstrap.")
+            if credentials.get("status") != "active" or event.get("credential_status") != "active":
+                raise AgentOpsError("EVENT_CREDENTIAL_INACTIVE", "signature_test_event requires an active credential.")
+            if event.get("device_key_status") != "active":
+                raise AgentOpsError("EVENT_DEVICE_KEY_INACTIVE", "signature_test_event requires an active device key.")
+            if event.get("ingestion_token") != credentials.get("token_id") or payload.get("token_id") != credentials.get("token_id"):
+                raise AgentOpsError("EVENT_INGESTION_TOKEN_MISMATCH", "signature_test_event token does not match issued credential.")
+            if payload.get("credential_id") != credentials.get("credential_id"):
+                raise AgentOpsError("EVENT_CREDENTIAL_MISMATCH", "signature_test_event credential_id does not match issued credential.")
+            if payload.get("device_key_id") != credentials.get("device_key_id"):
+                raise AgentOpsError("EVENT_DEVICE_KEY_MISMATCH", "signature_test_event device_key_id does not match issued credential.")
+            if event.get("installation_id") != credentials.get("installation_id") or payload.get("installation_id") != credentials.get("installation_id"):
+                raise AgentOpsError("EVENT_IDENTITY_MISMATCH", "signature_test_event installation_id does not match issued credential.")
+            if event.get("device_id") != credentials.get("device_id") or payload.get("device_id") != credentials.get("device_id"):
+                raise AgentOpsError("EVENT_IDENTITY_MISMATCH", "signature_test_event device_id does not match issued credential.")
+            if payload.get("next_action") != "send_signature_test_event":
+                raise AgentOpsError("EVENT_PAYLOAD_INVALID", "signature_test_event next_action is invalid.")
+            return str(bootstrap_id)
+
+    def mark_signature_test_verified(self, bootstrap_id: str, event_id: str) -> None:
+        with self._lock:
+            if bootstrap_id in self.bootstrap_sessions:
+                session = dict(self.bootstrap_sessions[bootstrap_id])
+                session["status"] = "verified"
+                session["bootstrap_status"] = "signature_verified"
+                session["signature_test_event_id"] = event_id
+                session["verified_at"] = utc_now()
+                self.bootstrap_sessions[bootstrap_id] = session
+            if bootstrap_id in self.credentials_by_bootstrap:
+                credentials = dict(self.credentials_by_bootstrap[bootstrap_id])
+                credentials["bootstrap_status"] = "signature_verified"
+                credentials["signature_test_event_id"] = event_id
+                self.credentials_by_bootstrap[bootstrap_id] = credentials
 
     def store_approval(self, approval: dict[str, Any]) -> dict[str, Any]:
         with self._lock:

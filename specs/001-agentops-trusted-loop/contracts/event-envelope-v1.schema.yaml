@@ -245,6 +245,14 @@ allOf:
       properties:
         payload:
           $ref: "#/$defs/l5_eligibility_input_payload"
+  - if:
+      properties:
+        event_type:
+          const: signature_test_event
+    then:
+      properties:
+        payload:
+          $ref: "#/$defs/signature_test_event_payload"
 $defs:
   stage_started_payload:
     type: object
@@ -342,3 +350,17 @@ $defs:
       policy_state_known: {type: boolean}
       enforcement_mode: {type: string}
       failed_conditions: {type: array, items: {type: string}}
+  signature_test_event_payload:
+    type: object
+    additionalProperties: true
+    required: [bootstrap_id, credential_id, token_id, device_key_id, installation_id, device_id, next_action]
+    properties:
+      bootstrap_id: {type: string}
+      credential_id: {type: string}
+      token_id: {type: string}
+      device_key_id: {type: string}
+      installation_id: {type: string}
+      device_id: {type: string}
+      next_action:
+        type: string
+        const: send_signature_test_event

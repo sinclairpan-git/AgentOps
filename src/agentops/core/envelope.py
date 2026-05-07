@@ -82,6 +82,17 @@ L5_PAYLOAD_REQUIRED_FIELDS: dict[str, set[str]] = {
     },
 }
 
+SIGNATURE_TEST_EVENT_TYPE = "signature_test_event"
+SIGNATURE_TEST_PAYLOAD_REQUIRED_FIELDS = {
+    "bootstrap_id",
+    "credential_id",
+    "token_id",
+    "device_key_id",
+    "installation_id",
+    "device_id",
+    "next_action",
+}
+
 
 BASE_REQUIRED_FIELDS = {
     "event_id",
@@ -143,6 +154,7 @@ def validate_event_envelope(event: dict[str, Any]) -> None:
         raise AgentOpsError("INTEGRATION_MODE_UNSUPPORTED", "Unsupported integration_mode.")
 
     _validate_l5_payload(event)
+    _validate_signature_test_payload(event)
 
 
 def evidence_mode_for(event: dict[str, Any]) -> str:
@@ -176,6 +188,16 @@ def _validate_l5_payload(event: dict[str, Any]) -> None:
     if not isinstance(payload, dict):
         raise AgentOpsError("EVENT_PAYLOAD_INVALID", "L5 core event payload must be an object.")
     _require_fields(payload, required, "EVENT_PAYLOAD_INVALID")
+
+
+def _validate_signature_test_payload(event: dict[str, Any]) -> None:
+    if event["event_type"] != SIGNATURE_TEST_EVENT_TYPE:
+        return
+
+    payload = event.get("payload")
+    if not isinstance(payload, dict):
+        raise AgentOpsError("EVENT_PAYLOAD_INVALID", "signature_test_event payload must be an object.")
+    _require_fields(payload, SIGNATURE_TEST_PAYLOAD_REQUIRED_FIELDS, "EVENT_PAYLOAD_INVALID")
 
 
 def _require_fields(data: dict[str, Any], fields: set[str], error_code: str) -> None:
