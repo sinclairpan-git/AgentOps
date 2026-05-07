@@ -722,6 +722,33 @@ button {
   padding: 18px;
 }
 
+.evidence-vault-band {
+  align-items: stretch;
+}
+
+.evidence-vault-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(96px, 1fr));
+  gap: 10px;
+  min-width: min(420px, 100%);
+  margin: 0;
+}
+
+.evidence-vault-metrics div {
+  display: grid;
+  gap: 6px;
+  border: 1px solid #dbe3ef;
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 12px;
+}
+
+.evidence-vault-metrics dd {
+  color: #243044;
+  font-size: 22px;
+  font-weight: 700;
+}
+
 .empty-state {
   margin: 0;
   color: #5c6b80;

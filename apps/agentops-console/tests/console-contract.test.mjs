@@ -97,6 +97,11 @@ for (const expectedChineseText of [
   "处置详情",
   "处置时间线",
   "审计包摘要",
+  "Evidence Vault 访问工作台",
+  "原文访问申请",
+  "限时授权",
+  "审计轨迹",
+  "默认不展示原文",
   "建议动作",
   "前往相关页面",
   "关闭条件",
@@ -234,6 +239,15 @@ assert.equal(
   validateSnapshot(legacyV1SnapshotWithoutAdoption),
   true
 );
+const legacyV1SnapshotWithoutEvidenceVault = {
+  ...validApiSnapshot,
+  consoleData: { ...consoleData }
+};
+delete legacyV1SnapshotWithoutEvidenceVault.consoleData.evidenceVault;
+assert.equal(
+  validateSnapshot(legacyV1SnapshotWithoutEvidenceVault),
+  true
+);
 assert.equal(
   validateSnapshot({
     ...validApiSnapshot,
@@ -260,6 +274,165 @@ assert.equal(
   validateSnapshot({
     ...validApiSnapshot,
     consoleData: { ...consoleData, adoption: null }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: { ...consoleData, evidenceVault: null }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      evidenceVault: {
+        ...consoleData.evidenceVault,
+        requests: consoleData.evidenceVault.requests.map((request) =>
+          request.evidence_id === "ev_004" ? { ...request, status: "approved" } : request
+        )
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      evidenceVault: {
+        ...consoleData.evidenceVault,
+        grants: consoleData.evidenceVault.grants.map((grant) =>
+          grant.evidence_id === "ev_004" ? { ...grant, status: "active", expires_at: "快照生成后 15 分钟" } : grant
+        )
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      evidenceVault: {
+        ...consoleData.evidenceVault,
+        requests: consoleData.evidenceVault.requests.map((request) =>
+          request.evidence_id === "ev_003" ? { ...request, status: "approved" } : request
+        )
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      evidenceVault: {
+        ...consoleData.evidenceVault,
+        grants: consoleData.evidenceVault.grants.map((grant) =>
+          grant.evidence_id === "ev_003" ? { ...grant, status: "active", expires_at: "快照生成后 15 分钟" } : grant
+        )
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      evidenceVault: {
+        ...consoleData.evidenceVault,
+        requests: consoleData.evidenceVault.requests.map((request) =>
+          request.evidence_id === "ev_004" ? { ...request, primary_action: "申请原文访问", ttl_summary: "待审批" } : request
+        )
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      evidenceVault: {
+        ...consoleData.evidenceVault,
+        requests: [{
+          ...consoleData.evidenceVault.requests[0],
+          raw_access_url: "/vault/raw/ev_001"
+        }]
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      evidenceVault: {
+        ...consoleData.evidenceVault,
+        grants: [{
+          ...consoleData.evidenceVault.grants[0],
+          download_url: "/vault/download"
+        }]
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      evidenceVault: {
+        ...consoleData.evidenceVault,
+        auditTrail: [{
+          ...consoleData.evidenceVault.auditTrail[0],
+          summary: "查看 https://example.invalid/raw"
+        }]
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      evidenceVault: {
+        ...consoleData.evidenceVault,
+        requests: [{
+          ...consoleData.evidenceVault.requests[0],
+          pullRequestBody: "PR 原文"
+        }]
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      evidenceVault: {
+        ...consoleData.evidenceVault,
+        guardrails: [...consoleData.evidenceVault.guardrails, "自动批准原文访问"]
+      }
+    }
   }),
   false
 );
@@ -738,6 +911,14 @@ assert.equal(legacyApiLoad.consoleData.adoption.metrics.retention_rate, "0%");
 assert.equal(legacyApiLoad.consoleData.adoption.segments[0].status, "empty");
 assert.match(legacyApiLoad.consoleData.adoption.guardrails.join(" "), /低置信不自动下架/);
 
+const legacyVaultApiLoad = await loadAgentOpsSnapshot(async () => ({
+  ok: true,
+  json: async () => legacyV1SnapshotWithoutEvidenceVault
+}), "http://127.0.0.1:8765");
+assert.equal(legacyVaultApiLoad.source, "api_snapshot");
+assert.equal(legacyVaultApiLoad.consoleData.evidenceVault.requests.length, 0);
+assert.match(legacyVaultApiLoad.consoleData.evidenceVault.guardrails.join(" "), /默认不展示原文/);
+
 const liveApiLoad = await loadAgentOpsSnapshot(async () => ({
   ok: true,
   json: async () => ({ ...validApiSnapshot, source_detail: { mode: "repository_backed" } })
@@ -817,6 +998,8 @@ const allowedEnglishUiTerms = [
   "materialized",
   "Grant",
   "Grant TTL",
+  "TTL",
+  "Evidence Vault",
   "L5 Gate",
   "Browser Gate",
   "Policy SLO",

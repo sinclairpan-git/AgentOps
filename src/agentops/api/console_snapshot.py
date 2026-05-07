@@ -171,12 +171,163 @@ def _with_workbenches(console_data: dict[str, Any]) -> dict[str, Any]:
     enriched = {
         **console_data,
         "adoption": _adoption_workbench(console_data),
+        "evidenceVault": _evidence_vault_workbench(console_data),
         "actionWorkbench": _action_workbench(console_data),
     }
     return {
         **enriched,
         "operationCenter": _operation_center(console_data),
     }
+
+
+def _evidence_vault_workbench(console_data: dict[str, Any]) -> dict[str, Any]:
+    evidence_items = list(console_data.get("evidence", []))
+    return {
+        "requests": [_evidence_vault_request(item) for item in evidence_items],
+        "grants": [_evidence_vault_grant(item) for item in evidence_items],
+        "auditTrail": [_evidence_vault_audit(item) for item in evidence_items],
+        "guardrails": [
+            "默认不展示原文，只展示脱敏摘要、哈希和审计引用。",
+            "原文访问申请必须绑定申请理由、审批范围、TTL 和 audit_id。",
+            "脱敏失败时只保留哈希和告警，不生成下载链接。",
+            "本阶段只读展示申请与授权状态，不自动批准、不自动写回。",
+        ],
+    }
+
+
+def _evidence_vault_request(evidence: dict[str, Any]) -> dict[str, Any]:
+    state = str(evidence["raw_access_state"])
+    return {
+        "id": f"vault_req_{evidence['evidence_id']}",
+        "evidence_id": str(evidence["evidence_id"]),
+        "run_id": str(evidence["run_id"]),
+        "requester": "证据负责人",
+        "reason": _evidence_vault_reason(evidence),
+        "status": _evidence_vault_request_status(state),
+        "denied_scope": str(evidence.get("denied_scope") or ""),
+        "audit_id": str(evidence["audit_id"]),
+        "ttl_summary": _evidence_vault_ttl(state),
+        "primary_action": _evidence_vault_primary_action(state),
+        "safety_note": "仅记录原文访问申请摘要，不展示 Evidence Vault 原文。",
+    }
+
+
+def _evidence_vault_grant(evidence: dict[str, Any]) -> dict[str, Any]:
+    state = str(evidence["raw_access_state"])
+    return {
+        "id": f"vault_grant_{evidence['evidence_id']}",
+        "evidence_id": str(evidence["evidence_id"]),
+        "requester": "证据负责人",
+        "status": _evidence_vault_grant_status(state),
+        "scope": _evidence_vault_scope(evidence),
+        "expires_at": _evidence_vault_expires_at(state),
+        "audit_id": str(evidence["audit_id"]),
+        "consumption_policy": "只读复核窗口内可查看授权记录；不提供原文下载。",
+    }
+
+
+def _evidence_vault_audit(evidence: dict[str, Any]) -> dict[str, Any]:
+    state = str(evidence["raw_access_state"])
+    return {
+        "id": f"vault_audit_{evidence['evidence_id']}",
+        "evidence_id": str(evidence["evidence_id"]),
+        "stage": _evidence_vault_stage(state),
+        "occurred_at": "快照生成时",
+        "summary": _evidence_vault_audit_summary(evidence),
+        "owner": "证据负责人",
+        "status": state,
+        "audit_id": str(evidence["audit_id"]),
+    }
+
+
+def _evidence_vault_request_status(state: str) -> str:
+    if state == "summary_only":
+        return "pending"
+    if state in {"approved_limited", "redaction_failed", "permission_denied"}:
+        return state
+    return "pending"
+
+
+def _evidence_vault_grant_status(state: str) -> str:
+    if state == "approved_limited":
+        return "active"
+    if state == "permission_denied":
+        return "rejected"
+    if state == "redaction_failed":
+        return "redaction_failed"
+    return "pending"
+
+
+def _evidence_vault_reason(evidence: dict[str, Any]) -> str:
+    state = str(evidence["raw_access_state"])
+    if state == "approved_limited":
+        return "复核窗口已获得限定范围授权，仅查看授权记录。"
+    if state == "redaction_failed":
+        return "脱敏失败，需要先修复脱敏或补充审批理由。"
+    if state == "permission_denied":
+        return "当前权限边界拒绝访问，需要补充限定范围申请。"
+    return "默认仅查看安全摘要，必要时发起原文访问申请。"
+
+
+def _evidence_vault_ttl(state: str) -> str:
+    if state == "approved_limited":
+        return "15 分钟限时窗口"
+    if state == "permission_denied":
+        return "未授权"
+    if state == "redaction_failed":
+        return "脱敏失败，暂停授权"
+    return "待审批"
+
+
+def _evidence_vault_primary_action(state: str) -> str:
+    if state == "approved_limited":
+        return "查看授权记录"
+    if state == "permission_denied":
+        return "补充申请理由"
+    if state == "redaction_failed":
+        return "仅查看哈希告警"
+    return "申请原文访问"
+
+
+def _evidence_vault_scope(evidence: dict[str, Any]) -> str:
+    state = str(evidence["raw_access_state"])
+    denied_scope = str(evidence.get("denied_scope") or "")
+    if state == "approved_limited":
+        return "限定复核字段"
+    if denied_scope:
+        return denied_scope
+    return "待审批范围"
+
+
+def _evidence_vault_expires_at(state: str) -> str:
+    if state == "approved_limited":
+        return "快照生成后 15 分钟"
+    if state == "permission_denied":
+        return "未授权"
+    if state == "redaction_failed":
+        return "暂停授权"
+    return "待审批"
+
+
+def _evidence_vault_stage(state: str) -> str:
+    if state == "approved_limited":
+        return "授权"
+    if state == "permission_denied":
+        return "拒绝"
+    if state == "redaction_failed":
+        return "脱敏失败"
+    return "申请"
+
+
+def _evidence_vault_audit_summary(evidence: dict[str, Any]) -> str:
+    state = str(evidence["raw_access_state"])
+    if state == "redaction_failed":
+        return "脱敏失败，审计仅保留哈希和告警。"
+    if state == "permission_denied":
+        return "访问被拒绝，需补充限定范围申请理由。"
+    if state == "approved_limited":
+        return "限定范围授权已记录，原文仍不在控制台展示。"
+    return "原文访问尚未批准，继续展示安全摘要。"
 
 
 def _operation_center(console_data: dict[str, Any]) -> dict[str, Any]:

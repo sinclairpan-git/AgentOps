@@ -1,0 +1,35 @@
+{
+  "schema_version": "frontend-contract-observations/v1",
+  "provenance": {
+    "provider_kind": "static_contract_test",
+    "provider_name": "codex",
+    "provider_version": "012",
+    "source_ref": "apps/agentops-console/tests/console-contract.test.mjs"
+  },
+  "freshness": {
+    "generated_at": "2026-05-07T04:40:00Z",
+    "source_digest": null,
+    "source_revision": null
+  },
+  "observations": [
+    {
+      "page_id": "evidence-vault-workbench",
+      "recipe_id": "evidence-vault-workbench-v1",
+      "i18n_keys": [
+        "原文访问申请",
+        "限时授权",
+        "审计轨迹",
+        "默认不展示原文",
+        "不提供原文下载"
+      ],
+      "validation_fields": [
+        "consoleData.evidenceVault.requests",
+        "consoleData.evidenceVault.grants",
+        "consoleData.evidenceVault.auditTrail",
+        "consoleData.evidenceVault.guardrails",
+        "evidence.raw_access_state"
+      ],
+      "new_legacy_usages": []
+    }
+  ]
+}
