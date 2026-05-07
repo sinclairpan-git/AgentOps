@@ -1,12 +1,12 @@
 pipeline_started_at: '2026-05-04T06:14:47+00:00'
-pipeline_last_updated: '2026-05-07T07:29:12+00:00'
+pipeline_last_updated: '2026-05-07T08:59:00+00:00'
 current_stage: close
 feature:
-  id: 013-approval-grant-workbench
-  spec_dir: specs/013-approval-grant-workbench
-  design_branch: design/013-approval-grant-workbench-docs
-  feature_branch: feature/013-approval-grant-workbench-dev
-  current_branch: codex/013-approval-grant-workbench
+  id: 014-console-connector-health-workbench
+  spec_dir: specs/014-console-connector-health-workbench
+  design_branch: design/014-console-connector-health-workbench-docs
+  feature_branch: feature/014-console-connector-health-workbench-dev
+  current_branch: codex/014-connector-health-workbench
   docs_baseline_ref: ''
   docs_baseline_at: ''
 multi_agent:
@@ -16,33 +16,33 @@ multi_agent:
 prd_source: /Users/sinclairpan/project/AI-Native底座开发文档/AgentOps_项目_PRD.md
 completed_stages:
 - stage: init
-  completed_at: '2026-05-07T07:29:12+00:00'
+  completed_at: '2026-05-07T08:59:00+00:00'
   artifacts: []
 - stage: refine
-  completed_at: '2026-05-07T07:29:12+00:00'
+  completed_at: '2026-05-07T08:59:00+00:00'
   artifacts:
   - spec.md
 - stage: design
-  completed_at: '2026-05-07T07:29:12+00:00'
+  completed_at: '2026-05-07T08:59:00+00:00'
   artifacts:
   - plan.md
 - stage: decompose
-  completed_at: '2026-05-07T07:29:12+00:00'
+  completed_at: '2026-05-07T08:59:00+00:00'
   artifacts:
   - tasks.md
 - stage: verify
-  completed_at: '2026-05-07T07:29:12+00:00'
+  completed_at: '2026-05-07T08:59:00+00:00'
   artifacts:
   - task-execution-log.md
   - tasks.md
 - stage: execute
-  completed_at: '2026-05-07T07:29:12+00:00'
+  completed_at: '2026-05-07T08:59:00+00:00'
   artifacts:
   - development-summary.md
   - task-execution-log.md
 execute_progress: null
 ai_decisions_count: 0
 execution_mode: auto
-linked_wi_id: 013-approval-grant-workbench
+linked_wi_id: 014-console-connector-health-workbench
 linked_plan_uri: specs/012-console-evidence-vault-workbench/plan.md
 last_synced_at: '2026-05-07T04:33:49+00:00'

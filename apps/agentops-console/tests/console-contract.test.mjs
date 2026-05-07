@@ -255,6 +255,73 @@ assert.equal(
   }),
   false
 );
+const verifiedSdlcRuns = consoleData.sdlcRuns.map((item) => ({
+  ...item,
+  adapter_status: "verified_loaded",
+  proof_source: "governance-load-probe sha256:machine-proof",
+  captured_at: "2026-05-07T10:30:00Z",
+  verified_loaded: "verified_loaded"
+}));
+const verifiedSdlcRunWorkbench = {
+  summary: {
+    ...consoleData.sdlcRunWorkbench.summary,
+    adapter_status: "verified_loaded",
+    proof_state: "verified_loaded",
+    reporter_ready: verifiedSdlcRuns.length,
+    pending_proofs: 0,
+    primary_action: "保持治理加载证明"
+  },
+  reporter: consoleData.sdlcRunWorkbench.reporter.map((item) => ({
+    ...item,
+    reporter_status: "active",
+    credential_status: "active",
+    source_signed: "active",
+    identity_confidence: "verified_loaded",
+    governance_state: "verified_loaded",
+    proof_source: "governance-load-probe sha256:machine-proof",
+    primary_action: "保持 Reporter 心跳"
+  })),
+  outbox: consoleData.sdlcRunWorkbench.outbox.map((item) => ({
+    ...item,
+    outbox_status: "healthy",
+    sequence_state: "healthy",
+    pending_events: "0",
+    oldest_pending_age: "0 分钟",
+    evidence_impact: "可进入 L5 复核"
+  })),
+  eligibility: consoleData.sdlcRunWorkbench.eligibility.map((item) => ({
+    ...item,
+    evidence_level: "L5",
+    l5_result: "healthy",
+    failed_conditions: "无",
+    policy_state_known: "allow",
+    governance_loaded: "verified_loaded",
+    verification_fresh: "healthy",
+    outbox_delivered: "healthy",
+    next_action: "保持证据链"
+  })),
+  guardrails: consoleData.sdlcRunWorkbench.guardrails
+};
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      summary: {
+        ...consoleData.summary,
+        adapter: {
+          ...consoleData.summary.adapter,
+          status: "verified_loaded",
+          proof_source: "governance-load-probe sha256:machine-proof",
+          captured_at: "2026-05-07T10:30:00Z"
+        }
+      },
+      sdlcRuns: verifiedSdlcRuns,
+      sdlcRunWorkbench: verifiedSdlcRunWorkbench
+    }
+  }),
+  true
+);
 assert.equal(validateSnapshot({ ...validApiSnapshot, schema_version: "wrong" }), false);
 assert.equal(
   validateSnapshot({ ...validApiSnapshot, routes: [{ id: "overview", label: "总览", icon: "⌂" }] }),
@@ -316,6 +383,13 @@ assert.equal(
   }),
   false
 );
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: { ...consoleData, sdlcRunWorkbench: null }
+  }),
+  false
+);
 const legacyV1SnapshotWithoutAdoption = {
   ...validApiSnapshot,
   consoleData: { ...consoleData }
@@ -351,6 +425,31 @@ delete legacyV1SnapshotWithoutConnectorWorkbench.consoleData.connectorWorkbench;
 assert.equal(
   validateSnapshot(legacyV1SnapshotWithoutConnectorWorkbench),
   true
+);
+const legacyV1SnapshotWithoutSdlcRunWorkbench = {
+  ...validApiSnapshot,
+  consoleData: { ...consoleData }
+};
+delete legacyV1SnapshotWithoutSdlcRunWorkbench.consoleData.sdlcRunWorkbench;
+assert.equal(
+  validateSnapshot(legacyV1SnapshotWithoutSdlcRunWorkbench),
+  true
+);
+const legacyUnsafeSdlcRunSnapshot = {
+  ...legacyV1SnapshotWithoutSdlcRunWorkbench,
+  consoleData: {
+    ...legacyV1SnapshotWithoutSdlcRunWorkbench.consoleData,
+    sdlcRuns: legacyV1SnapshotWithoutSdlcRunWorkbench.consoleData.sdlcRuns.map((item) =>
+      item.id === "sdlc_001" ? {
+        ...item,
+        raw_access_url: "/sdlc/raw/proof"
+      } : item
+    )
+  }
+};
+assert.equal(
+  validateSnapshot(legacyUnsafeSdlcRunSnapshot),
+  false
 );
 const legacyV1SnapshotWithSmallConnectorSet = {
   ...validApiSnapshot,
@@ -437,6 +536,62 @@ assert.equal(
   validateSnapshot({
     ...validApiSnapshot,
     consoleData: { ...consoleData, evidenceVault: null }
+  }),
+  false
+);
+const sdlcSummarySpoofedVerifiedLoaded = {
+  ...consoleData,
+  sdlcRunWorkbench: {
+    ...consoleData.sdlcRunWorkbench,
+    summary: {
+      ...consoleData.sdlcRunWorkbench.summary,
+      proof_state: "verified_loaded"
+    }
+  }
+};
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: sdlcSummarySpoofedVerifiedLoaded
+  }),
+  false
+);
+const sdlcDryRunStateSpoofedPassed = {
+  ...consoleData,
+  sdlcRuns: consoleData.sdlcRuns.map((item) =>
+    item.id === "sdlc_001" ? { ...item, dry_run_status: "pending" } : item
+  ),
+  sdlcRunWorkbench: {
+    ...consoleData.sdlcRunWorkbench,
+    summary: {
+      ...consoleData.sdlcRunWorkbench.summary,
+      dry_run_state: "dry_run_passed"
+    }
+  }
+};
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: sdlcDryRunStateSpoofedPassed
+  }),
+  false
+);
+const sdlcReporterProofSourceSpoofed = {
+  ...consoleData,
+  sdlcRunWorkbench: {
+    ...consoleData.sdlcRunWorkbench,
+    reporter: consoleData.sdlcRunWorkbench.reporter.map((item) =>
+      item.run_id === "sdlc_001" ? {
+        ...item,
+        proof_source: "伪造治理加载证明"
+      } : item
+    )
+  }
+};
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: sdlcReporterProofSourceSpoofed
   }),
   false
 );
@@ -1434,6 +1589,101 @@ assert.equal(
 assert.equal(
   validateSnapshot({
     ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      sdlcRunWorkbench: {
+        ...consoleData.sdlcRunWorkbench,
+        reporter: consoleData.sdlcRunWorkbench.reporter.map((item) =>
+          item.run_id === "sdlc_001" ? {
+            ...item,
+            reporter_status: "active",
+            credential_status: "active",
+            source_signed: "active",
+            identity_confidence: "verified_loaded"
+          } : item
+        )
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      sdlcRunWorkbench: {
+        ...consoleData.sdlcRunWorkbench,
+        outbox: consoleData.sdlcRunWorkbench.outbox.map((item) =>
+          item.run_id === "sdlc_001" ? {
+            ...item,
+            outbox_status: "healthy",
+            sequence_state: "healthy",
+            pending_events: "0",
+            oldest_pending_age: "0 分钟"
+          } : item
+        )
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      sdlcRunWorkbench: {
+        ...consoleData.sdlcRunWorkbench,
+        eligibility: consoleData.sdlcRunWorkbench.eligibility.map((item) =>
+          item.run_id === "sdlc_001" ? {
+            ...item,
+            evidence_level: "L5",
+            l5_result: "healthy",
+            failed_conditions: "无",
+            governance_loaded: "verified_loaded",
+            outbox_delivered: "healthy"
+          } : item
+        )
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      sdlcRunWorkbench: {
+        ...consoleData.sdlcRunWorkbench,
+        reporter: consoleData.sdlcRunWorkbench.reporter.slice(1)
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      sdlcRunWorkbench: {
+        ...consoleData.sdlcRunWorkbench,
+        reporter: consoleData.sdlcRunWorkbench.reporter.map((item) =>
+          item.run_id === "sdlc_001" ? {
+            ...item,
+            raw_access_url: "/sdlc/raw/proof"
+          } : item
+        )
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
     consoleData: { ...consoleData, connectors: [{ id: "conn_bad", status: "surprise_green" }] }
   }),
   false
@@ -1507,6 +1757,16 @@ assert.equal(legacyConnectorApiLoad.consoleData.connectorWorkbench.health.length
 assert.equal(legacyConnectorApiLoad.consoleData.connectorWorkbench.dlq.length, consoleData.connectors.length);
 assert.equal(legacyConnectorApiLoad.consoleData.connectorWorkbench.syncTrail.length, consoleData.connectors.length);
 assert.match(legacyConnectorApiLoad.consoleData.connectorWorkbench.guardrails.join(" "), /Outbox Replay/);
+
+const legacySdlcRunApiLoad = await loadAgentOpsSnapshot(async () => ({
+  ok: true,
+  json: async () => legacyV1SnapshotWithoutSdlcRunWorkbench
+}), "http://127.0.0.1:8765");
+assert.equal(legacySdlcRunApiLoad.source, "api_snapshot");
+assert.equal(legacySdlcRunApiLoad.consoleData.sdlcRunWorkbench.reporter.length, consoleData.sdlcRuns.length);
+assert.equal(legacySdlcRunApiLoad.consoleData.sdlcRunWorkbench.outbox.length, consoleData.sdlcRuns.length);
+assert.equal(legacySdlcRunApiLoad.consoleData.sdlcRunWorkbench.eligibility.length, consoleData.sdlcRuns.length);
+assert.match(legacySdlcRunApiLoad.consoleData.sdlcRunWorkbench.guardrails.join(" "), /Reporter active/);
 
 const liveApiLoad = await loadAgentOpsSnapshot(async () => ({
   ok: true,
@@ -1593,7 +1853,10 @@ const allowedEnglishUiTerms = [
   "PR",
   "CI",
   "DLQ",
+  "Reporter",
+  "Outbox",
   "Outbox Replay",
+  "L5",
   "Evidence Vault",
   "L5 Gate",
   "Browser Gate",
@@ -1611,6 +1874,7 @@ const allowedEnglishUiTerms = [
   "Agent Store",
   "Store",
   "API",
+  "active",
   "mock",
   "deny",
   "block",

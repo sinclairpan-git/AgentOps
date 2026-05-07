@@ -180,6 +180,18 @@ def test_adversarial_pr_review_script_enforces_agentops_redlines() -> None:
     assert "legacyV1SnapshotWithSmallConnectorSet" in script
     assert "legacyUnsafeConnectorSnapshot" in script
     assert "sdlcSpoofedHealthyConnector" in script
+    assert "sdlcRunWorkbenchIsComplete" in script
+    assert "legacySdlcRunWorkbench" in script
+    assert "sdlcReporterMatchesRun" in script
+    assert "sdlcOutboxMatchesRun" in script
+    assert "sdlcEligibilityMatchesRun" in script
+    assert "sdlcDryRunState" in script
+    assert "sdlcSummarySpoofedVerifiedLoaded" in script
+    assert "sdlcDryRunStateSpoofedPassed" in script
+    assert "sdlcReporterProofSourceSpoofed" in script
+    assert "legacyUnsafeSdlcRunSnapshot" in script
+    assert "Reporter active" in script
+    assert "Outbox delivered" in script
     assert "Connector Health" in script
     assert "Outbox Replay" in script
     assert "不构成 verified_loaded" in script

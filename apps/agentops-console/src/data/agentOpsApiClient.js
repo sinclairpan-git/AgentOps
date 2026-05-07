@@ -128,6 +128,7 @@ export function validateSnapshot(snapshot) {
     "evidenceVault",
     "approvalWorkbench",
     "connectorWorkbench",
+    "sdlcRunWorkbench",
     "actionWorkbench",
     "connectors",
     "sdlcRuns"
@@ -148,6 +149,9 @@ export function validateSnapshot(snapshot) {
     return false;
   }
   if (!connectorWorkbenchIsComplete(consoleData)) {
+    return false;
+  }
+  if (!sdlcRunWorkbenchIsComplete(consoleData)) {
     return false;
   }
   if (!adoptionInsightsAreComplete(consoleData)) {
@@ -186,12 +190,18 @@ function consoleDataWithWorkbenchDefaults(consoleData) {
     ...withEvidenceVault,
     approvalWorkbench: legacyApprovalWorkbench(withEvidenceVault.approvals)
   };
-  if (Object.prototype.hasOwnProperty.call(withApprovalWorkbench, "connectorWorkbench")) {
-    return withApprovalWorkbench;
+  const withConnectorWorkbench = Object.prototype.hasOwnProperty.call(withApprovalWorkbench, "connectorWorkbench")
+    ? withApprovalWorkbench
+    : {
+      ...withApprovalWorkbench,
+      connectorWorkbench: legacyConnectorWorkbench(withApprovalWorkbench.connectors)
+    };
+  if (Object.prototype.hasOwnProperty.call(withConnectorWorkbench, "sdlcRunWorkbench")) {
+    return withConnectorWorkbench;
   }
   return {
-    ...withApprovalWorkbench,
-    connectorWorkbench: legacyConnectorWorkbench(withApprovalWorkbench.connectors)
+    ...withConnectorWorkbench,
+    sdlcRunWorkbench: legacySdlcRunWorkbench(withConnectorWorkbench)
   };
 }
 
@@ -836,6 +846,107 @@ function legacyConnectorSyncSummary(item) {
   return `${item.name} 进入降级路径：${item.degrade_action}。`;
 }
 
+function legacySdlcRunWorkbench(consoleData) {
+  const runs = Array.isArray(consoleData.sdlcRuns) ? consoleData.sdlcRuns : [];
+  const verifiedCount = runs.filter((item) => sdlcProofVerified(item)).length;
+  return {
+    summary: {
+      id: "legacy_sdlc_run_summary",
+      adapter_status: consoleData.summary?.adapter?.status || "materialized",
+      proof_state: runs.length > 0 && verifiedCount === runs.length ? "verified_loaded" : "unverified",
+      dry_run_state: sdlcDryRunState(runs),
+      reporter_ready: verifiedCount,
+      pending_proofs: Math.max(runs.length - verifiedCount, 0),
+      primary_action: verifiedCount === runs.length && runs.length ? "保持治理加载证明" : "补齐 verified_loaded 机器证明",
+      safety_note: "CLI dry-run、AGENTS.md 或本地仓库事实不构成 verified_loaded 治理激活证明。"
+    },
+    reporter: runs.map((item) => legacySdlcReporterItem(item)),
+    outbox: runs.map((item) => legacySdlcOutboxItem(item)),
+    eligibility: runs.map((item) => legacySdlcEligibilityItem(item)),
+    guardrails: [
+      "Reporter active 必须有 machine-verifiable proof，不得由 dry-run 或 AGENTS.md 推导。",
+      "Outbox delivered 只表示投递状态，不在 Console 执行 Outbox Replay 或事件重放。",
+      "materialized/unverified 只能说明配置已生成或 CLI 预演成功，不构成 verified_loaded 治理激活证明。",
+      "L5 条件缺失必须展示 failed_conditions 和下一步动作，不得显示为 healthy。",
+      "Ai_AutoSDLC 运行工作台不得展示原始载荷、下载链接、PR 原文、diff、patch 或外部 URL。"
+    ]
+  };
+}
+
+function sdlcProofVerified(item) {
+  const proofText = `${item.proof_source || ""} ${item.captured_at || ""}`;
+  const proofPending = /待采集|待接入|CLI 预演|AGENTS\.md/.test(proofText);
+  return item.verified_loaded === "verified_loaded" &&
+    Boolean(item.proof_source) &&
+    Boolean(item.captured_at) &&
+    !proofPending;
+}
+
+function sdlcRunRef(item) {
+  return item.run_id || item.id || "unknown_sdlc_run";
+}
+
+function sdlcDryRunState(items) {
+  if (!items.length) {
+    return "empty";
+  }
+  return items.every((item) => item.dry_run_status === "dry_run_passed") ? "dry_run_passed" : "pending";
+}
+
+function legacySdlcReporterItem(item) {
+  const verified = sdlcProofVerified(item);
+  const runId = sdlcRunRef(item);
+  return {
+    id: `legacy_sdlc_reporter_${runId}`,
+    run_id: runId,
+    command: item.command,
+    reporter_status: verified ? "active" : "materialized",
+    integration_mode: "enterprise_managed",
+    credential_status: verified ? "active" : "unverified",
+    source_signed: verified ? "active" : "unverified",
+    identity_confidence: verified ? "verified_loaded" : "unverified",
+    governance_state: item.adapter_status || "materialized",
+    proof_source: item.proof_source,
+    primary_action: verified ? "保持 Reporter 心跳" : "补齐治理加载证明",
+    safety_note: "只读 Reporter 摘要，不签发凭证、不绑定设备、不执行企业激活。"
+  };
+}
+
+function legacySdlcOutboxItem(item) {
+  const verified = sdlcProofVerified(item);
+  const runId = sdlcRunRef(item);
+  return {
+    id: `legacy_sdlc_outbox_${runId}`,
+    run_id: runId,
+    outbox_status: verified ? "healthy" : "pending",
+    sequence_state: verified ? "healthy" : "pending",
+    pending_events: verified ? "0" : "待验证",
+    oldest_pending_age: verified ? "0 分钟" : "待采集",
+    replay_boundary: "只读摘要，不在 Console 执行 Outbox Replay 或事件重放。",
+    evidence_impact: verified ? "可进入 L5 复核" : "pending L5 verification，不提升证据等级。",
+    audit_id: `audit_sdlc_${runId}`,
+    safety_note: "Outbox Replay 必须由后端审批流程执行，本页不提供重放按钮。"
+  };
+}
+
+function legacySdlcEligibilityItem(item) {
+  const verified = sdlcProofVerified(item);
+  const runId = sdlcRunRef(item);
+  return {
+    id: `legacy_sdlc_eligibility_${runId}`,
+    run_id: runId,
+    evidence_level: verified ? "L5" : "pending",
+    l5_result: verified ? "healthy" : "pending",
+    failed_conditions: verified ? "无" : "governance_loaded,source_signed,outbox_delivered",
+    policy_state_known: verified ? "allow" : "unknown",
+    governance_loaded: verified ? "verified_loaded" : "unverified",
+    verification_fresh: verified ? "healthy" : "pending",
+    outbox_delivered: verified ? "healthy" : "pending",
+    next_action: verified ? "保持证据链" : "补齐 verified_loaded、签名来源和 Outbox delivered 证明",
+    safety_note: "Eligibility 仅解释 L5 条件，不覆盖 AgentOps 后端最终等级判定。"
+  };
+}
+
 function emptyAdoptionInsights() {
   return {
     metrics: {
@@ -897,6 +1008,17 @@ function consoleDataHasConnectorWorkbenchShape(consoleData) {
     Array.isArray(consoleData.connectorWorkbench.guardrails);
 }
 
+function consoleDataHasSdlcRunWorkbenchShape(consoleData) {
+  if (!isRecord(consoleData.sdlcRunWorkbench)) {
+    return false;
+  }
+  return isRecord(consoleData.sdlcRunWorkbench.summary) &&
+    Array.isArray(consoleData.sdlcRunWorkbench.reporter) &&
+    Array.isArray(consoleData.sdlcRunWorkbench.outbox) &&
+    Array.isArray(consoleData.sdlcRunWorkbench.eligibility) &&
+    Array.isArray(consoleData.sdlcRunWorkbench.guardrails);
+}
+
 export function snapshotShapeIsSafe(consoleData) {
   if (!isRecord(consoleData.summary) || !isRecord(consoleData.summary.adapter)) {
     return false;
@@ -916,6 +1038,7 @@ export function snapshotShapeIsSafe(consoleData) {
     "operationCenter",
     "approvalWorkbench",
     "connectorWorkbench",
+    "sdlcRunWorkbench",
     "actionWorkbench",
     "connectors",
     "sdlcRuns"
@@ -948,11 +1071,15 @@ export function snapshotShapeIsSafe(consoleData) {
     if (key === "connectorWorkbench") {
       return consoleDataHasConnectorWorkbenchShape(consoleData);
     }
+    if (key === "sdlcRunWorkbench") {
+      return consoleDataHasSdlcRunWorkbenchShape(consoleData);
+    }
     return Array.isArray(consoleData[key]);
   }) &&
     consoleDataHasAdoptionShape(consoleData) &&
     consoleDataHasEvidenceVaultShape(consoleData) &&
-    consoleDataHasConnectorWorkbenchShape(consoleData);
+    consoleDataHasConnectorWorkbenchShape(consoleData) &&
+    consoleDataHasSdlcRunWorkbenchShape(consoleData);
 }
 
 function isRecord(value) {
@@ -1004,6 +1131,27 @@ export function statesAreKnown(consoleData) {
     ]),
     ...(consoleData.connectorWorkbench?.dlq || []).map((item) => item.replay_state),
     ...(consoleData.connectorWorkbench?.syncTrail || []).map((item) => item.status),
+    consoleData.sdlcRunWorkbench?.summary?.adapter_status,
+    consoleData.sdlcRunWorkbench?.summary?.proof_state,
+    consoleData.sdlcRunWorkbench?.summary?.dry_run_state,
+    ...(consoleData.sdlcRunWorkbench?.reporter || []).flatMap((item) => [
+      item.reporter_status,
+      item.credential_status,
+      item.source_signed,
+      item.identity_confidence,
+      item.governance_state
+    ]),
+    ...(consoleData.sdlcRunWorkbench?.outbox || []).flatMap((item) => [
+      item.outbox_status,
+      item.sequence_state
+    ]),
+    ...(consoleData.sdlcRunWorkbench?.eligibility || []).flatMap((item) => [
+      item.l5_result,
+      item.policy_state_known,
+      item.governance_loaded,
+      item.verification_fresh,
+      item.outbox_delivered
+    ]),
     ...(consoleData.agentStore?.discoveryGaps || []).map((item) => item.state),
     ...(consoleData.agentStore?.runAudits || []).flatMap((item) => [item.registration_state, item.raw_access_state]),
     ...(consoleData.agentStore?.storeSummaries || []).flatMap((item) => [item.metadata_state, item.risk_state]),
@@ -1637,6 +1785,232 @@ function connectorSyncMatchesConnector(item, connector) {
     item.status === connector.status &&
     item.occurred_at === connector.last_seen_at &&
     item.request_id === connector.request_id;
+}
+
+export function sdlcRunWorkbenchIsComplete(consoleData) {
+  const workbench = consoleData.sdlcRunWorkbench;
+  if (!isRecord(workbench) || containsUnsafeAuditReference(workbench)) {
+    return false;
+  }
+  if (!keysAreExactly(workbench, ["summary", "reporter", "outbox", "eligibility", "guardrails"])) {
+    return false;
+  }
+  if (!keysAreExactly(workbench.summary, [
+    "id",
+    "adapter_status",
+    "proof_state",
+    "dry_run_state",
+    "reporter_ready",
+    "pending_proofs",
+    "primary_action",
+    "safety_note"
+  ])) {
+    return false;
+  }
+  const sdlcRuns = consoleData.sdlcRuns || [];
+  if (!Array.isArray(sdlcRuns) || containsUnsafeAuditReference(sdlcRuns)) {
+    return false;
+  }
+  const sdlcRunsByRef = new Map(sdlcRuns.map((item) => [sdlcRunRef(item), item]));
+  if (
+    sdlcRunsByRef.size !== sdlcRuns.length ||
+    !sdlcWorkbenchRowsMatchRuns(sdlcRuns, workbench.reporter) ||
+    !sdlcWorkbenchRowsMatchRuns(sdlcRuns, workbench.outbox) ||
+    !sdlcWorkbenchRowsMatchRuns(sdlcRuns, workbench.eligibility)
+  ) {
+    return false;
+  }
+
+  const verifiedProofCount = sdlcRuns.filter((item) => sdlcProofVerified(item)).length;
+  const expectedProofState = sdlcRuns.length > 0 && verifiedProofCount === sdlcRuns.length
+    ? "verified_loaded"
+    : "unverified";
+  const expectedDryRunState = sdlcDryRunState(sdlcRuns);
+  const summaryOk = workbench.summary.id &&
+    workbench.summary.adapter_status === consoleData.summary?.adapter?.status &&
+    workbench.summary.proof_state === expectedProofState &&
+    workbench.summary.dry_run_state === expectedDryRunState &&
+    Number.isInteger(workbench.summary.reporter_ready) &&
+    Number.isInteger(workbench.summary.pending_proofs) &&
+    workbench.summary.reporter_ready === verifiedProofCount &&
+    workbench.summary.pending_proofs === sdlcRuns.length - verifiedProofCount &&
+    (
+      expectedProofState === "verified_loaded"
+        ? workbench.summary.primary_action === "保持治理加载证明"
+        : /verified_loaded/.test(workbench.summary.primary_action || "")
+    ) &&
+    /不构成 verified_loaded/.test(workbench.summary.safety_note || "");
+
+  const reporterOk = workbench.reporter.every((item) =>
+    keysAreExactly(item, [
+      "id",
+      "run_id",
+      "command",
+      "reporter_status",
+      "integration_mode",
+      "credential_status",
+      "source_signed",
+      "identity_confidence",
+      "governance_state",
+      "proof_source",
+      "primary_action",
+      "safety_note"
+    ]) &&
+    item.id &&
+    item.run_id &&
+    item.command &&
+    item.reporter_status &&
+    item.integration_mode === "enterprise_managed" &&
+    item.credential_status &&
+    item.source_signed &&
+    item.identity_confidence &&
+    item.governance_state &&
+    item.proof_source &&
+    /只读 Reporter 摘要/.test(item.safety_note || "") &&
+    sdlcReporterMatchesRun(item, sdlcRunsByRef.get(item.run_id)) &&
+    !containsUnsafeLifecycleText(`${item.primary_action || ""} ${item.safety_note || ""}`)
+  );
+
+  const outboxOk = workbench.outbox.every((item) =>
+    keysAreExactly(item, [
+      "id",
+      "run_id",
+      "outbox_status",
+      "sequence_state",
+      "pending_events",
+      "oldest_pending_age",
+      "replay_boundary",
+      "evidence_impact",
+      "audit_id",
+      "safety_note"
+    ]) &&
+    item.id &&
+    item.run_id &&
+    item.outbox_status &&
+    item.sequence_state &&
+    item.pending_events &&
+    item.oldest_pending_age &&
+    /不在 Console 执行 Outbox Replay/.test(item.replay_boundary || "") &&
+    item.evidence_impact &&
+    item.audit_id &&
+    /不提供重放按钮/.test(item.safety_note || "") &&
+    sdlcOutboxMatchesRun(item, sdlcRunsByRef.get(item.run_id)) &&
+    !containsUnsafeLifecycleText(`${item.replay_boundary || ""} ${item.safety_note || ""}`)
+  );
+
+  const eligibilityOk = workbench.eligibility.every((item) =>
+    keysAreExactly(item, [
+      "id",
+      "run_id",
+      "evidence_level",
+      "l5_result",
+      "failed_conditions",
+      "policy_state_known",
+      "governance_loaded",
+      "verification_fresh",
+      "outbox_delivered",
+      "next_action",
+      "safety_note"
+    ]) &&
+    item.id &&
+    item.run_id &&
+    item.evidence_level &&
+    item.l5_result &&
+    item.failed_conditions &&
+    item.policy_state_known &&
+    item.governance_loaded &&
+    item.verification_fresh &&
+    item.outbox_delivered &&
+    item.next_action &&
+    /不覆盖 AgentOps 后端最终等级判定/.test(item.safety_note || "") &&
+    sdlcEligibilityMatchesRun(item, sdlcRunsByRef.get(item.run_id)) &&
+    !containsUnsafeLifecycleText(`${item.next_action || ""} ${item.safety_note || ""}`)
+  );
+
+  const guardrailsText = workbench.guardrails.join(" ");
+  return summaryOk &&
+    reporterOk &&
+    outboxOk &&
+    eligibilityOk &&
+    workbench.guardrails.every((item) => typeof item === "string" && item) &&
+    /Reporter active/.test(guardrailsText) &&
+    /Outbox delivered/.test(guardrailsText) &&
+    /Outbox Replay/.test(guardrailsText) &&
+    /materialized\/unverified/.test(guardrailsText) &&
+    /不构成 verified_loaded/.test(guardrailsText) &&
+    /failed_conditions/.test(guardrailsText) &&
+    /原始载荷/.test(guardrailsText) &&
+    !containsUnsafeLifecycleText(guardrailsText);
+}
+
+function sdlcWorkbenchRowsMatchRuns(sdlcRuns, rows) {
+  if (!Array.isArray(rows) || rows.length !== sdlcRuns.length) {
+    return false;
+  }
+  const runIds = new Set(sdlcRuns.map((item) => sdlcRunRef(item)));
+  const rowIds = new Set(rows.map((item) => item.run_id));
+  return rowIds.size === rows.length &&
+    runIds.size === sdlcRuns.length &&
+    sdlcRuns.every((item) => rowIds.has(sdlcRunRef(item)));
+}
+
+function sdlcReporterMatchesRun(item, run) {
+  if (
+    !run ||
+    item.command !== run.command ||
+    item.governance_state !== run.adapter_status ||
+    item.proof_source !== run.proof_source
+  ) {
+    return false;
+  }
+  const verified = sdlcProofVerified(run);
+  if (verified) {
+    return item.reporter_status === "active" &&
+      item.credential_status === "active" &&
+      item.source_signed === "active" &&
+      item.identity_confidence === "verified_loaded";
+  }
+  return item.reporter_status !== "active" &&
+    item.credential_status !== "active" &&
+    item.source_signed !== "active" &&
+    item.identity_confidence !== "verified_loaded";
+}
+
+function sdlcOutboxMatchesRun(item, run) {
+  if (!run) {
+    return false;
+  }
+  const verified = sdlcProofVerified(run);
+  if (verified) {
+    return item.outbox_status === "healthy" &&
+      item.sequence_state === "healthy" &&
+      item.pending_events === "0" &&
+      item.oldest_pending_age === "0 分钟";
+  }
+  return item.outbox_status !== "healthy" &&
+    item.sequence_state !== "healthy" &&
+    item.pending_events !== "0" &&
+    item.oldest_pending_age !== "0 分钟" &&
+    /不提升证据等级/.test(item.evidence_impact || "");
+}
+
+function sdlcEligibilityMatchesRun(item, run) {
+  if (!run) {
+    return false;
+  }
+  const verified = sdlcProofVerified(run);
+  if (verified) {
+    return item.evidence_level === "L5" &&
+      item.l5_result === "healthy" &&
+      item.failed_conditions === "无" &&
+      item.governance_loaded === "verified_loaded" &&
+      item.outbox_delivered === "healthy";
+  }
+  return item.evidence_level !== "L5" &&
+    item.l5_result !== "healthy" &&
+    item.failed_conditions !== "无" &&
+    item.governance_loaded !== "verified_loaded" &&
+    item.outbox_delivered !== "healthy";
 }
 
 function sdlcConnectorProofStateIsSafe(consoleData, workbench) {
