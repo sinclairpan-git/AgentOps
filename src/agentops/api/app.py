@@ -9,7 +9,8 @@ def create_app() -> dict[str, str]:
     return {
         "ingestion": "POST /v1/events",
         "ingestion_compatibility_alias": "POST /v1/events/batch",
-        "credentials": "/v1/bootstrap/credentials",
+        "credentials": "POST /v1/bootstrap/credentials",
+        "credential_status": "GET /v1/bootstrap/credentials/{bootstrap_id}",
         "evidence": "/v1/runs/{run_id}/evidence-summary",
         "policy": "/v1/policy/decision",
         "store_summary": "/v1/store-summary/{agent_id}",

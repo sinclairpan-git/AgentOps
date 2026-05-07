@@ -67,36 +67,40 @@ specs:
   path: specs/017-signed-test-event-credential-activation
   depends_on:
   - 016-cross-project-credential-handoff-consumer
+- id: 018-agent-store-credential-status-query
+  path: specs/018-agent-store-credential-status-query
+  depends_on:
+  - 017-signed-test-event-credential-activation
 truth_snapshot:
-  generated_at: '2026-05-07T14:40:44Z'
+  generated_at: '2026-05-07T15:02:08Z'
   generated_by: ai-sdlc program truth sync
   generator_version: program_truth_snapshot_v1
-  repo_revision: 4b46ecd
-  authoring_hash: 50d49aeeba7d47ac343c1c90bb863902741c81b797f437a7494358f61e0d2bd7
+  repo_revision: '6228440'
+  authoring_hash: 1389dd76ba53808dfd7c30897eab2eaf8d147a56fb627dc0a46c7f9a0f70258c
   source_hashes: {}
-  snapshot_hash: ed45c1e410b321aa4ebd3e97f9af08967b415a6c4868a0e22bcfed73deaf5258
+  snapshot_hash: cc44de42f7ac30ef107aac9d3a6173d781ee8a91e46b4f8f036191ab40fc34f0
   computed_capabilities: []
   source_inventory:
     state: complete
-    total_sources: 85
-    mapped_sources: 85
+    total_sources: 90
+    mapped_sources: 90
     unmapped_sources: 0
     missing_sources: 2
-    phase_signal_count: 103
-    deferred_signal_count: 133
-    non_goal_signal_count: 23
+    phase_signal_count: 104
+    deferred_signal_count: 134
+    non_goal_signal_count: 24
     layer_totals:
-      spec: 17
-      plan: 17
-      tasks: 17
-      execution: 17
-      close: 17
+      spec: 18
+      plan: 18
+      tasks: 18
+      execution: 18
+      close: 18
     layer_materialized:
-      spec: 17
-      plan: 17
-      tasks: 17
-      execution: 15
-      close: 17
+      spec: 18
+      plan: 18
+      tasks: 18
+      execution: 16
+      close: 18
     entries:
     - path: specs/001-agentops-trusted-loop/spec.md
       source_type: spec_doc
@@ -860,6 +864,51 @@ truth_snapshot:
       mapped: true
       exists: true
       mapping_ref: 017-signed-test-event-credential-activation
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 0
+    - path: specs/018-agent-store-credential-status-query/spec.md
+      source_type: spec_doc
+      truth_layer: spec
+      mapped: true
+      exists: true
+      mapping_ref: 018-agent-store-credential-status-query
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 1
+    - path: specs/018-agent-store-credential-status-query/plan.md
+      source_type: plan_doc
+      truth_layer: plan
+      mapped: true
+      exists: true
+      mapping_ref: 018-agent-store-credential-status-query
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 0
+    - path: specs/018-agent-store-credential-status-query/tasks.md
+      source_type: tasks_doc
+      truth_layer: tasks
+      mapped: true
+      exists: true
+      mapping_ref: 018-agent-store-credential-status-query
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 0
+    - path: specs/018-agent-store-credential-status-query/task-execution-log.md
+      source_type: execution_log
+      truth_layer: execution
+      mapped: true
+      exists: true
+      mapping_ref: 018-agent-store-credential-status-query
+      phase_signal_count: 1
+      deferred_signal_count: 1
+      non_goal_signal_count: 0
+    - path: specs/018-agent-store-credential-status-query/development-summary.md
+      source_type: development_summary
+      truth_layer: close
+      mapped: true
+      exists: true
+      mapping_ref: 018-agent-store-credential-status-query
       phase_signal_count: 0
       deferred_signal_count: 0
       non_goal_signal_count: 0

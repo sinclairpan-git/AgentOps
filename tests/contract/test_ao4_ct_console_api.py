@@ -397,6 +397,7 @@ def test_ao5_ct_008_api_assembly_truth_tracks_http_ingestion_route():
 
     assert app["ingestion"] == "POST /v1/events"
     assert app["ingestion_compatibility_alias"] == "POST /v1/events/batch"
+    assert app["credential_status"] == "GET /v1/bootstrap/credentials/{bootstrap_id}"
     assert app["console_snapshot"] == "/v1/console/snapshot"
 
 

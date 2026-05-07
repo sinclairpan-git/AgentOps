@@ -15,6 +15,8 @@ CANONICALIZATION = "json-c14n-v1"
 AGENT_STORE_ISSUER = "agent-store"
 AGENTOPS_AUDIENCE = "agentops"
 NEXT_ACTION_SIGNATURE_TEST = "send_signature_test_event"
+NEXT_ACTION_DISPLAY_RESULT = "display_activation_result"
+CREDENTIAL_STATUS_SCHEMA_VERSION = "agentops_credential_status.v1"
 
 
 def issue_credentials(
@@ -118,6 +120,44 @@ def issue_credentials(
         handoff_identity=handoff_identity,
         idempotency_key=idempotency_key,
     )
+
+
+def get_credential_status(
+    repository: InMemoryRepository,
+    bootstrap_id: str,
+    *,
+    consumer_schema_version: str = CREDENTIAL_STATUS_SCHEMA_VERSION,
+) -> dict[str, Any]:
+    if consumer_schema_version != CREDENTIAL_STATUS_SCHEMA_VERSION:
+        raise AgentOpsError("CREDENTIAL_STATUS_SCHEMA_UNSUPPORTED", "Unsupported credential status schema.")
+
+    session = repository.get_bootstrap_session(bootstrap_id)
+    credentials = repository.get_credentials(bootstrap_id)
+    if not session or not credentials:
+        raise AgentOpsError("CREDENTIAL_STATUS_NOT_FOUND", "Credential status does not exist for this bootstrap.")
+
+    bootstrap_status = str(credentials.get("bootstrap_status") or session.get("bootstrap_status") or session.get("status"))
+    next_action = NEXT_ACTION_DISPLAY_RESULT if bootstrap_status == "signature_verified" else NEXT_ACTION_SIGNATURE_TEST
+    return {
+        "schema_version": CREDENTIAL_STATUS_SCHEMA_VERSION,
+        "bootstrap_id": bootstrap_id,
+        "bootstrap_status": bootstrap_status,
+        "credential_status": str(credentials.get("status") or "unknown"),
+        "credential_id": str(credentials["credential_id"]),
+        "token_id": str(credentials["token_id"]),
+        "device_key_id": str(credentials["device_key_id"]),
+        "installation_id": str(credentials["installation_id"]),
+        "device_id": str(credentials["device_id"]),
+        "expires_at": str(credentials["expires_at"]),
+        "next_action": next_action,
+        "signature_test_event_id": credentials.get("signature_test_event_id"),
+        "agentops_fact_owner": "agentops",
+        "agent_store_consumer_boundary": "display_only_no_active_inference",
+        "agent_store_allowed_actions": ["display_status", "show_next_action"],
+        "agent_store_forbidden_actions": ["infer_active", "issue_credential", "issue_ingestion_token", "issue_device_key"],
+        "verified_loaded": "not_asserted",
+        "l5_status": "not_asserted",
+    }
 
 
 def _validate_schema_version(request: dict[str, Any]) -> None:

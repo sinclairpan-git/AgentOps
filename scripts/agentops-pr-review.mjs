@@ -702,6 +702,63 @@ function checkSignedTestEventActivation() {
   }
 }
 
+function checkAgentStoreCredentialStatusQuery() {
+  const credentialApi = "src/agentops/api/credentials.py";
+  const server = "src/agentops/api/server.py";
+  const openapi = "specs/001-agentops-trusted-loop/contracts/agentops-api.openapi.yaml";
+  const contractTest = "tests/contract/test_ao18_ct_agent_store_credential_status.py";
+  const spec = "specs/018-agent-store-credential-status-query/spec.md";
+  for (const path of [credentialApi, server, openapi, contractTest, spec]) {
+    requireFile(path, "P1", "缺少 Agent Store credential status query 契约", `${path} 是 Agent Store 009 只读消费 AgentOps credential/bootstrap 状态的必要证据。`);
+  }
+  if (fileExists(credentialApi)) {
+    const text = readText(credentialApi);
+    for (const needle of [
+      "agentops_credential_status.v1",
+      "get_credential_status",
+      "display_only_no_active_inference",
+      "infer_active",
+      "issue_ingestion_token",
+      "not_asserted",
+      "display_activation_result",
+      "CREDENTIAL_STATUS_NOT_FOUND"
+    ]) {
+      if (!text.includes(needle)) {
+        addFinding("P1", credentialApi, "get_credential_status", "Credential status query 只读边界不完整", `Credential status query 必须包含 ${needle}，否则 Agent Store 009 可能本地推导 active 或缺少状态事实。`);
+      }
+    }
+  }
+  if (fileExists(server) && !readText(server).includes("/v1/bootstrap/credentials/")) {
+    addFinding("P1", server, "do_GET", "HTTP status route 缺失", "Agent Store 009 需要 GET /v1/bootstrap/credentials/{bootstrap_id} 读取 AgentOps 状态回显。");
+  }
+  if (fileExists(openapi)) {
+    const text = readText(openapi);
+    for (const needle of ["CredentialStatusResponse", "agentops_credential_status.v1", "display_only_no_active_inference", "display_activation_result"]) {
+      if (!text.includes(needle)) {
+        addFinding("P1", openapi, "CredentialStatusResponse", "OpenAPI 未同步 credential status query", `OpenAPI 必须包含 ${needle}。`);
+      }
+    }
+  }
+  if (fileExists(contractTest)) {
+    const text = readText(contractTest);
+    for (const needle of [
+      "test_ao18_cct_003_agent_store_reads_credential_issued_status",
+      "test_ao18_cct_003b_agent_store_reads_signature_verified_status",
+      "CREDENTIAL_STATUS_NOT_FOUND",
+      "display_only_no_active_inference",
+      "token_value",
+      "private_key",
+      "raw_payload",
+      "download_url",
+      "GET"
+    ]) {
+      if (!text.includes(needle)) {
+        addFinding("P1", contractTest, "test_ao18", "AO18 credential status 测试覆盖不足", `AO18 CCT 必须覆盖 ${needle}。`);
+      }
+    }
+  }
+}
+
 function stripSafeNegations(value) {
   return value
     .replace(/不自动批准/g, "")
@@ -860,6 +917,7 @@ async function main() {
   checkSdlcRunWorkbenchTestsAndContracts();
   checkCrossProjectCredentialHandoff();
   checkSignedTestEventActivation();
+  checkAgentStoreCredentialStatusQuery();
   checkUnsafeLifecycleText(paths);
   checkWorkflowItself(paths);
 

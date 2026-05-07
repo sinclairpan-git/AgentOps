@@ -76,6 +76,11 @@ class InMemoryRepository:
             session = self.bootstrap_sessions.get(bootstrap_id)
             return dict(session) if session else None
 
+    def get_credentials(self, bootstrap_id: str) -> dict[str, Any] | None:
+        with self._lock:
+            credentials = self.credentials_by_bootstrap.get(bootstrap_id)
+            return dict(credentials) if credentials else None
+
     def store_credentials(
         self,
         bootstrap_id: str,

@@ -62,6 +62,29 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /v1/bootstrap/credentials/{bootstrap_id}:
+    get:
+      summary: Read AgentOps-owned credential bootstrap status for Agent Store display
+      operationId: getCredentialStatus
+      parameters:
+        - name: bootstrap_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: AgentOps credential status echo
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CredentialStatusResponse"
+        "404":
+          description: Credential status not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/runs/{run_id}/evidence-summary:
     get:
       summary: Read redacted evidence summary for a run
@@ -330,6 +353,79 @@ components:
         next_action:
           type: string
           enum: [send_signature_test_event]
+    CredentialStatusResponse:
+      type: object
+      required:
+        - schema_version
+        - bootstrap_id
+        - bootstrap_status
+        - credential_status
+        - credential_id
+        - token_id
+        - device_key_id
+        - installation_id
+        - device_id
+        - expires_at
+        - next_action
+        - agentops_fact_owner
+        - agent_store_consumer_boundary
+        - agent_store_allowed_actions
+        - agent_store_forbidden_actions
+        - verified_loaded
+        - l5_status
+      properties:
+        schema_version:
+          type: string
+          enum: [agentops_credential_status.v1]
+        bootstrap_id:
+          type: string
+        bootstrap_status:
+          type: string
+          enum: [credential_issued, signature_verified]
+        credential_status:
+          type: string
+          enum: [active, rotating, expired, revoked, unknown]
+        credential_id:
+          type: string
+        token_id:
+          type: string
+          description: Identifier only; never a token secret value.
+        device_key_id:
+          type: string
+        installation_id:
+          type: string
+        device_id:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+        next_action:
+          type: string
+          enum: [send_signature_test_event, display_activation_result]
+        signature_test_event_id:
+          type: [string, "null"]
+        agentops_fact_owner:
+          type: string
+          enum: [agentops]
+        agent_store_consumer_boundary:
+          type: string
+          enum: [display_only_no_active_inference]
+        agent_store_allowed_actions:
+          type: array
+          items:
+            type: string
+            enum: [display_status, show_next_action]
+        agent_store_forbidden_actions:
+          type: array
+          items:
+            type: string
+            enum: [infer_active, issue_credential, issue_ingestion_token, issue_device_key]
+        verified_loaded:
+          type: string
+          enum: [not_asserted]
+        l5_status:
+          type: string
+          enum: [not_asserted]
     EvidenceSummary:
       type: object
       required:
