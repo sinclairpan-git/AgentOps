@@ -91,6 +91,10 @@ class InMemoryRepository:
                     self.credential_issue_idempotency[idempotency_key] = dict(handoff_identity)
             return dict(self.credentials_by_bootstrap[bootstrap_id])
 
+    def record_credential_issue_idempotency(self, idempotency_key: str, handoff_identity: dict[str, Any]) -> None:
+        with self._lock:
+            self.credential_issue_idempotency[idempotency_key] = dict(handoff_identity)
+
     def mark_bootstrap_nonces(self, *nonces: str) -> None:
         with self._lock:
             self.used_bootstrap_nonces.update(nonces)

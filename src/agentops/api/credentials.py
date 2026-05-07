@@ -92,6 +92,7 @@ def issue_credentials(
         existing_identity = repository.credential_identities_by_bootstrap.get(bootstrap_id)
         if existing_identity != handoff_identity:
             raise AgentOpsError("BOOTSTRAP_IDEMPOTENCY_CONFLICT", "Bootstrap retry identity does not match issued credential.")
+        repository.record_credential_issue_idempotency(idempotency_key, handoff_identity)
         return dict(existing)
 
     if assertion_nonce in repository.used_bootstrap_nonces or device_nonce in repository.used_bootstrap_nonces:

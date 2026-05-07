@@ -162,6 +162,21 @@ def test_reused_idempotency_key_with_different_identity_conflicts(repository):
     assert exc.value.error_code == "BOOTSTRAP_IDEMPOTENCY_CONFLICT"
 
 
+def test_replay_idempotency_key_is_recorded_before_reuse_conflict(repository):
+    repository.add_bootstrap_session(bootstrap_session())
+    issue_fixture(repository, headers={"Idempotency-Key": "idem-first"})
+    issue_fixture(repository, headers={"Idempotency-Key": "idem-replay"})
+    second_session = dict(bootstrap_session(), bootstrap_id="boot-other")
+    repository.add_bootstrap_session(second_session)
+    request = credential_request()
+    request["bootstrap_id"] = "boot-other"
+
+    with pytest.raises(AgentOpsError) as exc:
+        issue_fixture(repository, request, headers={"Idempotency-Key": "idem-replay"})
+
+    assert exc.value.error_code == "BOOTSTRAP_IDEMPOTENCY_CONFLICT"
+
+
 def test_issued_bootstrap_retry_still_requires_signed_assertion(repository):
     repository.add_bootstrap_session(bootstrap_session())
     issue_fixture(repository)
