@@ -377,7 +377,7 @@ export function containsUnsafeAuditReference(value) {
 
 export function adoptionInsightsAreComplete(consoleData) {
   const adoption = consoleData.adoption;
-  if (!adoption || containsUnsafeAuditReference(adoption) || containsUnsafeLifecycleText(adoption)) {
+  if (!adoption || containsUnsafeAuditReference(adoption)) {
     return false;
   }
   if (!keysAreExactly(adoption, ["metrics", "explanationChains", "segments", "reviewSignals", "guardrails"])) {
@@ -437,7 +437,8 @@ export function adoptionInsightsAreComplete(consoleData) {
     Array.isArray(chain.missing_evidence) &&
     chain.explanation &&
     chain.appeal_path &&
-    /低置信不自动下架/.test(chain.lifecycle_guardrail || "")
+    /低置信不自动下架/.test(chain.lifecycle_guardrail || "") &&
+    !containsUnsafeLifecycleText(chain.lifecycle_guardrail || "")
   );
   const reviewSignalsOk = adoption.reviewSignals.every((signal) =>
     keysAreExactly(signal, ["id", "title", "status", "owner", "evidence_ref", "reason", "action"]) &&
@@ -447,6 +448,7 @@ export function adoptionInsightsAreComplete(consoleData) {
     signal.owner &&
     signal.reason &&
     ["发起人工复核", "补充风险处置证明"].includes(signal.action) &&
+    !containsUnsafeLifecycleText(signal.reason || "") &&
     !/自动下架|自动降推荐|写回 Agent Store|发布|合并|批准|撤销|执行/.test(signal.action || "")
   );
   const segmentsOk = adoption.segments.every((segment) =>
@@ -481,6 +483,7 @@ export function containsUnsafeLifecycleText(value) {
       .replace(/不自动下架/g, "")
       .replace(/不自动降推荐/g, "")
       .replace(/不触发自动生命周期动作/g, "")
+      .replace(/不执行自动生命周期动作/g, "")
       .replace(/不写AgentStore/g, "");
     return /自动下架|自动降推荐|写回AgentStore|自动写回|发布|合并|批准|撤销|执行/.test(redlineRemoved);
   }

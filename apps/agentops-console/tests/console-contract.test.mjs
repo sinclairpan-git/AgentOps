@@ -237,6 +237,24 @@ assert.equal(
 assert.equal(
   validateSnapshot({
     ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      adoption: {
+        ...consoleData.adoption,
+        guardrails: [...consoleData.adoption.guardrails, "不执行自动生命周期动作。"],
+        explanationChains: [{
+          ...consoleData.adoption.explanationChains[0],
+          category: "发布前质量门禁",
+          explanation: "发布前质量门禁仅展示摘要判断。"
+        }]
+      }
+    }
+  }),
+  true
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
     consoleData: { ...consoleData, adoption: null }
   }),
   false
