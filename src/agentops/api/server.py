@@ -10,8 +10,10 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from agentops import __version__
-from agentops.api.ingestion import ingest_events_batch
 from agentops.api.console_snapshot import build_console_snapshot
+from agentops.api.credentials import get_credential_status
+from agentops.api.ingestion import ingest_events_batch
+from agentops.core.errors import AgentOpsError
 from agentops.storage.repository import InMemoryRepository
 
 ALLOWED_ORIGINS = {
@@ -55,6 +57,18 @@ def create_http_handler(repository: InMemoryRepository | None = None) -> type[Ba
 
             if request_path == "/v1/console/snapshot":
                 self._send_json(HTTPStatus.OK, build_console_snapshot(repository=live_repository))
+                return
+
+            credential_status_prefix = "/v1/bootstrap/credentials/"
+            if request_path.startswith(credential_status_prefix):
+                bootstrap_id = request_path.removeprefix(credential_status_prefix)
+                try:
+                    self._send_json(HTTPStatus.OK, get_credential_status(live_repository, bootstrap_id))
+                except AgentOpsError as exc:
+                    self._send_json(
+                        HTTPStatus.NOT_FOUND,
+                        {"error_code": exc.error_code, "message": exc.message, "retryable": exc.retryable},
+                    )
                 return
 
             self._send_json(

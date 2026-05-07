@@ -203,6 +203,11 @@ def test_adversarial_pr_review_script_enforces_agentops_redlines() -> None:
     assert "EVENT_INGESTION_TOKEN_MISMATCH" in script
     assert "signature_verified" in script
     assert "test_ao17_cct_004_signed_test_event_verifies_bootstrap" in script
+    assert "agentops_credential_status.v1" in script
+    assert "get_credential_status" in script
+    assert "display_only_no_active_inference" in script
+    assert "CREDENTIAL_STATUS_NOT_FOUND" in script
+    assert "test_ao18_cct_003_agent_store_reads_credential_issued_status" in script
     assert "test_cct_001_agent_store_handoff_fixture_issues_credential" in script
     assert "test_cct_006_unknown_major_schema_returns_unsupported_error" in script
     assert "Reporter active" in script
