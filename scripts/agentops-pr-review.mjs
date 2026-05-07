@@ -904,6 +904,7 @@ function checkCredentialRevocationPropagation() {
       "test_ao20_ct_001_revoke_credentials_updates_agentops_status",
       "test_ao20_ct_002_revoked_signature_test_event_is_rejected",
       "test_ao20_ct_003_revoked_known_enterprise_event_is_rejected",
+      "test_ao20_ct_003b_revoked_duplicate_identity_is_rejected_after_active_match",
       "test_ao20_ct_004_unknown_revocation_schema_is_rejected",
       "test_ao20_ct_005_http_revoke_route_returns_json_and_cors",
       "test_ao20_ct_006_revocation_not_found_returns_stable_error",

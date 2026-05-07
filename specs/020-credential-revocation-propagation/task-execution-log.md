@@ -60,6 +60,7 @@
 - 安全边界：revoked 后 `next_action` 固定为 `reissue_credential`，签名测试事件和已知企业事件不得继续接入。
 - 状态边界：revoked 不构成 `verified_loaded` 或 L5，所有回显保持 `not_asserted`。
 - 云端对抗 review guard：`scripts/agentops-pr-review.mjs` 已增加 AO20 检查。
+- PR #20 Codex review 反馈：`validate_known_revocation_state` 在同一事件同时匹配 active 和 revoked credential 时会遇到第一个 active 后提前返回。已改为扫描所有匹配 credential，只要任一匹配项为 revoked 即拒绝，并补 `test_ao20_ct_003b_revoked_duplicate_identity_is_rejected_after_active_match` 回归测试。
 
 ## 任务/计划同步状态
 

@@ -174,6 +174,37 @@ def test_ao20_ct_003_revoked_known_enterprise_event_is_rejected(repository):
     assert "evt_after_revoke" not in repository.raw_events
 
 
+def test_ao20_ct_003b_revoked_duplicate_identity_is_rejected_after_active_match(repository):
+    repository.add_bootstrap_session(
+        {
+            **bootstrap_session(),
+            "bootstrap_id": "boot-active-shadow",
+        }
+    )
+    repository.store_credentials(
+        "boot-active-shadow",
+        {
+            "credential_id": "cred-active-shadow",
+            "token_id": "token-fixture",
+            "device_key_id": "device-key-shadow",
+            "status": "active",
+            "bootstrap_status": "credential_issued",
+            "installation_id": "inst-fixture",
+            "device_id": "dev-fixture",
+            "expires_at": "2026-05-07T13:02:00+00:00",
+            "next_action": "send_signature_test_event",
+        },
+    )
+    issue_fixture_credentials(repository)
+    revoke_credentials(revocation_request(), repository, now=REVOKE_NOW)
+
+    result = ingest_events_batch([enterprise_event_after_revocation()], repository)
+
+    assert result["accepted"] == []
+    assert result["rejected"][0]["error_code"] == "EVENT_CREDENTIAL_REVOKED"
+    assert "evt_after_revoke" not in repository.raw_events
+
+
 def test_ao20_ct_004_unknown_revocation_schema_is_rejected(repository):
     issue_fixture_credentials(repository)
 

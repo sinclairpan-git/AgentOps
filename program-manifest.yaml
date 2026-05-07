@@ -80,13 +80,13 @@ specs:
   depends_on:
   - 019-console-credential-handoff-workbench
 truth_snapshot:
-  generated_at: '2026-05-07T16:06:26Z'
+  generated_at: '2026-05-07T16:17:23Z'
   generated_by: ai-sdlc program truth sync
   generator_version: program_truth_snapshot_v1
-  repo_revision: ab665f1
+  repo_revision: 9d32488
   authoring_hash: 089eb744e784e81d1c9229385e74031f4b0cdd2264c807c397fa41b9efa1dad5
   source_hashes: {}
-  snapshot_hash: cd8fe74c91c0a8b200c64735b87efbb6ed2592e91f7628c5a88e234f3973ab60
+  snapshot_hash: c853f70a3a38881ff29d71874ce52e91a298c33d9ed29170ca238c67e1ccf467
   computed_capabilities: []
   source_inventory:
     state: complete

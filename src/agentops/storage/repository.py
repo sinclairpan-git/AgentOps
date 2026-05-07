@@ -157,6 +157,7 @@ class InMemoryRepository:
         installation_id = event.get("installation_id")
         device_id = event.get("device_id")
         with self._lock:
+            matched_known_credential = False
             for credentials in self.credentials_by_bootstrap.values():
                 token_matches = ingestion_token not in (None, "") and ingestion_token == credentials.get("token_id")
                 identity_matches = (
@@ -169,6 +170,8 @@ class InMemoryRepository:
                     continue
                 if credentials.get("status") == "revoked":
                     raise AgentOpsError("EVENT_CREDENTIAL_REVOKED", "enterprise_managed event uses a revoked credential.")
+                matched_known_credential = True
+            if matched_known_credential:
                 return
 
     def record_credential_issue_idempotency(self, idempotency_key: str, handoff_identity: dict[str, Any]) -> None:
