@@ -168,6 +168,22 @@ def test_adversarial_pr_review_script_enforces_agentops_redlines() -> None:
     assert "legacyApprovalWorkbench" in script
     assert "approvalRowsMatchApprovals" in script
     assert "approvalGrantMatchesApproval" in script
+    assert "connectorWorkbenchIsComplete" in script
+    assert "legacyConnectorWorkbench" in script
+    assert "connectorRowsMatchConnectors" in script
+    assert "connectorHealthMatchesConnector" in script
+    assert "connectorBoundarySetIsSafe" in script
+    assert "sdlcConnectorProofStateIsSafe" in script
+    assert "[\\\"healthy\\\", \\\"warning\\\"].includes(item.rate_limit_state)" in script
+    assert "item.rate_limit_state === \\\"degraded\\\"" in script
+    assert "item.oldest_event_age !== \\\"0 分钟\\\"" in script
+    assert "legacyV1SnapshotWithSmallConnectorSet" in script
+    assert "legacyUnsafeConnectorSnapshot" in script
+    assert "sdlcSpoofedHealthyConnector" in script
+    assert "Connector Health" in script
+    assert "Outbox Replay" in script
+    assert "不构成 verified_loaded" in script
+    assert "超过 20 分钟" in script
     assert "rows.length !== evidenceItems.length" in script
     assert "grant.status === \\\"active\\\"" in script
     assert "grant_status: \\\"active\\\"" in script

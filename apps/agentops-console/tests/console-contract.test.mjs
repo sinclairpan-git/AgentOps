@@ -138,6 +138,14 @@ for (const expectedChineseText of [
   "注册映射",
   "回显摘要",
   "连接器状态",
+  "连接器健康工作台",
+  "健康与限流",
+  "DLQ 与 Outbox Replay",
+  "同步轨迹",
+  "新鲜度",
+  "限流",
+  "超过 20 分钟",
+  "不构成 verified_loaded",
   "Ai_AutoSDLC 运行",
   "生成时间",
   "来源类型",
@@ -176,6 +184,77 @@ const validApiSnapshot = {
 };
 
 assert.equal(validateSnapshot(validApiSnapshot), true);
+const healthyConnectorWarningRateLimit = {
+  ...consoleData,
+  connectors: consoleData.connectors.map((connector) =>
+    connector.id === "conn_policy" ? {
+      ...connector,
+      status: "healthy",
+      degrade_action: "本地内核策略摘要"
+    } : connector
+  ),
+  connectorWorkbench: {
+    ...consoleData.connectorWorkbench,
+    health: consoleData.connectorWorkbench.health.map((item) =>
+      item.connector_id === "conn_policy" ? {
+        ...item,
+        status: "healthy",
+        freshness: "15 分钟内",
+        freshness_state: "healthy",
+        rate_limit_state: "warning",
+        rate_limit_detail: "接近配额或依赖外部检查，按低频采集并保留摘要。",
+        degrade_action: "本地内核策略摘要",
+        evidence_impact: "证据等级不降低",
+        primary_action: "保持监控",
+        secondary_action: "按 SLO 继续采集心跳"
+      } : item
+    ),
+    dlq: consoleData.connectorWorkbench.dlq.map((item) =>
+      item.connector_id === "conn_policy" ? {
+        ...item,
+        dlq_depth: "0",
+        oldest_event_age: "0 分钟",
+        replay_state: "healthy",
+        retry_window: "无需回放",
+        degrade_policy: "无积压，继续按 15 分钟新鲜度 SLO 采集"
+      } : item
+    ),
+    syncTrail: consoleData.connectorWorkbench.syncTrail.map((item) =>
+      item.connector_id === "conn_policy" ? {
+        ...item,
+        stage: "同步",
+        summary: "策略服务心跳正常，继续按新鲜度 SLO 采集。",
+        status: "healthy"
+      } : item
+    )
+  }
+};
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: healthyConnectorWarningRateLimit
+  }),
+  true
+);
+const healthyConnectorDegradedRateLimitState = {
+  ...healthyConnectorWarningRateLimit,
+  connectorWorkbench: {
+    ...healthyConnectorWarningRateLimit.connectorWorkbench,
+    health: healthyConnectorWarningRateLimit.connectorWorkbench.health.map((item) =>
+      item.connector_id === "conn_policy" ? {
+        ...item,
+        rate_limit_state: "degraded"
+      } : item
+    )
+  }
+};
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: healthyConnectorDegradedRateLimitState
+  }),
+  false
+);
 assert.equal(validateSnapshot({ ...validApiSnapshot, schema_version: "wrong" }), false);
 assert.equal(
   validateSnapshot({ ...validApiSnapshot, routes: [{ id: "overview", label: "总览", icon: "⌂" }] }),
@@ -264,6 +343,29 @@ assert.equal(
   validateSnapshot(legacyV1SnapshotWithoutApprovalWorkbench),
   true
 );
+const legacyV1SnapshotWithoutConnectorWorkbench = {
+  ...validApiSnapshot,
+  consoleData: { ...consoleData }
+};
+delete legacyV1SnapshotWithoutConnectorWorkbench.consoleData.connectorWorkbench;
+assert.equal(
+  validateSnapshot(legacyV1SnapshotWithoutConnectorWorkbench),
+  true
+);
+const legacyV1SnapshotWithSmallConnectorSet = {
+  ...validApiSnapshot,
+  consoleData: {
+    ...consoleData,
+    connectors: consoleData.connectors.filter((connector) =>
+      ["conn_agent_store", "conn_sdlc", "conn_evidence", "conn_policy", "conn_iam"].includes(connector.id)
+    )
+  }
+};
+delete legacyV1SnapshotWithSmallConnectorSet.consoleData.connectorWorkbench;
+assert.equal(
+  validateSnapshot(legacyV1SnapshotWithSmallConnectorSet),
+  true
+);
 assert.equal(
   validateSnapshot({
     ...validApiSnapshot,
@@ -348,6 +450,27 @@ assert.equal(
 assert.equal(
   validateSnapshot({
     ...validApiSnapshot,
+    consoleData: { ...consoleData, connectorWorkbench: null }
+  }),
+  false
+);
+const legacyUnsafeConnectorSnapshot = {
+  ...validApiSnapshot,
+  consoleData: {
+    ...consoleData,
+    connectors: legacyV1SnapshotWithSmallConnectorSet.consoleData.connectors.map((connector) =>
+      connector.id === "conn_sdlc" ? { ...connector, raw_access_url: "/connectors/raw/conn_sdlc" } : connector
+    )
+  }
+};
+delete legacyUnsafeConnectorSnapshot.consoleData.connectorWorkbench;
+assert.equal(
+  validateSnapshot(legacyUnsafeConnectorSnapshot),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
     consoleData: {
       ...consoleData,
       evidenceVault: {
@@ -355,6 +478,96 @@ assert.equal(
         requests: [],
         grants: [],
         auditTrail: []
+      }
+    }
+  }),
+  false
+);
+const sdlcSpoofedHealthyConnector = {
+  ...consoleData,
+  connectors: consoleData.connectors.map((connector) =>
+    connector.id === "conn_sdlc" ? {
+      ...connector,
+      status: "healthy",
+      last_seen_at: "2026-05-05 18:49",
+      degrade_action: "无"
+    } : connector
+  ),
+  connectorWorkbench: {
+    ...consoleData.connectorWorkbench,
+    health: consoleData.connectorWorkbench.health.map((item) =>
+      item.connector_id === "conn_sdlc" ? {
+        ...item,
+        status: "healthy",
+        last_seen_at: "2026-05-05 18:49",
+        freshness: "15 分钟内",
+        freshness_state: "healthy",
+        rate_limit_state: "healthy",
+        rate_limit_detail: "未触发限流，按连接器新鲜度 SLO 采集。",
+        degrade_action: "无",
+        evidence_impact: "证据等级不降低",
+        primary_action: "保持监控",
+        secondary_action: "按 SLO 继续采集心跳"
+      } : item
+    ),
+    dlq: consoleData.connectorWorkbench.dlq.map((item) =>
+      item.connector_id === "conn_sdlc" ? {
+        ...item,
+        dlq_depth: "0",
+        oldest_event_age: "0 分钟",
+        replay_state: "healthy",
+        retry_window: "无需回放",
+        degrade_policy: "无积压，继续按 15 分钟新鲜度 SLO 采集"
+      } : item
+    ),
+    syncTrail: consoleData.connectorWorkbench.syncTrail.map((item) =>
+      item.connector_id === "conn_sdlc" ? {
+        ...item,
+        stage: "同步",
+        occurred_at: "2026-05-05 18:49",
+        summary: "Ai_AutoSDLC 心跳正常，继续按新鲜度 SLO 采集。",
+        status: "healthy"
+      } : item
+    )
+  }
+};
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: sdlcSpoofedHealthyConnector
+  }),
+  false
+);
+const missingExternalConnectorBoundary = {
+  ...consoleData,
+  connectors: consoleData.connectors.filter((connector) => connector.id !== "conn_git"),
+  connectorWorkbench: {
+    ...consoleData.connectorWorkbench,
+    health: consoleData.connectorWorkbench.health.filter((item) => item.connector_id !== "conn_git"),
+    dlq: consoleData.connectorWorkbench.dlq.filter((item) => item.connector_id !== "conn_git"),
+    syncTrail: consoleData.connectorWorkbench.syncTrail.filter((item) => item.connector_id !== "conn_git")
+  }
+};
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: missingExternalConnectorBoundary
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      connectorWorkbench: {
+        ...consoleData.connectorWorkbench,
+        health: consoleData.connectorWorkbench.health.map((item) =>
+          item.connector_id === "conn_ci" ? {
+            ...item,
+            rate_limit_state: "healthy"
+          } : item
+        )
       }
     }
   }),
@@ -370,6 +583,113 @@ assert.equal(
         queues: [],
         grants: [],
         auditTrail: []
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      connectorWorkbench: {
+        ...consoleData.connectorWorkbench,
+        health: [],
+        dlq: [],
+        syncTrail: []
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      connectorWorkbench: {
+        ...consoleData.connectorWorkbench,
+        dlq: consoleData.connectorWorkbench.dlq.map((item) =>
+          item.connector_id === "conn_ci" ? {
+            ...item,
+            oldest_event_age: "0 分钟"
+          } : item
+        )
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      connectorWorkbench: {
+        ...consoleData.connectorWorkbench,
+        health: consoleData.connectorWorkbench.health.map((item) =>
+          item.connector_id === "conn_sdlc" ? {
+            ...item,
+            status: "healthy",
+            freshness_state: "healthy",
+            evidence_impact: "证据等级不降低",
+            primary_action: "保持监控"
+          } : item
+        )
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      connectorWorkbench: {
+        ...consoleData.connectorWorkbench,
+        dlq: consoleData.connectorWorkbench.dlq.map((item) =>
+          item.connector_id === "conn_policy" ? {
+            ...item,
+            dlq_depth: "0",
+            replay_state: "healthy",
+            retry_window: "无需回放",
+            degrade_policy: "无积压，继续按 15 分钟新鲜度 SLO 采集"
+          } : item
+        )
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      connectorWorkbench: {
+        ...consoleData.connectorWorkbench,
+        health: [{
+          ...consoleData.connectorWorkbench.health[0],
+          raw_access_url: "/connectors/raw/conn_agent_store"
+        }]
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      connectorWorkbench: {
+        ...consoleData.connectorWorkbench,
+        syncTrail: [{
+          ...consoleData.connectorWorkbench.syncTrail[0],
+          summary: "查看 https://example.invalid/connector"
+        }]
       }
     }
   }),
@@ -1178,6 +1498,16 @@ assert.equal(legacyApprovalApiLoad.consoleData.approvalWorkbench.grants.length, 
 assert.equal(legacyApprovalApiLoad.consoleData.approvalWorkbench.auditTrail.length, consoleData.approvals.length);
 assert.match(legacyApprovalApiLoad.consoleData.approvalWorkbench.guardrails.join(" "), /审批队列只展示人工处置摘要/);
 
+const legacyConnectorApiLoad = await loadAgentOpsSnapshot(async () => ({
+  ok: true,
+  json: async () => legacyV1SnapshotWithoutConnectorWorkbench
+}), "http://127.0.0.1:8765");
+assert.equal(legacyConnectorApiLoad.source, "api_snapshot");
+assert.equal(legacyConnectorApiLoad.consoleData.connectorWorkbench.health.length, consoleData.connectors.length);
+assert.equal(legacyConnectorApiLoad.consoleData.connectorWorkbench.dlq.length, consoleData.connectors.length);
+assert.equal(legacyConnectorApiLoad.consoleData.connectorWorkbench.syncTrail.length, consoleData.connectors.length);
+assert.match(legacyConnectorApiLoad.consoleData.connectorWorkbench.guardrails.join(" "), /Outbox Replay/);
+
 const liveApiLoad = await loadAgentOpsSnapshot(async () => ({
   ok: true,
   json: async () => ({ ...validApiSnapshot, source_detail: { mode: "repository_backed" } })
@@ -1255,9 +1585,15 @@ const allowedEnglishUiTerms = [
   "adapter",
   "verified_loaded",
   "materialized",
+  "unverified",
   "Grant",
   "Grant TTL",
   "TTL",
+  "Git",
+  "PR",
+  "CI",
+  "DLQ",
+  "Outbox Replay",
   "Evidence Vault",
   "L5 Gate",
   "Browser Gate",

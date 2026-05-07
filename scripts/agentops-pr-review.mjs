@@ -334,6 +334,141 @@ function checkApprovalWorkbenchTestsAndContracts() {
   }
 }
 
+function checkConnectorWorkbenchBackend() {
+  const path = "src/agentops/api/console_snapshot.py";
+  if (!requireFile(path, "P1", "缺少后端 Connector Health 工作台", "PR 涉及 014 连接器健康工作台，但后端 snapshot 文件不存在，Console 无法形成可验证连接器数据域。")) {
+    return;
+  }
+  const text = readText(path);
+  const required = [
+    "def _connector_workbench",
+    "\"health\": [_connector_health",
+    "\"dlq\": [_connector_dlq",
+    "\"syncTrail\": [_connector_sync_trail",
+    "连接器新鲜度 SLO 为 15 分钟内",
+    "超过 20 分钟必须告警",
+    "Outbox Replay",
+    "不构成 verified_loaded 治理激活证明"
+  ];
+  for (const needle of required) {
+    if (!text.includes(needle)) {
+      addFinding("P1", path, "_connector_workbench", "Connector Health 后端契约不完整", `后端 snapshot 必须包含 ${needle}，否则连接器新鲜度、DLQ、回放边界或伪治理激活风险不可验证。`);
+    }
+  }
+  for (const forbidden of ["raw_payload", "download_url", "raw_url", "raw_access_url", "original_url"]) {
+    if (text.includes(`"${forbidden}"`) || text.includes(`'${forbidden}'`)) {
+      addFinding("P0", path, forbidden, "后端 Connector Health 暴露了红线字段", `连接器工作台不得生成 ${forbidden} 字段，只能展示健康摘要、DLQ 摘要和同步轨迹。`);
+    }
+  }
+}
+
+function checkConnectorWorkbenchFrontendValidator() {
+  const path = "apps/agentops-console/src/data/agentOpsApiClient.js";
+  if (!requireFile(path, "P1", "缺少前端快照校验器", "PR 涉及连接器工作台数据域，但前端 validator 不存在，无法阻断危险快照。")) {
+    return;
+  }
+  const text = readText(path);
+  const required = [
+    "connectorWorkbenchIsComplete",
+    "legacyConnectorWorkbench",
+    "connectorRowsMatchConnectors",
+    "connectorHealthMatchesConnector",
+    "connectorHealthStateIsSafe",
+    "connectorDlqMatchesConnector",
+    "connectorSyncMatchesConnector",
+    "connectorBoundarySetIsSafe",
+    "sdlcConnectorProofStateIsSafe",
+    "containsUnsafeAuditReference(consoleData.connectors",
+    "rate_limit_detail",
+    "[\"healthy\", \"warning\"].includes(item.rate_limit_state)",
+    "item.rate_limit_state === \"warning\"",
+    "item.rate_limit_state === \"degraded\"",
+    "item.status === \"materialized\"",
+    "primary_action === \"补齐治理加载证明\"",
+    "不构成 verified_loaded",
+    "item.status === \"degraded\"",
+    "降低证据等级",
+    "item.oldest_event_age !== \"0 分钟\"",
+    "replay_state === \"pending\"",
+    "Outbox Replay"
+  ];
+  for (const needle of required) {
+    if (!text.includes(needle)) {
+      addFinding("P1", path, "connectorWorkbenchIsComplete", "Connector Health 状态绑定不完整", `前端 validator 必须包含 ${needle}。否则 materialized/unverified 或 degraded 连接器可能被篡改为健康态。`);
+    }
+  }
+  for (const forbidden of ["raw_payload", "download_url", "raw_url", "original_url", "raw_access_url", "pull_request_body", "pullrequestbody"]) {
+    if (!text.toLowerCase().includes(forbidden.toLowerCase())) {
+      addFinding("P1", path, "containsUnsafeAuditReference", "连接器工作台危险字段拦截不完整", `validator 必须递归拒绝 ${forbidden}，以防 API 快照携带原文、下载链接或 PR 原文。`);
+    }
+  }
+}
+
+function checkConnectorWorkbenchUi() {
+  const path = "apps/agentops-console/src/views/ConnectorStatusView.js";
+  if (!requireFile(path, "P2", "缺少 Connector Status 页面", "连接器状态页面不存在，用户无法看到连接器健康工作台。")) {
+    return;
+  }
+  const text = readText(path);
+  for (const needle of ["连接器健康工作台", "健康与限流", "DLQ 与 Outbox Replay", "同步轨迹", "15 分钟 SLO", "超过 20 分钟", "不构成 verified_loaded"]) {
+    if (!text.includes(needle)) {
+      addFinding("P2", path, "连接器健康工作台", "Connector Health 中文界面信号不足", `页面必须展示“${needle}”，让大陆用户明确连接器新鲜度、限流、DLQ、回放和治理证明边界。`);
+    }
+  }
+  for (const banned of ["Connector Status", "Connector Health", "Replay now", "Retry now"]) {
+    if (text.includes(banned)) {
+      addFinding("P2", path, banned, "出现非必要英文连接器界面文案", `面向中国大陆用户的 UI 不应出现“${banned}”这类非固定名词英文文案。`);
+    }
+  }
+}
+
+function checkConnectorWorkbenchTestsAndContracts() {
+  const contractTest = "tests/contract/test_ao14_ct_connector_health_workbench.py";
+  const frontendTest = "apps/agentops-console/tests/console-contract.test.mjs";
+  const specContract = "specs/014-console-connector-health-workbench/contracts/connector-health-workbench-contract.md";
+
+  for (const path of [contractTest, frontendTest, specContract]) {
+    requireFile(path, "P1", "缺少 014 契约或测试产物", `${path} 是 Connector Health 云端 review 的必要证据，缺失会让 PR 无法证明实现满足契约。`);
+  }
+  if (fileExists(frontendTest)) {
+    const text = readText(frontendTest);
+    const requiredNegatives = [
+      "connectorWorkbench: null",
+      "legacyV1SnapshotWithoutConnectorWorkbench",
+      "legacyV1SnapshotWithSmallConnectorSet",
+      "connectorWorkbench.health.length",
+      "legacyUnsafeConnectorSnapshot",
+      "sdlcSpoofedHealthyConnector",
+      "missingExternalConnectorBoundary",
+      "conn_sdlc",
+      "conn_git",
+      "status: \"healthy\"",
+      "healthyConnectorWarningRateLimit",
+      "healthyConnectorDegradedRateLimitState",
+      "rate_limit_state: \"healthy\"",
+      "rate_limit_state: \"warning\"",
+      "rate_limit_state: \"degraded\"",
+      "oldest_event_age: \"0 分钟\"",
+      "raw_access_url",
+      "Outbox Replay",
+      "超过 20 分钟"
+    ];
+    for (const needle of requiredNegatives) {
+      if (!text.includes(needle)) {
+        addFinding("P1", frontendTest, "validateSnapshot", "连接器工作台前端负例覆盖不足", `console-contract.test.mjs 必须覆盖 ${needle}，否则连接器状态或回放边界篡改风险不会被云端 review 捕获。`);
+      }
+    }
+  }
+  if (fileExists(contractTest)) {
+    const text = readText(contractTest);
+    for (const needle of ["materialized", "degraded", "verified_loaded", "Outbox Replay", "raw_access_url", "download_url", "Git、PR、CI、测试、IAM", "conn_git", "conn_pr", "conn_ci", "conn_test", "conn_iam"]) {
+      if (!text.includes(needle)) {
+        addFinding("P1", contractTest, "test_ao14", "后端连接器契约测试覆盖不足", `AO14 后端契约测试必须覆盖 ${needle}。`);
+      }
+    }
+  }
+}
+
 function stripSafeNegations(value) {
   return value
     .replace(/不自动批准/g, "")
@@ -403,8 +538,9 @@ function buildMarkdown(paths) {
     "- Evidence Vault 原文访问红线：不得出现原文、下载链接、raw URL、PR 原文、diff 或代码片段。",
     "- 状态绑定红线：`permission_denied` 和 `redaction_failed` 不能被篡改为 active/approved 授权态。",
     "- 审批 Grant 红线：`pending`、`escalated`、`revoked` 不得被篡改为有效 Grant 或已授权态。",
+    "- 连接器健康红线：`materialized/unverified` 不得被当作 `verified_loaded`，降级连接器不得提升为健康态，DLQ/Outbox Replay 不得在 Console 执行。",
     "- 生命周期红线：不得自动批准、自动写回、自动下架、自动发布或自动合并。",
-    "- 前端体验红线：大陆用户界面以中文为主，Evidence Vault 与人工审批工作台必须展示申请、授权、审计轨迹和只读边界。",
+    "- 前端体验红线：大陆用户界面以中文为主，Evidence Vault、人工审批工作台与连接器健康工作台必须展示申请、授权、审计轨迹、DLQ、回放和只读边界。",
     ""
   ];
 
@@ -480,6 +616,10 @@ async function main() {
   checkApprovalWorkbenchFrontendValidator();
   checkApprovalWorkbenchUi();
   checkApprovalWorkbenchTestsAndContracts();
+  checkConnectorWorkbenchBackend();
+  checkConnectorWorkbenchFrontendValidator();
+  checkConnectorWorkbenchUi();
+  checkConnectorWorkbenchTestsAndContracts();
   checkUnsafeLifecycleText(paths);
   checkWorkflowItself(paths);
 
