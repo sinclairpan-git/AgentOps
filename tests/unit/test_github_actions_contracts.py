@@ -162,6 +162,7 @@ def test_adversarial_pr_review_script_enforces_agentops_redlines() -> None:
 
     assert "permission_denied" in script
     assert "redaction_failed" in script
+    assert "legacyEvidenceVault" in script
     assert "vaultRowsMatchEvidence" in script
     assert "rows.length !== evidenceItems.length" in script
     assert "grant.status === \\\"active\\\"" in script

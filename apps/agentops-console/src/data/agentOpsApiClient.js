@@ -171,7 +171,7 @@ function consoleDataWithWorkbenchDefaults(consoleData) {
   }
   return {
     ...withAdoption,
-    evidenceVault: emptyEvidenceVault()
+    evidenceVault: legacyEvidenceVault(withAdoption.evidence)
   };
 }
 
@@ -185,6 +185,191 @@ function emptyEvidenceVault() {
       "旧版 v1 快照未提供 Evidence Vault 访问工作台，前端仅展示安全空态。"
     ]
   };
+}
+
+function legacyEvidenceVault(evidenceItems) {
+  const items = Array.isArray(evidenceItems) ? evidenceItems : [];
+  if (!items.length) {
+    return emptyEvidenceVault();
+  }
+  return {
+    requests: items.map((item) => legacyVaultRequest(item)),
+    grants: items.map((item) => legacyVaultGrant(item)),
+    auditTrail: items.map((item) => legacyVaultAudit(item)),
+    guardrails: [
+      "默认不展示原文，只展示脱敏摘要、哈希和审计引用。",
+      "旧版 v1 快照未提供 Evidence Vault 访问工作台，前端仅按 evidence 状态合成只读申请、授权和审计摘要。",
+      "合成记录不提供原文下载，不自动批准、不自动写回。"
+    ]
+  };
+}
+
+function legacyVaultRequest(item) {
+  const state = item.raw_access_state;
+  return {
+    id: `legacy_vault_req_${item.evidence_id}`,
+    evidence_id: item.evidence_id,
+    run_id: item.run_id,
+    requester: "证据负责人",
+    reason: legacyVaultReason(state),
+    status: legacyVaultRequestStatus(state),
+    denied_scope: item.denied_scope || "",
+    audit_id: item.audit_id,
+    ttl_summary: legacyVaultTtl(state),
+    primary_action: legacyVaultPrimaryAction(state),
+    safety_note: "仅记录原文访问申请摘要，不展示 Evidence Vault 原文。"
+  };
+}
+
+function legacyVaultGrant(item) {
+  const state = item.raw_access_state;
+  return {
+    id: `legacy_vault_grant_${item.evidence_id}`,
+    evidence_id: item.evidence_id,
+    requester: "证据负责人",
+    status: legacyVaultGrantStatus(state),
+    scope: state === "approved_limited" ? "限定复核字段" : item.denied_scope || legacyVaultPendingScope(state),
+    expires_at: legacyVaultExpiresAt(state),
+    audit_id: item.audit_id,
+    consumption_policy: "只读复核窗口内可查看授权记录；不提供原文下载。"
+  };
+}
+
+function legacyVaultAudit(item) {
+  const state = item.raw_access_state;
+  return {
+    id: `legacy_vault_audit_${item.evidence_id}`,
+    evidence_id: item.evidence_id,
+    stage: legacyVaultStage(state),
+    occurred_at: "旧版快照同步时",
+    summary: legacyVaultAuditSummary(state),
+    owner: "证据负责人",
+    status: state,
+    audit_id: item.audit_id
+  };
+}
+
+function legacyVaultRequestStatus(state) {
+  if (state === "summary_only" || state === "degraded") {
+    return "pending";
+  }
+  if (["approved_limited", "redaction_failed", "permission_denied"].includes(state)) {
+    return state;
+  }
+  return "pending";
+}
+
+function legacyVaultGrantStatus(state) {
+  if (state === "approved_limited") {
+    return "active";
+  }
+  if (state === "permission_denied") {
+    return "rejected";
+  }
+  if (state === "redaction_failed") {
+    return "redaction_failed";
+  }
+  return "pending";
+}
+
+function legacyVaultReason(state) {
+  if (state === "approved_limited") {
+    return "旧版快照显示限定授权，仅查看授权记录。";
+  }
+  if (state === "degraded") {
+    return "旧版快照显示运行降级，需先补齐治理证据后再申请原文访问。";
+  }
+  if (state === "redaction_failed") {
+    return "旧版快照显示脱敏失败，需要先修复脱敏或补充审批理由。";
+  }
+  if (state === "permission_denied") {
+    return "旧版快照显示访问被拒绝，需要补充限定范围申请。";
+  }
+  return "旧版快照默认仅展示安全摘要，必要时发起原文访问申请。";
+}
+
+function legacyVaultTtl(state) {
+  if (state === "approved_limited") {
+    return "15 分钟限时窗口";
+  }
+  if (state === "degraded") {
+    return "待补偿";
+  }
+  if (state === "permission_denied") {
+    return "未授权";
+  }
+  if (state === "redaction_failed") {
+    return "脱敏失败，暂停授权";
+  }
+  return "待审批";
+}
+
+function legacyVaultPrimaryAction(state) {
+  if (state === "approved_limited") {
+    return "查看授权记录";
+  }
+  if (state === "degraded") {
+    return "等待审批";
+  }
+  if (state === "permission_denied") {
+    return "补充申请理由";
+  }
+  if (state === "redaction_failed") {
+    return "仅查看哈希告警";
+  }
+  return "申请原文访问";
+}
+
+function legacyVaultPendingScope(state) {
+  return state === "degraded" ? "待补偿范围" : "待审批范围";
+}
+
+function legacyVaultExpiresAt(state) {
+  if (state === "approved_limited") {
+    return "快照生成后 15 分钟";
+  }
+  if (state === "degraded") {
+    return "待补偿";
+  }
+  if (state === "permission_denied") {
+    return "未授权";
+  }
+  if (state === "redaction_failed") {
+    return "暂停授权";
+  }
+  return "待审批";
+}
+
+function legacyVaultStage(state) {
+  if (state === "approved_limited") {
+    return "授权";
+  }
+  if (state === "degraded") {
+    return "降级";
+  }
+  if (state === "permission_denied") {
+    return "拒绝";
+  }
+  if (state === "redaction_failed") {
+    return "脱敏失败";
+  }
+  return "申请";
+}
+
+function legacyVaultAuditSummary(state) {
+  if (state === "redaction_failed") {
+    return "旧版快照显示脱敏失败，审计仅保留哈希和告警。";
+  }
+  if (state === "degraded") {
+    return "旧版快照显示运行降级，原文访问保持待审批。";
+  }
+  if (state === "permission_denied") {
+    return "旧版快照显示访问被拒绝，需补充限定范围申请理由。";
+  }
+  if (state === "approved_limited") {
+    return "旧版快照显示限定范围授权，原文仍不在控制台展示。";
+  }
+  return "旧版快照显示原文访问尚未批准，继续展示安全摘要。";
 }
 
 function emptyAdoptionInsights() {

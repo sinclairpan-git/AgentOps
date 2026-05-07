@@ -118,6 +118,7 @@ function checkEvidenceVaultFrontendValidator() {
   const required = [
     "evidenceVaultIsComplete",
     "const evidenceById = new Map",
+    "legacyEvidenceVault",
     "vaultRowsMatchEvidence",
     "rows.length !== evidenceItems.length",
     "vaultRequestMatchesEvidence",
@@ -196,6 +197,7 @@ function checkEvidenceVaultTestsAndContracts() {
       "requests: []",
       "grants: []",
       "auditTrail: []",
+      "legacyV1SnapshotWithoutEvidenceVault",
       "status: \"active\"",
       "primary_action: \"申请原文访问\""
     ];
