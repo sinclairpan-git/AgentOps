@@ -489,6 +489,24 @@ assert.equal(
     ...validApiSnapshot,
     consoleData: {
       ...consoleData,
+      connectorWorkbench: {
+        ...consoleData.connectorWorkbench,
+        health: consoleData.connectorWorkbench.health.map((item) =>
+          item.connector_id === "conn_ci" ? {
+            ...item,
+            rate_limit_state: "healthy"
+          } : item
+        )
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
       approvalWorkbench: {
         ...consoleData.approvalWorkbench,
         queues: [],
@@ -509,6 +527,24 @@ assert.equal(
         health: [],
         dlq: [],
         syncTrail: []
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      connectorWorkbench: {
+        ...consoleData.connectorWorkbench,
+        dlq: consoleData.connectorWorkbench.dlq.map((item) =>
+          item.connector_id === "conn_ci" ? {
+            ...item,
+            oldest_event_age: "0 分钟"
+          } : item
+        )
       }
     }
   }),

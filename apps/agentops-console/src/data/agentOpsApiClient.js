@@ -1581,23 +1581,27 @@ function connectorHealthMatchesConnector(item, connector) {
 function connectorHealthStateIsSafe(item) {
   if (item.status === "healthy") {
     return item.freshness_state === "healthy" &&
+      item.rate_limit_state === "healthy" &&
       item.primary_action === "保持监控" &&
       /未触发限流|治理证明未完成|接近配额|限流/.test(item.rate_limit_detail || "") &&
       /不降低/.test(item.evidence_impact || "");
   }
   if (item.status === "materialized") {
     return item.freshness_state === "materialized" &&
+      item.rate_limit_state === "warning" &&
       item.primary_action === "补齐治理加载证明" &&
       /不提升为 verified_loaded/.test(item.rate_limit_detail || "") &&
       /不构成 verified_loaded/.test(item.evidence_impact || "");
   }
   if (item.status === "degraded") {
     return item.freshness_state === "degraded" &&
+      item.rate_limit_state === "degraded" &&
       item.primary_action === "查看降级影响" &&
       /降低证据等级/.test(item.rate_limit_detail || "") &&
       /降低证据等级/.test(item.evidence_impact || "");
   }
-  return item.freshness_state === "unknown";
+  return item.freshness_state === "unknown" &&
+    item.rate_limit_state === "unknown";
 }
 
 function connectorDlqMatchesConnector(item, connector) {
@@ -1618,6 +1622,8 @@ function connectorDlqMatchesConnector(item, connector) {
   }
   if (connector.status === "degraded") {
     return item.dlq_depth !== "0" &&
+      item.oldest_event_age !== "0 分钟" &&
+      /分钟|小时|天/.test(item.oldest_event_age || "") &&
       item.replay_state === "pending" &&
       /人工审批/.test(item.retry_window || "") &&
       /Outbox Replay/.test(item.degrade_policy || "");

@@ -380,11 +380,15 @@ function checkConnectorWorkbenchFrontendValidator() {
     "sdlcConnectorProofStateIsSafe",
     "containsUnsafeAuditReference(consoleData.connectors",
     "rate_limit_detail",
+    "item.rate_limit_state === \"healthy\"",
+    "item.rate_limit_state === \"warning\"",
+    "item.rate_limit_state === \"degraded\"",
     "item.status === \"materialized\"",
     "primary_action === \"补齐治理加载证明\"",
     "不构成 verified_loaded",
     "item.status === \"degraded\"",
     "降低证据等级",
+    "item.oldest_event_age !== \"0 分钟\"",
     "replay_state === \"pending\"",
     "Outbox Replay"
   ];
@@ -439,6 +443,8 @@ function checkConnectorWorkbenchTestsAndContracts() {
       "conn_sdlc",
       "conn_git",
       "status: \"healthy\"",
+      "rate_limit_state: \"healthy\"",
+      "oldest_event_age: \"0 分钟\"",
       "raw_access_url",
       "Outbox Replay",
       "超过 20 分钟"
