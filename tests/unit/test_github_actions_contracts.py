@@ -164,13 +164,22 @@ def test_adversarial_pr_review_script_enforces_agentops_redlines() -> None:
     assert "redaction_failed" in script
     assert "legacyEvidenceVault" in script
     assert "vaultRowsMatchEvidence" in script
+    assert "approvalWorkbenchIsComplete" in script
+    assert "legacyApprovalWorkbench" in script
+    assert "approvalRowsMatchApprovals" in script
+    assert "approvalGrantMatchesApproval" in script
     assert "rows.length !== evidenceItems.length" in script
     assert "grant.status === \\\"active\\\"" in script
+    assert "grant_status: \\\"active\\\"" in script
+    assert "pendingApprovalWithActiveGrant" in script
     assert "raw_payload" in script
     assert "download_url" in script
     assert "raw_access_url" in script
     assert "自动批准" in script
+    assert "自动批准审批" in script
     assert "自动写回" in script
+    assert "审批队列只展示人工处置摘要" in script
+    assert "不得作为唯一审批人" in script
     assert "AgentOps 云端对抗 Review" in script
     assert "PR review comment skipped" in script
     assert "process.exit(1)" in script
