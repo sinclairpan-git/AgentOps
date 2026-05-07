@@ -1100,7 +1100,7 @@ function approvalQueueMatchesApproval(item, approval) {
 
 function approvalGrantMatchesApproval(item, approval) {
   return Boolean(approval) &&
-    item.grant_status === approval.grant_status &&
+    item.grant_status === legacyApprovalGrantStatus(approval.status, approval.grant_status) &&
     item.audit_id === approval.audit_id &&
     approvalGrantStatusAllowed(approval.status, item.grant_status) &&
     approvalGrantFieldsMatchStatus(item);

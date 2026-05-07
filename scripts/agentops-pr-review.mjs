@@ -262,7 +262,7 @@ function checkApprovalWorkbenchFrontendValidator() {
     "workbench.grants",
     "workbench.auditTrail",
     "item.status === approval.status",
-    "item.grant_status === approval.grant_status",
+    "item.grant_status === legacyApprovalGrantStatus(approval.status, approval.grant_status)",
     "审批队列只展示人工处置摘要",
     "不得作为唯一审批人"
   ];

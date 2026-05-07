@@ -43,6 +43,7 @@
 - 状态绑定：`pending`、`escalated`、`approved`、`revoked` 已与 queue/grant/audit 状态强绑定，防止待审批或撤销态被篡改成有效 Grant。
 - UX 对抗评审：初审发现移动端横向溢出、审计轨迹缺发生时间/审计引用、Grant 长文本列撑高。已修复为局部横滚、审计补字段、Grant 消费边界清单；复评未发现 P0/P1。
 - AI-Native 对抗评审：初审发现 `pending + active Grant` 组合可绕过。已补前后端状态矩阵、TTL/到期/撤销绑定和负例；复核确认状态矩阵阻断解除。
+- Codex Review P1：前端 validator 要求 `approvalWorkbench.grants[].grant_status` 等于原始 `approvals[].grant_status`，会误拒绝后端已安全归一化的快照。已改为按审批状态计算期望 Grant 状态，并补充“原始 active、工作台 normalized pending 仍可通过”的正例。
 
 ## 已完成验证
 

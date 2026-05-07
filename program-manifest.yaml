@@ -52,13 +52,13 @@ specs:
   depends_on:
   - 012-console-evidence-vault-workbench
 truth_snapshot:
-  generated_at: '2026-05-07T07:51:24Z'
+  generated_at: '2026-05-07T08:03:03Z'
   generated_by: ai-sdlc program truth sync
   generator_version: program_truth_snapshot_v1
-  repo_revision: c16b176
+  repo_revision: d154824
   authoring_hash: 2fcca6f9a04dd448b7ff445e08e294c2f222be3c2447e2f97900e1708c1bf82c
   source_hashes: {}
-  snapshot_hash: 6184a5ab3c0fdc18f29e3fdf46c3bc87461c303c452f9db687697c4cdda3010a
+  snapshot_hash: cc283ed39963819051ccaa545d1915e19d71cb3c7a66b5a3a29d0ecacbd6e9b8
   computed_capabilities: []
   source_inventory:
     state: complete
@@ -66,8 +66,8 @@ truth_snapshot:
     mapped_sources: 65
     unmapped_sources: 0
     missing_sources: 2
-    phase_signal_count: 89
-    deferred_signal_count: 118
+    phase_signal_count: 90
+    deferred_signal_count: 119
     non_goal_signal_count: 19
     layer_totals:
       spec: 13
@@ -655,8 +655,8 @@ truth_snapshot:
       mapped: true
       exists: true
       mapping_ref: 013-approval-grant-workbench
-      phase_signal_count: 2
-      deferred_signal_count: 2
+      phase_signal_count: 3
+      deferred_signal_count: 3
       non_goal_signal_count: 0
     - path: specs/013-approval-grant-workbench/development-summary.md
       source_type: development_summary

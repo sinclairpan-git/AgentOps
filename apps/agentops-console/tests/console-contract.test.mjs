@@ -318,6 +318,19 @@ assert.equal(
   }),
   false
 );
+const pendingApprovalWithNormalizedGrant = {
+  ...consoleData,
+  approvals: consoleData.approvals.map((approval) =>
+    approval.approval_id === "ap_001" ? { ...approval, grant_status: "active" } : approval
+  )
+};
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: pendingApprovalWithNormalizedGrant
+  }),
+  true
+);
 assert.equal(
   validateSnapshot({
     ...validApiSnapshot,
