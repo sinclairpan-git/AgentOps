@@ -496,10 +496,12 @@ export function containsUnsafeLifecycleText(value) {
     const normalized = value.replace(/[\s\p{P}\p{S}]+/gu, "");
     const redlineRemoved = normalized
       .replace(/低置信不自动下架/g, "")
+      .replace(/不自动(?:下架|降推荐|写回AgentStore|写回|发布|合并|批准|撤销|执行)/g, "")
       .replace(/不自动下架/g, "")
       .replace(/不自动降推荐/g, "")
       .replace(/不触发自动生命周期动作/g, "")
       .replace(/不执行自动生命周期动作/g, "")
+      .replace(/不写回AgentStore/g, "")
       .replace(/不写AgentStore/g, "");
     return /自动(?:下架|降推荐|写回|发布|合并|批准|撤销|执行)|写回AgentStore/.test(redlineRemoved);
   }

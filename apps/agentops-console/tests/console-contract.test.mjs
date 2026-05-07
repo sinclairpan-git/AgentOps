@@ -241,7 +241,7 @@ assert.equal(
       ...consoleData,
       adoption: {
         ...consoleData.adoption,
-        guardrails: [...consoleData.adoption.guardrails, "不执行自动生命周期动作。"],
+        guardrails: [...consoleData.adoption.guardrails, "不执行自动生命周期动作。", "不自动写回 Agent Store。"],
         explanationChains: [{
           ...consoleData.adoption.explanationChains[0],
           category: "发布前质量门禁",
