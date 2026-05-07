@@ -127,6 +127,7 @@ export function validateSnapshot(snapshot) {
     "operationCenter",
     "evidenceVault",
     "approvalWorkbench",
+    "connectorWorkbench",
     "actionWorkbench",
     "connectors",
     "sdlcRuns"
@@ -144,6 +145,9 @@ export function validateSnapshot(snapshot) {
     return false;
   }
   if (!approvalWorkbenchIsComplete(consoleData)) {
+    return false;
+  }
+  if (!connectorWorkbenchIsComplete(consoleData)) {
     return false;
   }
   if (!adoptionInsightsAreComplete(consoleData)) {
@@ -176,12 +180,18 @@ function consoleDataWithWorkbenchDefaults(consoleData) {
       ...withAdoption,
       evidenceVault: legacyEvidenceVault(withAdoption.evidence)
     };
-  if (Object.prototype.hasOwnProperty.call(withEvidenceVault, "approvalWorkbench")) {
-    return withEvidenceVault;
-  }
-  return {
+  const withApprovalWorkbench = Object.prototype.hasOwnProperty.call(withEvidenceVault, "approvalWorkbench")
+    ? withEvidenceVault
+    : {
     ...withEvidenceVault,
     approvalWorkbench: legacyApprovalWorkbench(withEvidenceVault.approvals)
+  };
+  if (Object.prototype.hasOwnProperty.call(withApprovalWorkbench, "connectorWorkbench")) {
+    return withApprovalWorkbench;
+  }
+  return {
+    ...withApprovalWorkbench,
+    connectorWorkbench: legacyConnectorWorkbench(withApprovalWorkbench.connectors)
   };
 }
 
@@ -592,6 +602,240 @@ function legacyApprovalAuditStage(status) {
   return "申请";
 }
 
+function legacyConnectorWorkbench(connectorItems) {
+  const items = Array.isArray(connectorItems) ? connectorItems : [];
+  return {
+    health: items.map((item) => legacyConnectorHealth(item)),
+    dlq: items.map((item) => legacyConnectorDlq(item)),
+    syncTrail: items.map((item) => legacyConnectorSyncTrail(item)),
+    guardrails: [
+      "连接器新鲜度 SLO 为 15 分钟内，超过 20 分钟必须告警并降低证据等级。",
+      "DLQ 与 Outbox Replay 只展示只读摘要，本页不执行回放、重试或生产写操作。",
+      "Git、PR、CI、测试、IAM 等外部连接器必须展示限流状态、降级动作和负责人。",
+      "materialized/unverified 只能说明配置已生成或 CLI 预演成功，不构成 verified_loaded 治理激活证明。",
+      "连接器工作台不得展示原始载荷、下载链接、PR 原文或外部 URL。"
+    ]
+  };
+}
+
+function legacyConnectorHealth(item) {
+  return {
+    id: `legacy_connector_health_${item.id}`,
+    connector_id: item.id,
+    name: item.name,
+    status: item.status,
+    last_seen_at: item.last_seen_at,
+    freshness: legacyConnectorFreshness(item.status),
+    freshness_state: legacyConnectorFreshnessState(item.status),
+    rate_limit_state: legacyConnectorRateLimitState(item.id, item.status),
+    rate_limit_detail: legacyConnectorRateLimitDetail(item.id, item.status),
+    degrade_action: item.degrade_action,
+    evidence_impact: legacyConnectorEvidenceImpact(item),
+    owner: legacyConnectorOwner(item.id),
+    request_id: item.request_id,
+    primary_action: legacyConnectorPrimaryAction(item),
+    secondary_action: legacyConnectorSecondaryAction(item),
+    safety_note: "只读健康摘要，不执行连接器重试、回放、写回或权限变更。"
+  };
+}
+
+function legacyConnectorDlq(item) {
+  return {
+    id: `legacy_connector_dlq_${item.id}`,
+    connector_id: item.id,
+    dlq_depth: legacyConnectorDlqDepth(item.status),
+    oldest_event_age: legacyConnectorOldestEventAge(item.status),
+    replay_state: legacyConnectorReplayState(item.status),
+    retry_window: legacyConnectorRetryWindow(item.status),
+    degrade_policy: legacyConnectorDlqPolicy(item),
+    request_id: item.request_id,
+    audit_id: `audit_${item.id}`,
+    safety_note: "Outbox Replay 需要人工审批后在后端执行，本页只展示队列摘要。"
+  };
+}
+
+function legacyConnectorSyncTrail(item) {
+  return {
+    id: `legacy_connector_sync_${item.id}`,
+    connector_id: item.id,
+    stage: legacyConnectorSyncStage(item.status),
+    occurred_at: item.last_seen_at,
+    summary: legacyConnectorSyncSummary(item),
+    owner: legacyConnectorOwner(item.id),
+    status: item.status,
+    request_id: item.request_id
+  };
+}
+
+function legacyConnectorOwner(connectorId) {
+  const owners = {
+    conn_agent_store: "Agent Store 负责人",
+    conn_ingestion: "事件接入负责人",
+    conn_repository: "运行事实仓库负责人",
+    conn_git: "Git 仓库负责人",
+    conn_pr: "PR 服务负责人",
+    conn_ci: "CI 负责人",
+    conn_test: "测试负责人",
+    conn_sdlc: "SDLC 负责人",
+    conn_evidence: "证据负责人",
+    conn_policy: "策略服务负责人",
+    conn_iam: "安全/IAM 负责人"
+  };
+  return owners[connectorId] || "连接器负责人";
+}
+
+function legacyConnectorFreshness(status) {
+  if (status === "healthy") {
+    return "15 分钟内";
+  }
+  if (status === "materialized") {
+    return "配置已生成，待 verified_loaded 证明";
+  }
+  if (status === "degraded") {
+    return "超过 20 分钟或降级";
+  }
+  return "待采集";
+}
+
+function legacyConnectorFreshnessState(status) {
+  if (status === "healthy") {
+    return "healthy";
+  }
+  if (status === "materialized") {
+    return "materialized";
+  }
+  if (status === "degraded") {
+    return "degraded";
+  }
+  return "unknown";
+}
+
+function legacyConnectorRateLimitState(connectorId, status) {
+  if (status === "degraded") {
+    return "degraded";
+  }
+  if (["conn_sdlc", "conn_policy", "conn_evidence"].includes(connectorId)) {
+    return "warning";
+  }
+  return "healthy";
+}
+
+function legacyConnectorRateLimitDetail(connectorId, status) {
+  if (status === "degraded") {
+    return "限流或不可用已影响同步，降低证据等级并进入人工复核。";
+  }
+  if (connectorId === "conn_sdlc") {
+    return "治理证明未完成，仅低频探测，不提升为 verified_loaded。";
+  }
+  if (["conn_policy", "conn_evidence", "conn_ci"].includes(connectorId)) {
+    return "接近配额或依赖外部检查，按低频采集并保留摘要。";
+  }
+  return "未触发限流，按连接器新鲜度 SLO 采集。";
+}
+
+function legacyConnectorEvidenceImpact(item) {
+  if (item.status === "healthy") {
+    return "证据等级不降低";
+  }
+  if (item.status === "materialized") {
+    return "仅证明配置已生成，不构成 verified_loaded 治理激活证明";
+  }
+  return "降低证据等级，相关运行进入人工复核";
+}
+
+function legacyConnectorPrimaryAction(item) {
+  if (item.status === "healthy") {
+    return "保持监控";
+  }
+  if (item.status === "degraded") {
+    return "查看降级影响";
+  }
+  if (item.status === "materialized") {
+    return "补齐治理加载证明";
+  }
+  return "查看降级影响";
+}
+
+function legacyConnectorSecondaryAction(item) {
+  if (item.status === "healthy") {
+    return "按 SLO 继续采集心跳";
+  }
+  if (item.status === "materialized") {
+    return "等待 verified_loaded 机器证据";
+  }
+  return "转交负责人并降低相关证据等级";
+}
+
+function legacyConnectorDlqDepth(status) {
+  if (status === "healthy") {
+    return "0";
+  }
+  if (status === "materialized") {
+    return "待验证";
+  }
+  return "3";
+}
+
+function legacyConnectorOldestEventAge(status) {
+  if (status === "healthy") {
+    return "0 分钟";
+  }
+  if (status === "materialized") {
+    return "待采集";
+  }
+  return "22 分钟";
+}
+
+function legacyConnectorReplayState(status) {
+  if (status === "healthy") {
+    return "healthy";
+  }
+  if (status === "materialized") {
+    return "materialized";
+  }
+  return "pending";
+}
+
+function legacyConnectorRetryWindow(status) {
+  if (status === "healthy") {
+    return "无需回放";
+  }
+  if (status === "materialized") {
+    return "待 verified_loaded 后确认";
+  }
+  return "人工审批后 15 分钟内回放";
+}
+
+function legacyConnectorDlqPolicy(item) {
+  if (item.status === "healthy") {
+    return "无积压，继续按 15 分钟新鲜度 SLO 采集";
+  }
+  if (item.status === "materialized") {
+    return "未形成治理激活证明前，不提升证据等级";
+  }
+  return `执行降级：${item.degrade_action}；Outbox Replay 需人工审批`;
+}
+
+function legacyConnectorSyncStage(status) {
+  if (status === "healthy") {
+    return "同步";
+  }
+  if (status === "materialized") {
+    return "待证明";
+  }
+  return "降级";
+}
+
+function legacyConnectorSyncSummary(item) {
+  if (item.status === "healthy") {
+    return `${item.name} 心跳正常，继续按新鲜度 SLO 采集。`;
+  }
+  if (item.status === "materialized") {
+    return `${item.name} 已生成配置，但仍缺 verified_loaded 机器证明。`;
+  }
+  return `${item.name} 进入降级路径：${item.degrade_action}。`;
+}
+
 function emptyAdoptionInsights() {
   return {
     metrics: {
@@ -643,6 +887,16 @@ function consoleDataHasAdoptionShape(consoleData) {
     Array.isArray(consoleData.adoption.guardrails);
 }
 
+function consoleDataHasConnectorWorkbenchShape(consoleData) {
+  if (!isRecord(consoleData.connectorWorkbench)) {
+    return false;
+  }
+  return Array.isArray(consoleData.connectorWorkbench.health) &&
+    Array.isArray(consoleData.connectorWorkbench.dlq) &&
+    Array.isArray(consoleData.connectorWorkbench.syncTrail) &&
+    Array.isArray(consoleData.connectorWorkbench.guardrails);
+}
+
 export function snapshotShapeIsSafe(consoleData) {
   if (!isRecord(consoleData.summary) || !isRecord(consoleData.summary.adapter)) {
     return false;
@@ -661,6 +915,7 @@ export function snapshotShapeIsSafe(consoleData) {
     "agentStore",
     "operationCenter",
     "approvalWorkbench",
+    "connectorWorkbench",
     "actionWorkbench",
     "connectors",
     "sdlcRuns"
@@ -690,10 +945,14 @@ export function snapshotShapeIsSafe(consoleData) {
         Array.isArray(consoleData.approvalWorkbench.auditTrail) &&
         Array.isArray(consoleData.approvalWorkbench.guardrails);
     }
+    if (key === "connectorWorkbench") {
+      return consoleDataHasConnectorWorkbenchShape(consoleData);
+    }
     return Array.isArray(consoleData[key]);
   }) &&
     consoleDataHasAdoptionShape(consoleData) &&
-    consoleDataHasEvidenceVaultShape(consoleData);
+    consoleDataHasEvidenceVaultShape(consoleData) &&
+    consoleDataHasConnectorWorkbenchShape(consoleData);
 }
 
 function isRecord(value) {
@@ -738,6 +997,13 @@ export function statesAreKnown(consoleData) {
     ...(consoleData.approvalWorkbench?.queues || []).map((item) => item.status),
     ...(consoleData.approvalWorkbench?.grants || []).map((item) => item.grant_status),
     ...(consoleData.approvalWorkbench?.auditTrail || []).map((item) => item.status),
+    ...(consoleData.connectorWorkbench?.health || []).flatMap((item) => [
+      item.status,
+      item.freshness_state,
+      item.rate_limit_state
+    ]),
+    ...(consoleData.connectorWorkbench?.dlq || []).map((item) => item.replay_state),
+    ...(consoleData.connectorWorkbench?.syncTrail || []).map((item) => item.status),
     ...(consoleData.agentStore?.discoveryGaps || []).map((item) => item.state),
     ...(consoleData.agentStore?.runAudits || []).flatMap((item) => [item.registration_state, item.raw_access_state]),
     ...(consoleData.agentStore?.storeSummaries || []).flatMap((item) => [item.metadata_state, item.risk_state]),
@@ -1161,6 +1427,226 @@ function approvalAuditMatchesApproval(item, approval) {
   return Boolean(approval) &&
     item.status === approval.status &&
     item.audit_id === approval.audit_id;
+}
+
+export function connectorWorkbenchIsComplete(consoleData) {
+  const workbench = consoleData.connectorWorkbench;
+  if (!isRecord(workbench) || containsUnsafeAuditReference(workbench)) {
+    return false;
+  }
+  if (!Array.isArray(consoleData.connectors) || containsUnsafeAuditReference(consoleData.connectors)) {
+    return false;
+  }
+  if (!keysAreExactly(workbench, ["health", "dlq", "syncTrail", "guardrails"])) {
+    return false;
+  }
+  const connectors = consoleData.connectors || [];
+  const connectorsById = new Map(connectors.map((item) => [item.id, item]));
+  if (
+    connectorsById.size !== connectors.length ||
+    !requiredConnectorBoundariesArePresent(connectorsById) ||
+    !connectorRowsMatchConnectors(connectors, workbench.health) ||
+    !connectorRowsMatchConnectors(connectors, workbench.dlq) ||
+    !connectorRowsMatchConnectors(connectors, workbench.syncTrail)
+  ) {
+    return false;
+  }
+
+  const healthOk = workbench.health.every((item) =>
+    keysAreExactly(item, [
+      "id",
+      "connector_id",
+      "name",
+      "status",
+      "last_seen_at",
+      "freshness",
+      "freshness_state",
+      "rate_limit_state",
+      "rate_limit_detail",
+      "degrade_action",
+      "evidence_impact",
+      "owner",
+      "request_id",
+      "primary_action",
+      "secondary_action",
+      "safety_note"
+    ]) &&
+    item.id &&
+    item.connector_id &&
+    item.name &&
+    item.status &&
+    item.last_seen_at &&
+    item.freshness &&
+    item.freshness_state &&
+    item.rate_limit_state &&
+    item.rate_limit_detail &&
+    item.degrade_action &&
+    item.evidence_impact &&
+    item.owner &&
+    item.request_id &&
+    item.primary_action &&
+    item.secondary_action &&
+    /只读健康摘要/.test(item.safety_note || "") &&
+    connectorHealthMatchesConnector(item, connectorsById.get(item.connector_id)) &&
+    connectorHealthStateIsSafe(item) &&
+    !containsUnsafeLifecycleText(`${item.primary_action || ""} ${item.secondary_action || ""} ${item.safety_note || ""}`)
+  );
+
+  const dlqOk = workbench.dlq.every((item) =>
+    keysAreExactly(item, [
+      "id",
+      "connector_id",
+      "dlq_depth",
+      "oldest_event_age",
+      "replay_state",
+      "retry_window",
+      "degrade_policy",
+      "request_id",
+      "audit_id",
+      "safety_note"
+    ]) &&
+    item.id &&
+    item.connector_id &&
+    item.dlq_depth &&
+    item.oldest_event_age &&
+    item.replay_state &&
+    item.retry_window &&
+    item.degrade_policy &&
+    item.request_id &&
+    item.audit_id &&
+    /只展示队列摘要/.test(item.safety_note || "") &&
+    connectorDlqMatchesConnector(item, connectorsById.get(item.connector_id)) &&
+    !containsUnsafeLifecycleText(`${item.retry_window || ""} ${item.degrade_policy || ""} ${item.safety_note || ""}`)
+  );
+
+  const syncOk = workbench.syncTrail.every((item) =>
+    keysAreExactly(item, ["id", "connector_id", "stage", "occurred_at", "summary", "owner", "status", "request_id"]) &&
+    item.id &&
+    item.connector_id &&
+    item.stage &&
+    item.occurred_at &&
+    item.summary &&
+    item.owner &&
+    item.status &&
+    item.request_id &&
+    connectorSyncMatchesConnector(item, connectorsById.get(item.connector_id)) &&
+    !containsUnsafeLifecycleText(item.summary || "")
+  );
+
+  const guardrailsText = workbench.guardrails.join(" ");
+  return healthOk &&
+    dlqOk &&
+    syncOk &&
+    sdlcConnectorProofStateIsSafe(consoleData, workbench) &&
+    workbench.guardrails.every((item) => typeof item === "string" && item) &&
+    /15 分钟/.test(guardrailsText) &&
+    /超过 20 分钟/.test(guardrailsText) &&
+    /DLQ/.test(guardrailsText) &&
+    /Outbox Replay/.test(guardrailsText) &&
+    /不构成 verified_loaded/.test(guardrailsText) &&
+    /原始载荷/.test(guardrailsText) &&
+    !containsUnsafeLifecycleText(guardrailsText);
+}
+
+function requiredConnectorBoundariesArePresent(connectorsById) {
+  return ["conn_git", "conn_pr", "conn_ci", "conn_test", "conn_iam"].every((connectorId) =>
+    connectorsById.has(connectorId)
+  );
+}
+
+function connectorRowsMatchConnectors(connectors, rows) {
+  if (!Array.isArray(rows) || rows.length !== connectors.length) {
+    return false;
+  }
+  const connectorIds = new Set(connectors.map((item) => item.id));
+  const rowIds = new Set(rows.map((item) => item.connector_id));
+  return rowIds.size === rows.length &&
+    connectorIds.size === connectors.length &&
+    connectors.every((item) => rowIds.has(item.id));
+}
+
+function connectorHealthMatchesConnector(item, connector) {
+  return Boolean(connector) &&
+    item.connector_id === connector.id &&
+    item.name === connector.name &&
+    item.status === connector.status &&
+    item.last_seen_at === connector.last_seen_at &&
+    item.degrade_action === connector.degrade_action &&
+    item.request_id === connector.request_id;
+}
+
+function connectorHealthStateIsSafe(item) {
+  if (item.status === "healthy") {
+    return item.freshness_state === "healthy" &&
+      item.primary_action === "保持监控" &&
+      /未触发限流|治理证明未完成|接近配额|限流/.test(item.rate_limit_detail || "") &&
+      /不降低/.test(item.evidence_impact || "");
+  }
+  if (item.status === "materialized") {
+    return item.freshness_state === "materialized" &&
+      item.primary_action === "补齐治理加载证明" &&
+      /不提升为 verified_loaded/.test(item.rate_limit_detail || "") &&
+      /不构成 verified_loaded/.test(item.evidence_impact || "");
+  }
+  if (item.status === "degraded") {
+    return item.freshness_state === "degraded" &&
+      item.primary_action === "查看降级影响" &&
+      /降低证据等级/.test(item.rate_limit_detail || "") &&
+      /降低证据等级/.test(item.evidence_impact || "");
+  }
+  return item.freshness_state === "unknown";
+}
+
+function connectorDlqMatchesConnector(item, connector) {
+  if (!connector || item.request_id !== connector.request_id) {
+    return false;
+  }
+  if (connector.status === "healthy") {
+    return item.dlq_depth === "0" &&
+      item.oldest_event_age === "0 分钟" &&
+      item.replay_state === "healthy" &&
+      item.retry_window === "无需回放";
+  }
+  if (connector.status === "materialized") {
+    return item.dlq_depth === "待验证" &&
+      item.replay_state === "materialized" &&
+      /verified_loaded/.test(item.retry_window || "") &&
+      /不提升证据等级/.test(item.degrade_policy || "");
+  }
+  if (connector.status === "degraded") {
+    return item.dlq_depth !== "0" &&
+      item.replay_state === "pending" &&
+      /人工审批/.test(item.retry_window || "") &&
+      /Outbox Replay/.test(item.degrade_policy || "");
+  }
+  return false;
+}
+
+function connectorSyncMatchesConnector(item, connector) {
+  return Boolean(connector) &&
+    item.connector_id === connector.id &&
+    item.status === connector.status &&
+    item.occurred_at === connector.last_seen_at &&
+    item.request_id === connector.request_id;
+}
+
+function sdlcConnectorProofStateIsSafe(consoleData, workbench) {
+  const health = (workbench.health || []).find((item) => item.connector_id === "conn_sdlc");
+  if (!health) {
+    return false;
+  }
+  const summaryStatus = consoleData.summary?.adapter?.status;
+  const sdlcProofs = consoleData.sdlcRuns || [];
+  const verifiedProof = summaryStatus === "verified_loaded" &&
+    sdlcProofs.length > 0 &&
+    sdlcProofs.every((item) => proofStateIsSafe(item) && item.verified_loaded === "verified_loaded");
+  if (verifiedProof) {
+    return true;
+  }
+  return health.status === "materialized" &&
+    health.freshness_state === "materialized" &&
+    health.primary_action === "补齐治理加载证明" &&
+    /不构成 verified_loaded/.test(health.evidence_impact || "");
 }
 
 export function containsUnsafeAuditReference(value) {

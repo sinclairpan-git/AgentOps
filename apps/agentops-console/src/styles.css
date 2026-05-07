@@ -613,6 +613,10 @@ button {
   overflow-wrap: anywhere;
 }
 
+.connector-boundary-row {
+  grid-template-columns: 118px minmax(0, 1fr) minmax(220px, 0.78fr);
+}
+
 .ent-button {
   min-height: 34px;
   border: 1px solid #2f6fed;
@@ -777,6 +781,10 @@ button {
   margin: 0;
 }
 
+.connector-metrics {
+  grid-template-columns: repeat(4, minmax(84px, 1fr));
+}
+
 .evidence-vault-metrics div {
   display: grid;
   gap: 6px;
@@ -892,6 +900,10 @@ dd {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
+  .connector-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .evidence-vault-metrics div {
     padding: 10px;
   }
@@ -921,7 +933,8 @@ dd {
   .detail-list div,
   .proof-panel dl div,
   .deep-link-grid,
-  .boundary-row {
+  .boundary-row,
+  .connector-boundary-row {
     grid-template-columns: 1fr;
   }
 }

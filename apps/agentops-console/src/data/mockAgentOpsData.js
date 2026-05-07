@@ -113,6 +113,10 @@ export const consoleData = {
   },
   connectors: [
     { id: "conn_agent_store", name: "Agent Store", status: "healthy", last_seen_at: "2026-05-05 18:48", degrade_action: "无", request_id: "req_conn_agent_store" },
+    { id: "conn_git", name: "Git 仓库", status: "healthy", last_seen_at: "2026-05-05 18:49", degrade_action: "无", request_id: "req_conn_git" },
+    { id: "conn_pr", name: "PR 服务", status: "healthy", last_seen_at: "2026-05-05 18:49", degrade_action: "无", request_id: "req_conn_pr" },
+    { id: "conn_ci", name: "CI 检查", status: "degraded", last_seen_at: "2026-05-05 18:31", degrade_action: "降级为本地检查摘要", request_id: "req_conn_ci" },
+    { id: "conn_test", name: "测试执行", status: "healthy", last_seen_at: "2026-05-05 18:49", degrade_action: "无", request_id: "req_conn_test" },
     { id: "conn_sdlc", name: "Ai_AutoSDLC", status: "materialized", last_seen_at: "2026-05-05 18:42", degrade_action: "需要 verified_loaded 证明", request_id: "req_conn_sdlc" },
     { id: "conn_evidence", name: "证据存储", status: "degraded", last_seen_at: "2026-05-05 18:35", degrade_action: "仅展示摘要", request_id: "req_conn_evidence" },
     { id: "conn_policy", name: "策略服务", status: "degraded", last_seen_at: "2026-05-05 18:38", degrade_action: "高风险需在线校验/阻断（require_online/block）", request_id: "req_conn_policy" },
@@ -185,6 +189,222 @@ consoleData.actionWorkbench.details = consoleData.actionWorkbench.details.map((d
   timeline: timelineFor(detail),
   audit_packet: auditPacketFor(detail)
 }));
+
+const connectorOwner = (connectorId) => ({
+  conn_agent_store: "Agent Store 负责人",
+  conn_ingestion: "事件接入负责人",
+  conn_repository: "运行事实仓库负责人",
+  conn_git: "Git 仓库负责人",
+  conn_pr: "PR 服务负责人",
+  conn_ci: "CI 负责人",
+  conn_test: "测试负责人",
+  conn_sdlc: "SDLC 负责人",
+  conn_evidence: "证据负责人",
+  conn_policy: "策略服务负责人",
+  conn_iam: "安全/IAM 负责人"
+}[connectorId] || "连接器负责人");
+
+const connectorFreshness = (status) => {
+  if (status === "healthy") {
+    return "15 分钟内";
+  }
+  if (status === "materialized") {
+    return "配置已生成，待 verified_loaded 证明";
+  }
+  if (status === "degraded") {
+    return "超过 20 分钟或降级";
+  }
+  return "待采集";
+};
+
+const connectorFreshnessState = (status) => {
+  if (status === "healthy") {
+    return "healthy";
+  }
+  if (status === "materialized") {
+    return "materialized";
+  }
+  if (status === "degraded") {
+    return "degraded";
+  }
+  return "unknown";
+};
+
+const connectorRateLimitState = (item) => {
+  if (item.status === "degraded") {
+    return "degraded";
+  }
+  if (["conn_sdlc", "conn_policy", "conn_evidence"].includes(item.id)) {
+    return "warning";
+  }
+  return "healthy";
+};
+
+const connectorRateLimitDetail = (item) => {
+  if (item.status === "degraded") {
+    return "限流或不可用已影响同步，降低证据等级并进入人工复核。";
+  }
+  if (item.id === "conn_sdlc") {
+    return "治理证明未完成，仅低频探测，不提升为 verified_loaded。";
+  }
+  if (["conn_policy", "conn_evidence", "conn_ci"].includes(item.id)) {
+    return "接近配额或依赖外部检查，按低频采集并保留摘要。";
+  }
+  return "未触发限流，按连接器新鲜度 SLO 采集。";
+};
+
+const connectorEvidenceImpact = (item) => {
+  if (item.status === "healthy") {
+    return "证据等级不降低";
+  }
+  if (item.status === "materialized") {
+    return "仅证明配置已生成，不构成 verified_loaded 治理激活证明";
+  }
+  return "降低证据等级，相关运行进入人工复核";
+};
+
+const connectorPrimaryAction = (item) => {
+  if (item.status === "healthy") {
+    return "保持监控";
+  }
+  if (item.status === "degraded") {
+    return "查看降级影响";
+  }
+  if (item.status === "materialized") {
+    return "补齐治理加载证明";
+  }
+  return "查看降级影响";
+};
+
+const connectorSecondaryAction = (item) => {
+  if (item.status === "healthy") {
+    return "按 SLO 继续采集心跳";
+  }
+  if (item.status === "materialized") {
+    return "等待 verified_loaded 机器证据";
+  }
+  return "转交负责人并降低相关证据等级";
+};
+
+const connectorDlqDepth = (status) => {
+  if (status === "healthy") {
+    return "0";
+  }
+  if (status === "materialized") {
+    return "待验证";
+  }
+  return "3";
+};
+
+const connectorOldestEventAge = (status) => {
+  if (status === "healthy") {
+    return "0 分钟";
+  }
+  if (status === "materialized") {
+    return "待采集";
+  }
+  return "22 分钟";
+};
+
+const connectorReplayState = (status) => {
+  if (status === "healthy") {
+    return "healthy";
+  }
+  if (status === "materialized") {
+    return "materialized";
+  }
+  return "pending";
+};
+
+const connectorRetryWindow = (status) => {
+  if (status === "healthy") {
+    return "无需回放";
+  }
+  if (status === "materialized") {
+    return "待 verified_loaded 后确认";
+  }
+  return "人工审批后 15 分钟内回放";
+};
+
+const connectorDlqPolicy = (item) => {
+  if (item.status === "healthy") {
+    return "无积压，继续按 15 分钟新鲜度 SLO 采集";
+  }
+  if (item.status === "materialized") {
+    return "未形成治理激活证明前，不提升证据等级";
+  }
+  return `执行降级：${item.degrade_action}；Outbox Replay 需人工审批`;
+};
+
+const connectorSyncStage = (status) => {
+  if (status === "healthy") {
+    return "同步";
+  }
+  if (status === "materialized") {
+    return "待证明";
+  }
+  return "降级";
+};
+
+const connectorSyncSummary = (item) => {
+  if (item.status === "healthy") {
+    return `${item.name} 心跳正常，继续按新鲜度 SLO 采集。`;
+  }
+  if (item.status === "materialized") {
+    return `${item.name} 已生成配置，但仍缺 verified_loaded 机器证明。`;
+  }
+  return `${item.name} 进入降级路径：${item.degrade_action}。`;
+};
+
+consoleData.connectorWorkbench = {
+  health: consoleData.connectors.map((item) => ({
+    id: `connector_health_${item.id}`,
+    connector_id: item.id,
+    name: item.name,
+    status: item.status,
+    last_seen_at: item.last_seen_at,
+    freshness: connectorFreshness(item.status),
+    freshness_state: connectorFreshnessState(item.status),
+    rate_limit_state: connectorRateLimitState(item),
+    rate_limit_detail: connectorRateLimitDetail(item),
+    degrade_action: item.degrade_action,
+    evidence_impact: connectorEvidenceImpact(item),
+    owner: connectorOwner(item.id),
+    request_id: item.request_id,
+    primary_action: connectorPrimaryAction(item),
+    secondary_action: connectorSecondaryAction(item),
+    safety_note: "只读健康摘要，不执行连接器重试、回放、写回或权限变更。"
+  })),
+  dlq: consoleData.connectors.map((item) => ({
+    id: `connector_dlq_${item.id}`,
+    connector_id: item.id,
+    dlq_depth: connectorDlqDepth(item.status),
+    oldest_event_age: connectorOldestEventAge(item.status),
+    replay_state: connectorReplayState(item.status),
+    retry_window: connectorRetryWindow(item.status),
+    degrade_policy: connectorDlqPolicy(item),
+    request_id: item.request_id,
+    audit_id: `audit_${item.id}`,
+    safety_note: "Outbox Replay 需要人工审批后在后端执行，本页只展示队列摘要。"
+  })),
+  syncTrail: consoleData.connectors.map((item) => ({
+    id: `connector_sync_${item.id}`,
+    connector_id: item.id,
+    stage: connectorSyncStage(item.status),
+    occurred_at: item.last_seen_at,
+    summary: connectorSyncSummary(item),
+    owner: connectorOwner(item.id),
+    status: item.status,
+    request_id: item.request_id
+  })),
+  guardrails: [
+    "连接器新鲜度 SLO 为 15 分钟内，超过 20 分钟必须告警并降低证据等级。",
+    "DLQ 与 Outbox Replay 只展示只读摘要，本页不执行回放、重试或生产写操作。",
+    "Git、PR、CI、测试、IAM 等外部连接器必须展示限流状态、降级动作和负责人。",
+    "materialized/unverified 只能说明配置已生成或 CLI 预演成功，不构成 verified_loaded 治理激活证明。",
+    "连接器工作台不得展示原始载荷、下载链接、PR 原文或外部 URL。"
+  ]
+};
 
 const approvalPrimaryAction = (status) => {
   if (status === "approved") {

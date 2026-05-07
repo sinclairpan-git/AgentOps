@@ -173,6 +173,7 @@ def _with_workbenches(console_data: dict[str, Any]) -> dict[str, Any]:
         "adoption": _adoption_workbench(console_data),
         "evidenceVault": _evidence_vault_workbench(console_data),
         "approvalWorkbench": _approval_workbench(console_data),
+        "connectorWorkbench": _connector_workbench(console_data),
         "actionWorkbench": _action_workbench(console_data),
     }
     return {
@@ -1307,10 +1308,228 @@ def _repository_connectors(repository: InMemoryRepository, *, event_count: int |
         _connector("conn_agent_store", "Agent Store", agent_store_status, now, agent_store_action, "req_conn_agent_store"),
         _connector("conn_ingestion", "事件接入", "healthy", now, "无", "req_conn_ingestion"),
         _connector("conn_repository", "运行事实仓库", "healthy", now, f"{event_count} 条事件", "req_conn_repository"),
+        _connector("conn_git", "Git 仓库", "healthy", now, "无", "req_conn_git"),
+        _connector("conn_pr", "PR 服务", "healthy", now, "无", "req_conn_pr"),
+        _connector("conn_ci", "CI 检查", "degraded", now, "降级为本地检查摘要", "req_conn_ci"),
+        _connector("conn_test", "测试执行", "healthy", now, "无", "req_conn_test"),
         _connector("conn_sdlc", "Ai_AutoSDLC", "materialized", now, "需要 verified_loaded 机器证明", "req_conn_sdlc"),
         _connector("conn_evidence", "证据存储", "healthy", now, "仅展示摘要", "req_conn_evidence"),
         _connector("conn_policy", "策略服务", "healthy", now, "本地内核策略摘要", "req_conn_policy"),
+        _connector("conn_iam", "IAM/安全", "healthy", now, "无", "req_conn_iam"),
     ]
+
+
+def _connector_workbench(console_data: dict[str, Any]) -> dict[str, Any]:
+    connectors = list(console_data.get("connectors", []))
+    return {
+        "health": [_connector_health(item) for item in connectors],
+        "dlq": [_connector_dlq(item) for item in connectors],
+        "syncTrail": [_connector_sync_trail(item) for item in connectors],
+        "guardrails": [
+            "连接器新鲜度 SLO 为 15 分钟内，超过 20 分钟必须告警并降低证据等级。",
+            "DLQ 与 Outbox Replay 只展示只读摘要，本页不执行回放、重试或生产写操作。",
+            "Git、PR、CI、测试、IAM 等外部连接器必须展示限流状态、降级动作和负责人。",
+            "materialized/unverified 只能说明配置已生成或 CLI 预演成功，不构成 verified_loaded 治理激活证明。",
+            "连接器工作台不得展示原始载荷、下载链接、PR 原文或外部 URL。",
+        ],
+    }
+
+
+def _connector_health(connector: dict[str, Any]) -> dict[str, str]:
+    connector_id = str(connector["id"])
+    status = str(connector["status"])
+    return {
+        "id": f"connector_health_{connector_id}",
+        "connector_id": connector_id,
+        "name": str(connector["name"]),
+        "status": status,
+        "last_seen_at": str(connector["last_seen_at"]),
+        "freshness": _connector_freshness(status),
+        "freshness_state": _connector_freshness_state(status),
+        "rate_limit_state": _connector_rate_limit_state(connector_id, status),
+        "rate_limit_detail": _connector_rate_limit_detail(connector_id, status),
+        "degrade_action": str(connector["degrade_action"]),
+        "evidence_impact": _connector_evidence_impact(connector),
+        "owner": _connector_owner(connector_id),
+        "request_id": str(connector["request_id"]),
+        "primary_action": _connector_primary_action(connector),
+        "secondary_action": _connector_secondary_action(connector),
+        "safety_note": "只读健康摘要，不执行连接器重试、回放、写回或权限变更。",
+    }
+
+
+def _connector_dlq(connector: dict[str, Any]) -> dict[str, str]:
+    connector_id = str(connector["id"])
+    status = str(connector["status"])
+    return {
+        "id": f"connector_dlq_{connector_id}",
+        "connector_id": connector_id,
+        "dlq_depth": _connector_dlq_depth(status),
+        "oldest_event_age": _connector_oldest_event_age(status),
+        "replay_state": _connector_replay_state(status),
+        "retry_window": _connector_retry_window(status),
+        "degrade_policy": _connector_dlq_policy(connector),
+        "request_id": str(connector["request_id"]),
+        "audit_id": f"audit_{connector_id}",
+        "safety_note": "Outbox Replay 需要人工审批后在后端执行，本页只展示队列摘要。",
+    }
+
+
+def _connector_sync_trail(connector: dict[str, Any]) -> dict[str, str]:
+    connector_id = str(connector["id"])
+    status = str(connector["status"])
+    return {
+        "id": f"connector_sync_{connector_id}",
+        "connector_id": connector_id,
+        "stage": _connector_sync_stage(status),
+        "occurred_at": str(connector["last_seen_at"]),
+        "summary": _connector_sync_summary(connector),
+        "owner": _connector_owner(connector_id),
+        "status": status,
+        "request_id": str(connector["request_id"]),
+    }
+
+
+def _connector_owner(connector_id: str) -> str:
+    owners = {
+        "conn_agent_store": "Agent Store 负责人",
+        "conn_ingestion": "事件接入负责人",
+        "conn_repository": "运行事实仓库负责人",
+        "conn_git": "Git 仓库负责人",
+        "conn_pr": "PR 服务负责人",
+        "conn_ci": "CI 负责人",
+        "conn_test": "测试负责人",
+        "conn_sdlc": "SDLC 负责人",
+        "conn_evidence": "证据负责人",
+        "conn_policy": "策略服务负责人",
+        "conn_iam": "安全/IAM 负责人",
+    }
+    return owners.get(connector_id, "连接器负责人")
+
+
+def _connector_freshness(status: str) -> str:
+    if status == "healthy":
+        return "15 分钟内"
+    if status == "materialized":
+        return "配置已生成，待 verified_loaded 证明"
+    if status == "degraded":
+        return "超过 20 分钟或降级"
+    return "待采集"
+
+
+def _connector_freshness_state(status: str) -> str:
+    if status == "healthy":
+        return "healthy"
+    if status == "materialized":
+        return "materialized"
+    if status == "degraded":
+        return "degraded"
+    return "unknown"
+
+
+def _connector_rate_limit_state(connector_id: str, status: str) -> str:
+    if status == "degraded":
+        return "degraded"
+    if connector_id in {"conn_sdlc", "conn_policy", "conn_evidence"}:
+        return "warning"
+    return "healthy"
+
+
+def _connector_rate_limit_detail(connector_id: str, status: str) -> str:
+    if status == "degraded":
+        return "限流或不可用已影响同步，降低证据等级并进入人工复核。"
+    if connector_id == "conn_sdlc":
+        return "治理证明未完成，仅低频探测，不提升为 verified_loaded。"
+    if connector_id in {"conn_policy", "conn_evidence", "conn_ci"}:
+        return "接近配额或依赖外部检查，按低频采集并保留摘要。"
+    return "未触发限流，按连接器新鲜度 SLO 采集。"
+
+
+def _connector_evidence_impact(connector: dict[str, Any]) -> str:
+    status = str(connector["status"])
+    if status == "healthy":
+        return "证据等级不降低"
+    if status == "materialized":
+        return "仅证明配置已生成，不构成 verified_loaded 治理激活证明"
+    return "降低证据等级，相关运行进入人工复核"
+
+
+def _connector_primary_action(connector: dict[str, Any]) -> str:
+    status = str(connector["status"])
+    if status == "healthy":
+        return "保持监控"
+    if status == "degraded":
+        return "查看降级影响"
+    if status == "materialized":
+        return "补齐治理加载证明"
+    return "查看降级影响"
+
+
+def _connector_secondary_action(connector: dict[str, Any]) -> str:
+    status = str(connector["status"])
+    if status == "healthy":
+        return "按 SLO 继续采集心跳"
+    if status == "materialized":
+        return "等待 verified_loaded 机器证据"
+    return "转交负责人并降低相关证据等级"
+
+
+def _connector_dlq_depth(status: str) -> str:
+    if status == "healthy":
+        return "0"
+    if status == "materialized":
+        return "待验证"
+    return "3"
+
+
+def _connector_oldest_event_age(status: str) -> str:
+    if status == "healthy":
+        return "0 分钟"
+    if status == "materialized":
+        return "待采集"
+    return "22 分钟"
+
+
+def _connector_replay_state(status: str) -> str:
+    if status == "healthy":
+        return "healthy"
+    if status == "materialized":
+        return "materialized"
+    return "pending"
+
+
+def _connector_retry_window(status: str) -> str:
+    if status == "healthy":
+        return "无需回放"
+    if status == "materialized":
+        return "待 verified_loaded 后确认"
+    return "人工审批后 15 分钟内回放"
+
+
+def _connector_dlq_policy(connector: dict[str, Any]) -> str:
+    status = str(connector["status"])
+    if status == "healthy":
+        return "无积压，继续按 15 分钟新鲜度 SLO 采集"
+    if status == "materialized":
+        return "未形成治理激活证明前，不提升证据等级"
+    return f"执行降级：{connector['degrade_action']}；Outbox Replay 需人工审批"
+
+
+def _connector_sync_stage(status: str) -> str:
+    if status == "healthy":
+        return "同步"
+    if status == "materialized":
+        return "待证明"
+    return "降级"
+
+
+def _connector_sync_summary(connector: dict[str, Any]) -> str:
+    status = str(connector["status"])
+    if status == "healthy":
+        return f"{connector['name']} 心跳正常，继续按新鲜度 SLO 采集。"
+    if status == "materialized":
+        return f"{connector['name']} 已生成配置，但仍缺 verified_loaded 机器证明。"
+    return f"{connector['name']} 进入降级路径：{connector['degrade_action']}。"
 
 
 def _repository_sdlc_runs(repository: InMemoryRepository, *, event_count: int | None = None) -> list[dict[str, str]]:
@@ -1729,6 +1948,10 @@ def _console_data() -> dict[str, Any]:
         },
         "connectors": [
             _connector("conn_agent_store", "Agent Store", "healthy", "2026-05-06 05:20", "无", "req_conn_agent_store"),
+            _connector("conn_git", "Git 仓库", "healthy", "2026-05-06 05:20", "无", "req_conn_git"),
+            _connector("conn_pr", "PR 服务", "healthy", "2026-05-06 05:20", "无", "req_conn_pr"),
+            _connector("conn_ci", "CI 检查", "degraded", "2026-05-06 05:17", "降级为本地检查摘要", "req_conn_ci"),
+            _connector("conn_test", "测试执行", "healthy", "2026-05-06 05:20", "无", "req_conn_test"),
             _connector("conn_sdlc", "Ai_AutoSDLC", "materialized", "2026-05-06 05:20", "需要 verified_loaded 证明", "req_conn_sdlc"),
             _connector("conn_evidence", "证据存储", "degraded", "2026-05-06 05:18", "仅展示摘要", "req_conn_evidence"),
             _connector("conn_policy", "策略服务", "degraded", "2026-05-06 05:19", "高风险需在线校验/阻断（require_online/block）", "req_conn_policy"),
