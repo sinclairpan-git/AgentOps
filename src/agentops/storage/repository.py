@@ -21,6 +21,8 @@ class InMemoryRepository:
     imported_events: dict[str, dict[str, Any]] = field(default_factory=dict)
     bootstrap_sessions: dict[str, dict[str, Any]] = field(default_factory=dict)
     credentials_by_bootstrap: dict[str, dict[str, Any]] = field(default_factory=dict)
+    credential_identities_by_bootstrap: dict[str, dict[str, Any]] = field(default_factory=dict)
+    credential_issue_idempotency: dict[str, dict[str, Any]] = field(default_factory=dict)
     used_bootstrap_nonces: set[str] = field(default_factory=set)
     approvals: dict[str, dict[str, Any]] = field(default_factory=dict)
     approval_decisions: dict[str, dict[str, Any]] = field(default_factory=dict)
@@ -72,10 +74,21 @@ class InMemoryRepository:
             session = self.bootstrap_sessions.get(bootstrap_id)
             return dict(session) if session else None
 
-    def store_credentials(self, bootstrap_id: str, credentials: dict[str, Any]) -> dict[str, Any]:
+    def store_credentials(
+        self,
+        bootstrap_id: str,
+        credentials: dict[str, Any],
+        *,
+        handoff_identity: dict[str, Any] | None = None,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
         with self._lock:
             if bootstrap_id not in self.credentials_by_bootstrap:
                 self.credentials_by_bootstrap[bootstrap_id] = dict(credentials)
+                if handoff_identity is not None:
+                    self.credential_identities_by_bootstrap[bootstrap_id] = dict(handoff_identity)
+                if idempotency_key is not None and handoff_identity is not None:
+                    self.credential_issue_idempotency[idempotency_key] = dict(handoff_identity)
             return dict(self.credentials_by_bootstrap[bootstrap_id])
 
     def mark_bootstrap_nonces(self, *nonces: str) -> None:

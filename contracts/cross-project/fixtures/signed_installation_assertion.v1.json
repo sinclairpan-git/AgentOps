@@ -1,0 +1,22 @@
+{
+  "assertion_version": "signed_installation_assertion.v1",
+  "issuer": "agent-store",
+  "key_id": "agent-store-phase1-key",
+  "algorithm": "HS256",
+  "canonicalization": "json-c14n-v1",
+  "signature": "hex-signature",
+  "assertion_hash": "hex-assertion-hash",
+  "installation_id": "inst-fixture",
+  "device_id": "dev-fixture",
+  "device_public_key_thumbprint": "thumb-fixture",
+  "agent_id": "framework.ai-autosdlc",
+  "agent_version": "1.0.0",
+  "artifact_hash": "sha256:first",
+  "user_id": "user-1",
+  "audience": "agentops",
+  "nonce": "nonce-fixture",
+  "replay_window_seconds": 300,
+  "issued_at": "2026-05-07T12:00:00+00:00",
+  "expires_at": "2026-05-07T12:15:00+00:00",
+  "revocation_status": "not_revoked"
+}

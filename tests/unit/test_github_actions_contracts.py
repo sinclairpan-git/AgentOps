@@ -190,6 +190,14 @@ def test_adversarial_pr_review_script_enforces_agentops_redlines() -> None:
     assert "sdlcDryRunStateSpoofedPassed" in script
     assert "sdlcReporterProofSourceSpoofed" in script
     assert "legacyUnsafeSdlcRunSnapshot" in script
+    assert "agentops_credential_handoff.v1" in script
+    assert "signed_installation_assertion.v1" in script
+    assert "device_proof.v1" in script
+    assert "BOOTSTRAP_ASSERTION_HASH_MISMATCH" in script
+    assert "BOOTSTRAP_IDEMPOTENCY_CONFLICT" in script
+    assert "send_signature_test_event" in script
+    assert "test_cct_001_agent_store_handoff_fixture_issues_credential" in script
+    assert "test_cct_006_unknown_major_schema_returns_unsupported_error" in script
     assert "Reporter active" in script
     assert "Outbox delivered" in script
     assert "Connector Health" in script

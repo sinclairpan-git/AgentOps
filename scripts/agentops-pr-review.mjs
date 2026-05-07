@@ -570,6 +570,75 @@ function checkSdlcRunWorkbenchTestsAndContracts() {
   }
 }
 
+function checkCrossProjectCredentialHandoff() {
+  const credentialApi = "src/agentops/api/credentials.py";
+  const credentialTest = "tests/contract/test_ao_ct_002_credential_issue.py";
+  const openapi = "specs/001-agentops-trusted-loop/contracts/agentops-api.openapi.yaml";
+  const fixtureDir = "contracts/cross-project/fixtures";
+  for (const path of [
+    `${fixtureDir}/signed_installation_assertion.v1.json`,
+    `${fixtureDir}/device_proof.v1.json`,
+    `${fixtureDir}/agentops_credential_handoff.v1.json`,
+    `${fixtureDir}/credential_issue_response.v1.json`,
+    `${fixtureDir}/unsupported_schema.v2.json`
+  ]) {
+    requireFile(path, "P1", "缺少跨项目 Credential Handoff fixture", `${path} 是 AgentOps 消费 Agent Store 008 producer 契约的必要证据。`);
+  }
+  if (requireFile(credentialApi, "P1", "缺少 Credential Issue API", "AgentOps 必须实现 agentops_credential_handoff.v1 consumer。")) {
+    const text = readText(credentialApi);
+    for (const needle of [
+      "agentops_credential_handoff.v1",
+      "signed_installation_assertion.v1",
+      "device_proof.v1",
+      "json-c14n-v1",
+      "agent-store",
+      "assertion_hash",
+      "device_public_key_thumbprint",
+      "BOOTSTRAP_ASSERTION_HASH_MISMATCH",
+      "BOOTSTRAP_IDEMPOTENCY_CONFLICT",
+      "send_signature_test_event"
+    ]) {
+      if (!text.includes(needle)) {
+        addFinding("P1", credentialApi, "issue_credentials", "Credential Handoff consumer 契约不完整", `Credential Issue 必须包含 ${needle}，否则无法消费 Agent Store 008 handoff。`);
+      }
+    }
+    if (/algorithm"\]\s*!=\s*device_proof\["algorithm"|algorithm'\]\s*!=\s*device_proof\['algorithm'/.test(text)) {
+      addFinding("P1", credentialApi, "algorithm", "错误要求 assertion 与 device proof algorithm 相等", "跨项目 appendix 明确 device proof algorithm 不需要等于 assertion algorithm，AgentOps 不能用旧约束误拒。");
+    }
+  }
+  if (requireFile(credentialTest, "P1", "缺少 Credential Handoff 契约测试", "必须覆盖 CCT-001/CCT-002/CCT-003/CCT-006。")) {
+    const text = readText(credentialTest);
+    for (const needle of [
+      "test_cct_001_agent_store_handoff_fixture_issues_credential",
+      "test_cct_002_device_proof_binds_installation_device_and_assertion_hash",
+      "test_cct_003_response_echoes_agent_store_consumable_status",
+      "test_cct_006_unknown_major_schema_returns_unsupported_error",
+      "BOOTSTRAP_IDEMPOTENCY_CONFLICT",
+      "HS256",
+      "Ed25519"
+    ]) {
+      if (!text.includes(needle)) {
+        addFinding("P1", credentialTest, "issue_credentials", "Credential Handoff 测试覆盖不足", `测试必须覆盖 ${needle}。`);
+      }
+    }
+  }
+  if (requireFile(openapi, "P2", "缺少 AgentOps OpenAPI 契约", "OpenAPI 必须同步 Credential Handoff v1 外部字段。")) {
+    const text = readText(openapi);
+    for (const needle of [
+      "agentops_credential_handoff.v1",
+      "signed_installation_assertion.v1",
+      "device_proof.v1",
+      "json-c14n-v1",
+      "bootstrap_status",
+      "send_signature_test_event"
+    ]) {
+      if (!text.includes(needle)) {
+        addFinding("P2", openapi, "CredentialIssueRequest", "OpenAPI 未同步 Credential Handoff v1", `OpenAPI 必须包含 ${needle}。`);
+      }
+    }
+  }
+}
+
 function stripSafeNegations(value) {
   return value
     .replace(/不自动批准/g, "")
@@ -726,6 +795,7 @@ async function main() {
   checkSdlcRunWorkbenchFrontendValidator();
   checkSdlcRunWorkbenchUi();
   checkSdlcRunWorkbenchTestsAndContracts();
+  checkCrossProjectCredentialHandoff();
   checkUnsafeLifecycleText(paths);
   checkWorkflowItself(paths);
 
