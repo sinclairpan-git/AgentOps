@@ -97,7 +97,7 @@ const apiSnapshot = (snapshot) => {
       primary_action: repositoryBacked ? "重新生成快照" : "刷新快照"
     },
     routes: snapshot.routes,
-    consoleData: snapshot.consoleData
+    consoleData: consoleDataWithAdoptionDefault(snapshot.consoleData)
   };
 };
 
@@ -114,6 +114,7 @@ export function validateSnapshot(snapshot) {
     return false;
   }
 
+  const consoleData = consoleDataWithAdoptionDefault(snapshot.consoleData);
   const requiredKeys = [
     "summary",
     "runs",
@@ -121,7 +122,6 @@ export function validateSnapshot(snapshot) {
     "approvals",
     "policies",
     "quality",
-    "adoption",
     "risks",
     "agentStore",
     "operationCenter",
@@ -129,27 +129,70 @@ export function validateSnapshot(snapshot) {
     "connectors",
     "sdlcRuns"
   ];
-  if (!requiredKeys.every((key) => Object.prototype.hasOwnProperty.call(snapshot.consoleData, key))) {
+  if (!requiredKeys.every((key) => Object.prototype.hasOwnProperty.call(consoleData, key))) {
     return false;
   }
-  if (!snapshotShapeIsSafe(snapshot.consoleData)) {
+  if (!snapshotShapeIsSafe(consoleData)) {
     return false;
   }
-  if (!actionDetailsAreComplete(snapshot.consoleData)) {
+  if (!actionDetailsAreComplete(consoleData)) {
     return false;
   }
-  if (!adoptionInsightsAreComplete(snapshot.consoleData)) {
+  if (!adoptionInsightsAreComplete(consoleData)) {
     return false;
   }
-  if (!qualitySignalsAreSafe(snapshot.consoleData)) {
+  if (!qualitySignalsAreSafe(consoleData)) {
     return false;
   }
   if (containsForbiddenKey(snapshot, "raw_payload")) {
     return false;
   }
-  return statesAreKnown(snapshot.consoleData) &&
-    operationActionsResolve(snapshot.consoleData) &&
-    verifiedLoadedProofIsSafe(snapshot.consoleData);
+  return statesAreKnown(consoleData) &&
+    operationActionsResolve(consoleData) &&
+    verifiedLoadedProofIsSafe(consoleData);
+}
+
+function consoleDataWithAdoptionDefault(consoleData) {
+  if (!isRecord(consoleData)) {
+    return consoleData;
+  }
+  if (Object.prototype.hasOwnProperty.call(consoleData, "adoption")) {
+    return consoleData;
+  }
+  return {
+    ...consoleData,
+    adoption: emptyAdoptionInsights()
+  };
+}
+
+function emptyAdoptionInsights() {
+  return {
+    metrics: {
+      generated_lines: 0,
+      retained_lines: 0,
+      human_modified_lines: 0,
+      deleted_lines: 0,
+      rework_rounds: 0,
+      pr_review_findings: 0,
+      ci_failure_types: ["旧版快照未提供失败归因"],
+      retention_rate: "0%"
+    },
+    explanationChains: [],
+    segments: [{
+      id: "segment_sdlc_runs",
+      title: "Ai_AutoSDLC 标准路径",
+      status: "empty",
+      retention_rate: "0%",
+      affected_agents: "0",
+      owner: "SDLC 负责人",
+      next_review: "等待新版快照同步后复核"
+    }],
+    reviewSignals: [],
+    guardrails: [
+      "低置信不自动下架，只进入人工复核和申诉路径。",
+      "旧版 v1 快照未提供采纳指标，前端仅展示安全空态。"
+    ]
+  };
 }
 
 export function snapshotShapeIsSafe(consoleData) {
@@ -166,7 +209,6 @@ export function snapshotShapeIsSafe(consoleData) {
     "approvals",
     "policies",
     "quality",
-    "adoption",
     "risks",
     "agentStore",
     "operationCenter",
@@ -192,16 +234,14 @@ export function snapshotShapeIsSafe(consoleData) {
       return isRecord(consoleData.actionWorkbench) &&
         Array.isArray(consoleData.actionWorkbench.details);
     }
-    if (key === "adoption") {
-      return isRecord(consoleData.adoption) &&
-        isRecord(consoleData.adoption.metrics) &&
-        Array.isArray(consoleData.adoption.explanationChains) &&
-        Array.isArray(consoleData.adoption.segments) &&
-        Array.isArray(consoleData.adoption.reviewSignals) &&
-        Array.isArray(consoleData.adoption.guardrails);
-    }
     return Array.isArray(consoleData[key]);
-  });
+  }) &&
+    isRecord(consoleData.adoption) &&
+    isRecord(consoleData.adoption.metrics) &&
+    Array.isArray(consoleData.adoption.explanationChains) &&
+    Array.isArray(consoleData.adoption.segments) &&
+    Array.isArray(consoleData.adoption.reviewSignals) &&
+    Array.isArray(consoleData.adoption.guardrails);
 }
 
 function isRecord(value) {

@@ -225,6 +225,15 @@ assert.equal(
   }),
   false
 );
+const legacyV1SnapshotWithoutAdoption = {
+  ...validApiSnapshot,
+  consoleData: { ...consoleData }
+};
+delete legacyV1SnapshotWithoutAdoption.consoleData.adoption;
+assert.equal(
+  validateSnapshot(legacyV1SnapshotWithoutAdoption),
+  true
+);
 assert.equal(
   validateSnapshot({
     ...validApiSnapshot,
@@ -651,6 +660,16 @@ const apiLoad = await loadAgentOpsSnapshot(async () => ({
 }), "http://127.0.0.1:8765");
 assert.equal(apiLoad.source, "api_snapshot");
 assert.equal(apiLoad.sourceState.label, "后端快照已连接");
+
+const legacyApiLoad = await loadAgentOpsSnapshot(async () => ({
+  ok: true,
+  json: async () => legacyV1SnapshotWithoutAdoption
+}), "http://127.0.0.1:8765");
+assert.equal(legacyApiLoad.source, "api_snapshot");
+assert.equal(legacyApiLoad.consoleData.adoption.metrics.generated_lines, 0);
+assert.equal(legacyApiLoad.consoleData.adoption.metrics.retention_rate, "0%");
+assert.equal(legacyApiLoad.consoleData.adoption.segments[0].status, "empty");
+assert.match(legacyApiLoad.consoleData.adoption.guardrails.join(" "), /低置信不自动下架/);
 
 const liveApiLoad = await loadAgentOpsSnapshot(async () => ({
   ok: true,
