@@ -172,8 +172,9 @@ def test_adversarial_pr_review_script_enforces_agentops_redlines() -> None:
     assert "legacyConnectorWorkbench" in script
     assert "connectorRowsMatchConnectors" in script
     assert "connectorHealthMatchesConnector" in script
-    assert "requiredConnectorBoundariesArePresent" in script
+    assert "connectorBoundarySetIsSafe" in script
     assert "sdlcConnectorProofStateIsSafe" in script
+    assert "legacyV1SnapshotWithSmallConnectorSet" in script
     assert "legacyUnsafeConnectorSnapshot" in script
     assert "sdlcSpoofedHealthyConnector" in script
     assert "Connector Health" in script

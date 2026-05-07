@@ -49,6 +49,7 @@
 - 降级边界：降级连接器必须降低证据等级，DLQ 进入人工审批后的 Outbox Replay 边界。
 - UX 对抗评审：初审发现 Git/PR/CI/测试/IAM 只有文案没有行级事实、DLQ 风险混入 SDLC 待验证、限流缺少解释。已补外部连接器行、AO14-CT-006 行级断言、DLQ 统计口径和限流说明；复评未发现 P0/P1。
 - AI-Native 对抗评审：初审发现同步篡改 `connectors[]` 与 workbench 可把 `conn_sdlc` 伪装为 healthy，以及旧版快照 connectors 危险字段绕过。已补 `sdlcConnectorProofStateIsSafe`、`requiredConnectorBoundariesArePresent`、connectors 危险字段拦截和三组前端负例；复评未发现 P0/P1。
+- Codex Review P1：`connectorWorkbench` legacy fallback 会因为强制 Git/PR/CI/测试连接器存在而拒绝旧版小连接器集合。已改为 `connectorBoundarySetIsSafe`：旧版集合允许安全补全；一旦出现 Git/PR/CI/测试任一外部连接器，就要求外部连接器边界齐全。
 
 ## 已完成验证
 

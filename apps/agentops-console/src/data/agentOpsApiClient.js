@@ -1444,7 +1444,7 @@ export function connectorWorkbenchIsComplete(consoleData) {
   const connectorsById = new Map(connectors.map((item) => [item.id, item]));
   if (
     connectorsById.size !== connectors.length ||
-    !requiredConnectorBoundariesArePresent(connectorsById) ||
+    !connectorBoundarySetIsSafe(connectorsById) ||
     !connectorRowsMatchConnectors(connectors, workbench.health) ||
     !connectorRowsMatchConnectors(connectors, workbench.dlq) ||
     !connectorRowsMatchConnectors(connectors, workbench.syncTrail)
@@ -1548,10 +1548,13 @@ export function connectorWorkbenchIsComplete(consoleData) {
     !containsUnsafeLifecycleText(guardrailsText);
 }
 
-function requiredConnectorBoundariesArePresent(connectorsById) {
-  return ["conn_git", "conn_pr", "conn_ci", "conn_test", "conn_iam"].every((connectorId) =>
-    connectorsById.has(connectorId)
-  );
+function connectorBoundarySetIsSafe(connectorsById) {
+  const externalConnectors = ["conn_git", "conn_pr", "conn_ci", "conn_test"];
+  const hasAnyExternalConnector = externalConnectors.some((connectorId) => connectorsById.has(connectorId));
+  if (!hasAnyExternalConnector) {
+    return connectorsById.has("conn_iam");
+  }
+  return [...externalConnectors, "conn_iam"].every((connectorId) => connectorsById.has(connectorId));
 }
 
 function connectorRowsMatchConnectors(connectors, rows) {

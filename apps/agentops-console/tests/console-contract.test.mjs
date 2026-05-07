@@ -281,6 +281,20 @@ assert.equal(
   validateSnapshot(legacyV1SnapshotWithoutConnectorWorkbench),
   true
 );
+const legacyV1SnapshotWithSmallConnectorSet = {
+  ...validApiSnapshot,
+  consoleData: {
+    ...consoleData,
+    connectors: consoleData.connectors.filter((connector) =>
+      ["conn_agent_store", "conn_sdlc", "conn_evidence", "conn_policy", "conn_iam"].includes(connector.id)
+    )
+  }
+};
+delete legacyV1SnapshotWithSmallConnectorSet.consoleData.connectorWorkbench;
+assert.equal(
+  validateSnapshot(legacyV1SnapshotWithSmallConnectorSet),
+  true
+);
 assert.equal(
   validateSnapshot({
     ...validApiSnapshot,
@@ -373,8 +387,8 @@ const legacyUnsafeConnectorSnapshot = {
   ...validApiSnapshot,
   consoleData: {
     ...consoleData,
-    connectors: consoleData.connectors.map((connector) =>
-      connector.id === "conn_git" ? { ...connector, raw_access_url: "/connectors/raw/conn_git" } : connector
+    connectors: legacyV1SnapshotWithSmallConnectorSet.consoleData.connectors.map((connector) =>
+      connector.id === "conn_sdlc" ? { ...connector, raw_access_url: "/connectors/raw/conn_sdlc" } : connector
     )
   }
 };

@@ -376,7 +376,7 @@ function checkConnectorWorkbenchFrontendValidator() {
     "connectorHealthStateIsSafe",
     "connectorDlqMatchesConnector",
     "connectorSyncMatchesConnector",
-    "requiredConnectorBoundariesArePresent",
+    "connectorBoundarySetIsSafe",
     "sdlcConnectorProofStateIsSafe",
     "containsUnsafeAuditReference(consoleData.connectors",
     "rate_limit_detail",
@@ -431,6 +431,7 @@ function checkConnectorWorkbenchTestsAndContracts() {
     const requiredNegatives = [
       "connectorWorkbench: null",
       "legacyV1SnapshotWithoutConnectorWorkbench",
+      "legacyV1SnapshotWithSmallConnectorSet",
       "connectorWorkbench.health.length",
       "legacyUnsafeConnectorSnapshot",
       "sdlcSpoofedHealthyConnector",
