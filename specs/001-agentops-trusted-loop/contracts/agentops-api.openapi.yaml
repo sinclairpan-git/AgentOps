@@ -169,11 +169,21 @@ components:
     CredentialIssueRequest:
       type: object
       required:
+        - schema_version
         - bootstrap_id
         - installation_assertion
         - device_proof
       properties:
+        schema_version:
+          type: string
+          enum: [agentops_credential_handoff.v1]
         bootstrap_id:
+          type: string
+        trace_id:
+          type: string
+        audit_id:
+          type: string
+        return_url:
           type: string
         installation_assertion:
           $ref: "#/components/schemas/InstallationAssertion"
@@ -182,33 +192,49 @@ components:
     InstallationAssertion:
       type: object
       required:
+        - assertion_version
         - issuer
         - key_id
         - algorithm
         - canonicalization
         - signature
+        - assertion_hash
         - installation_id
+        - device_id
+        - device_public_key_thumbprint
         - agent_id
         - agent_version
         - artifact_hash
         - user_id
-        - device_id
+        - audience
         - nonce
+        - replay_window_seconds
         - issued_at
         - expires_at
+        - revocation_status
       properties:
+        assertion_version:
+          type: string
+          enum: [signed_installation_assertion.v1]
         issuer:
           type: string
+          enum: [agent-store]
         key_id:
           type: string
         algorithm:
           type: string
         canonicalization:
           type: string
-          enum: [json-canonical-form]
+          enum: [json-c14n-v1]
         signature:
           type: string
+        assertion_hash:
+          type: string
         installation_id:
+          type: string
+        device_id:
+          type: string
+        device_public_key_thumbprint:
           type: string
         agent_id:
           type: string
@@ -218,29 +244,43 @@ components:
           type: string
         user_id:
           type: string
-        device_id:
+        audience:
           type: string
+          enum: [agentops]
         nonce:
           type: string
+        replay_window_seconds:
+          type: integer
         issued_at:
           type: string
           format: date-time
         expires_at:
           type: string
           format: date-time
+        revocation_status:
+          type: string
+          enum: [not_revoked, revoked, unknown]
     DeviceProof:
       type: object
       required:
+        - proof_version
+        - installation_id
         - device_id
         - public_key_hash
         - key_id
         - algorithm
         - canonicalization
         - nonce
+        - assertion_hash
         - signature
         - issued_at
         - expires_at
       properties:
+        proof_version:
+          type: string
+          enum: [device_proof.v1]
+        installation_id:
+          type: string
         device_id:
           type: string
         public_key_hash:
@@ -251,8 +291,10 @@ components:
           type: string
         canonicalization:
           type: string
-          enum: [json-canonical-form]
+          enum: [json-c14n-v1]
         nonce:
+          type: string
+        assertion_hash:
           type: string
         signature:
           type: string
@@ -264,7 +306,7 @@ components:
           format: date-time
     CredentialIssueResponse:
       type: object
-      required: [credential_id, token_id, device_key_id, status, expires_at]
+      required: [credential_id, token_id, device_key_id, status, bootstrap_status, installation_id, device_id, expires_at, next_action]
       properties:
         credential_id:
           type: string
@@ -275,9 +317,19 @@ components:
         status:
           type: string
           enum: [active, rotating, expired, revoked]
+        bootstrap_status:
+          type: string
+          enum: [credential_issued]
+        installation_id:
+          type: string
+        device_id:
+          type: string
         expires_at:
           type: string
           format: date-time
+        next_action:
+          type: string
+          enum: [send_signature_test_event]
     EvidenceSummary:
       type: object
       required:

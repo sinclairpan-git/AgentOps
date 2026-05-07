@@ -59,36 +59,40 @@ specs:
   path: specs/015-console-sdlc-run-workbench
   depends_on:
   - 014-console-connector-health-workbench
+- id: 016-cross-project-credential-handoff-consumer
+  path: specs/016-cross-project-credential-handoff-consumer
+  depends_on:
+  - 001-agentops-trusted-loop
 truth_snapshot:
-  generated_at: '2026-05-07T10:44:02Z'
+  generated_at: '2026-05-07T13:46:10Z'
   generated_by: ai-sdlc program truth sync
   generator_version: program_truth_snapshot_v1
-  repo_revision: 4cdb886
-  authoring_hash: d21c47986696755decca3fca2ee83ed1dbd3321b8c99f3a7daa10aa8f32b458e
+  repo_revision: 328f367
+  authoring_hash: 8f1a47456c5335368d9b2d4d12979490905b9a2d04d738a35417f31df9be197f
   source_hashes: {}
-  snapshot_hash: 667276e643ceaf061248776b8ac53967a3c9b2358a7ff1d97819c88ed3f27ea4
+  snapshot_hash: dda8733a7a3c8a94b22d42cd8ffb15ff339607966cc91d1b8c0a840c95d2347b
   computed_capabilities: []
   source_inventory:
     state: complete
-    total_sources: 75
-    mapped_sources: 75
+    total_sources: 80
+    mapped_sources: 80
     unmapped_sources: 0
     missing_sources: 2
-    phase_signal_count: 101
-    deferred_signal_count: 130
-    non_goal_signal_count: 21
+    phase_signal_count: 102
+    deferred_signal_count: 131
+    non_goal_signal_count: 22
     layer_totals:
-      spec: 15
-      plan: 15
-      tasks: 15
-      execution: 15
-      close: 15
+      spec: 16
+      plan: 16
+      tasks: 16
+      execution: 16
+      close: 16
     layer_materialized:
-      spec: 15
-      plan: 15
-      tasks: 15
-      execution: 13
-      close: 15
+      spec: 16
+      plan: 16
+      tasks: 16
+      execution: 14
+      close: 16
     entries:
     - path: specs/001-agentops-trusted-loop/spec.md
       source_type: spec_doc
@@ -762,6 +766,51 @@ truth_snapshot:
       mapped: true
       exists: true
       mapping_ref: 015-console-sdlc-run-workbench
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 0
+    - path: specs/016-cross-project-credential-handoff-consumer/spec.md
+      source_type: spec_doc
+      truth_layer: spec
+      mapped: true
+      exists: true
+      mapping_ref: 016-cross-project-credential-handoff-consumer
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 1
+    - path: specs/016-cross-project-credential-handoff-consumer/plan.md
+      source_type: plan_doc
+      truth_layer: plan
+      mapped: true
+      exists: true
+      mapping_ref: 016-cross-project-credential-handoff-consumer
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 0
+    - path: specs/016-cross-project-credential-handoff-consumer/tasks.md
+      source_type: tasks_doc
+      truth_layer: tasks
+      mapped: true
+      exists: true
+      mapping_ref: 016-cross-project-credential-handoff-consumer
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 0
+    - path: specs/016-cross-project-credential-handoff-consumer/task-execution-log.md
+      source_type: execution_log
+      truth_layer: execution
+      mapped: true
+      exists: true
+      mapping_ref: 016-cross-project-credential-handoff-consumer
+      phase_signal_count: 1
+      deferred_signal_count: 1
+      non_goal_signal_count: 0
+    - path: specs/016-cross-project-credential-handoff-consumer/development-summary.md
+      source_type: development_summary
+      truth_layer: close
+      mapped: true
+      exists: true
+      mapping_ref: 016-cross-project-credential-handoff-consumer
       phase_signal_count: 0
       deferred_signal_count: 0
       non_goal_signal_count: 0
