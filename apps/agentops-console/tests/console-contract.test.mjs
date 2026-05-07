@@ -184,6 +184,77 @@ const validApiSnapshot = {
 };
 
 assert.equal(validateSnapshot(validApiSnapshot), true);
+const healthyConnectorWarningRateLimit = {
+  ...consoleData,
+  connectors: consoleData.connectors.map((connector) =>
+    connector.id === "conn_policy" ? {
+      ...connector,
+      status: "healthy",
+      degrade_action: "本地内核策略摘要"
+    } : connector
+  ),
+  connectorWorkbench: {
+    ...consoleData.connectorWorkbench,
+    health: consoleData.connectorWorkbench.health.map((item) =>
+      item.connector_id === "conn_policy" ? {
+        ...item,
+        status: "healthy",
+        freshness: "15 分钟内",
+        freshness_state: "healthy",
+        rate_limit_state: "warning",
+        rate_limit_detail: "接近配额或依赖外部检查，按低频采集并保留摘要。",
+        degrade_action: "本地内核策略摘要",
+        evidence_impact: "证据等级不降低",
+        primary_action: "保持监控",
+        secondary_action: "按 SLO 继续采集心跳"
+      } : item
+    ),
+    dlq: consoleData.connectorWorkbench.dlq.map((item) =>
+      item.connector_id === "conn_policy" ? {
+        ...item,
+        dlq_depth: "0",
+        oldest_event_age: "0 分钟",
+        replay_state: "healthy",
+        retry_window: "无需回放",
+        degrade_policy: "无积压，继续按 15 分钟新鲜度 SLO 采集"
+      } : item
+    ),
+    syncTrail: consoleData.connectorWorkbench.syncTrail.map((item) =>
+      item.connector_id === "conn_policy" ? {
+        ...item,
+        stage: "同步",
+        summary: "策略服务心跳正常，继续按新鲜度 SLO 采集。",
+        status: "healthy"
+      } : item
+    )
+  }
+};
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: healthyConnectorWarningRateLimit
+  }),
+  true
+);
+const healthyConnectorDegradedRateLimitState = {
+  ...healthyConnectorWarningRateLimit,
+  connectorWorkbench: {
+    ...healthyConnectorWarningRateLimit.connectorWorkbench,
+    health: healthyConnectorWarningRateLimit.connectorWorkbench.health.map((item) =>
+      item.connector_id === "conn_policy" ? {
+        ...item,
+        rate_limit_state: "degraded"
+      } : item
+    )
+  }
+};
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: healthyConnectorDegradedRateLimitState
+  }),
+  false
+);
 assert.equal(validateSnapshot({ ...validApiSnapshot, schema_version: "wrong" }), false);
 assert.equal(
   validateSnapshot({ ...validApiSnapshot, routes: [{ id: "overview", label: "总览", icon: "⌂" }] }),

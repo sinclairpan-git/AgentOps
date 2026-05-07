@@ -174,6 +174,7 @@ def test_adversarial_pr_review_script_enforces_agentops_redlines() -> None:
     assert "connectorHealthMatchesConnector" in script
     assert "connectorBoundarySetIsSafe" in script
     assert "sdlcConnectorProofStateIsSafe" in script
+    assert "[\\\"healthy\\\", \\\"warning\\\"].includes(item.rate_limit_state)" in script
     assert "item.rate_limit_state === \\\"degraded\\\"" in script
     assert "item.oldest_event_age !== \\\"0 分钟\\\"" in script
     assert "legacyV1SnapshotWithSmallConnectorSet" in script

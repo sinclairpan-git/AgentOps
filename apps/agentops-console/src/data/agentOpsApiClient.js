@@ -1581,7 +1581,7 @@ function connectorHealthMatchesConnector(item, connector) {
 function connectorHealthStateIsSafe(item) {
   if (item.status === "healthy") {
     return item.freshness_state === "healthy" &&
-      item.rate_limit_state === "healthy" &&
+      ["healthy", "warning"].includes(item.rate_limit_state) &&
       item.primary_action === "保持监控" &&
       /未触发限流|治理证明未完成|接近配额|限流/.test(item.rate_limit_detail || "") &&
       /不降低/.test(item.evidence_impact || "");

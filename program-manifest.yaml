@@ -56,13 +56,13 @@ specs:
   depends_on:
   - 013-approval-grant-workbench
 truth_snapshot:
-  generated_at: '2026-05-07T09:44:32Z'
+  generated_at: '2026-05-07T09:54:54Z'
   generated_by: ai-sdlc program truth sync
   generator_version: program_truth_snapshot_v1
-  repo_revision: c02c699
+  repo_revision: 3fcedfb
   authoring_hash: c14426c2e7c7fcdb7a7027deec2526c30915c9e910e394d47dd0855ba8b768a7
   source_hashes: {}
-  snapshot_hash: e47ed9e9876e4b9e678b9ed66cc6e86364ec645eaffbad58c54e42bb7ef25949
+  snapshot_hash: f7ca6de5e019a53c24ad5d5a8ab8b1708f77c2cd9428b3aeb199f75a0e5cf247
   computed_capabilities: []
   source_inventory:
     state: complete
@@ -70,8 +70,8 @@ truth_snapshot:
     mapped_sources: 70
     unmapped_sources: 0
     missing_sources: 2
-    phase_signal_count: 97
-    deferred_signal_count: 126
+    phase_signal_count: 98
+    deferred_signal_count: 127
     non_goal_signal_count: 20
     layer_totals:
       spec: 14
@@ -704,8 +704,8 @@ truth_snapshot:
       mapped: true
       exists: true
       mapping_ref: 014-console-connector-health-workbench
-      phase_signal_count: 7
-      deferred_signal_count: 7
+      phase_signal_count: 8
+      deferred_signal_count: 8
       non_goal_signal_count: 0
     - path: specs/014-console-connector-health-workbench/development-summary.md
       source_type: development_summary
