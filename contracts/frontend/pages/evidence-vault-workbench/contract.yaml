@@ -1,0 +1,29 @@
+schema_version: frontend-page-contract/v1
+page_id: evidence
+feature_id: 012-console-evidence-vault-workbench
+title: 证据检索与 Evidence Vault
+locale: zh-CN
+routes:
+  - evidence
+required_text:
+  - 原文访问申请
+  - 限时授权
+  - 审计轨迹
+  - 默认不展示原文
+  - 不提供原文下载
+data_contract:
+  required_domain: consoleData.evidenceVault
+  required_collections:
+    - requests
+    - grants
+    - auditTrail
+    - guardrails
+redlines:
+  - 不展示 Evidence Vault 原文
+  - 不生成 raw_payload、raw_url、raw_access_url 或 download_url
+  - permission_denied 不允许进入 active 授权
+  - redaction_failed 不允许进入 active 授权
+  - 不自动批准、不自动写回
+verification:
+  static_contract_test: apps/agentops-console/tests/console-contract.test.mjs
+  backend_contract_test: tests/contract/test_ao12_ct_console_evidence_vault_workbench.py

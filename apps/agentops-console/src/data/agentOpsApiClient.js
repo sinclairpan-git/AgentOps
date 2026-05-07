@@ -97,7 +97,7 @@ const apiSnapshot = (snapshot) => {
       primary_action: repositoryBacked ? "重新生成快照" : "刷新快照"
     },
     routes: snapshot.routes,
-    consoleData: consoleDataWithAdoptionDefault(snapshot.consoleData)
+    consoleData: consoleDataWithWorkbenchDefaults(snapshot.consoleData)
   };
 };
 
@@ -114,7 +114,7 @@ export function validateSnapshot(snapshot) {
     return false;
   }
 
-  const consoleData = consoleDataWithAdoptionDefault(snapshot.consoleData);
+  const consoleData = consoleDataWithWorkbenchDefaults(snapshot.consoleData);
   const requiredKeys = [
     "summary",
     "runs",
@@ -125,6 +125,7 @@ export function validateSnapshot(snapshot) {
     "risks",
     "agentStore",
     "operationCenter",
+    "evidenceVault",
     "actionWorkbench",
     "connectors",
     "sdlcRuns"
@@ -136,6 +137,9 @@ export function validateSnapshot(snapshot) {
     return false;
   }
   if (!actionDetailsAreComplete(consoleData)) {
+    return false;
+  }
+  if (!evidenceVaultIsComplete(consoleData)) {
     return false;
   }
   if (!adoptionInsightsAreComplete(consoleData)) {
@@ -152,17 +156,220 @@ export function validateSnapshot(snapshot) {
     verifiedLoadedProofIsSafe(consoleData);
 }
 
-function consoleDataWithAdoptionDefault(consoleData) {
+function consoleDataWithWorkbenchDefaults(consoleData) {
   if (!isRecord(consoleData)) {
     return consoleData;
   }
-  if (Object.prototype.hasOwnProperty.call(consoleData, "adoption")) {
-    return consoleData;
+  const withAdoption = Object.prototype.hasOwnProperty.call(consoleData, "adoption")
+    ? consoleData
+    : {
+      ...consoleData,
+      adoption: emptyAdoptionInsights()
+    };
+  if (Object.prototype.hasOwnProperty.call(withAdoption, "evidenceVault")) {
+    return withAdoption;
   }
   return {
-    ...consoleData,
-    adoption: emptyAdoptionInsights()
+    ...withAdoption,
+    evidenceVault: legacyEvidenceVault(withAdoption.evidence)
   };
+}
+
+function emptyEvidenceVault() {
+  return {
+    requests: [],
+    grants: [],
+    auditTrail: [],
+    guardrails: [
+      "默认不展示原文，只展示脱敏摘要、哈希和审计引用。",
+      "旧版 v1 快照未提供 Evidence Vault 访问工作台，前端仅展示安全空态。"
+    ]
+  };
+}
+
+function legacyEvidenceVault(evidenceItems) {
+  const items = Array.isArray(evidenceItems) ? evidenceItems : [];
+  if (!items.length) {
+    return emptyEvidenceVault();
+  }
+  return {
+    requests: items.map((item) => legacyVaultRequest(item)),
+    grants: items.map((item) => legacyVaultGrant(item)),
+    auditTrail: items.map((item) => legacyVaultAudit(item)),
+    guardrails: [
+      "默认不展示原文，只展示脱敏摘要、哈希和审计引用。",
+      "旧版 v1 快照未提供 Evidence Vault 访问工作台，前端仅按 evidence 状态合成只读申请、授权和审计摘要。",
+      "合成记录不提供原文下载，不自动批准、不自动写回。"
+    ]
+  };
+}
+
+function legacyVaultRequest(item) {
+  const state = item.raw_access_state;
+  return {
+    id: `legacy_vault_req_${item.evidence_id}`,
+    evidence_id: item.evidence_id,
+    run_id: item.run_id,
+    requester: "证据负责人",
+    reason: legacyVaultReason(state),
+    status: legacyVaultRequestStatus(state),
+    denied_scope: item.denied_scope || "",
+    audit_id: item.audit_id,
+    ttl_summary: legacyVaultTtl(state),
+    primary_action: legacyVaultPrimaryAction(state),
+    safety_note: "仅记录原文访问申请摘要，不展示 Evidence Vault 原文。"
+  };
+}
+
+function legacyVaultGrant(item) {
+  const state = item.raw_access_state;
+  return {
+    id: `legacy_vault_grant_${item.evidence_id}`,
+    evidence_id: item.evidence_id,
+    requester: "证据负责人",
+    status: legacyVaultGrantStatus(state),
+    scope: state === "approved_limited" ? "限定复核字段" : item.denied_scope || legacyVaultPendingScope(state),
+    expires_at: legacyVaultExpiresAt(state),
+    audit_id: item.audit_id,
+    consumption_policy: "只读复核窗口内可查看授权记录；不提供原文下载。"
+  };
+}
+
+function legacyVaultAudit(item) {
+  const state = item.raw_access_state;
+  return {
+    id: `legacy_vault_audit_${item.evidence_id}`,
+    evidence_id: item.evidence_id,
+    stage: legacyVaultStage(state),
+    occurred_at: "旧版快照同步时",
+    summary: legacyVaultAuditSummary(state),
+    owner: "证据负责人",
+    status: state,
+    audit_id: item.audit_id
+  };
+}
+
+function legacyVaultRequestStatus(state) {
+  if (state === "summary_only" || state === "degraded") {
+    return "pending";
+  }
+  if (["approved_limited", "redaction_failed", "permission_denied"].includes(state)) {
+    return state;
+  }
+  return "pending";
+}
+
+function legacyVaultGrantStatus(state) {
+  if (state === "approved_limited") {
+    return "active";
+  }
+  if (state === "permission_denied") {
+    return "rejected";
+  }
+  if (state === "redaction_failed") {
+    return "redaction_failed";
+  }
+  return "pending";
+}
+
+function legacyVaultReason(state) {
+  if (state === "approved_limited") {
+    return "旧版快照显示限定授权，仅查看授权记录。";
+  }
+  if (state === "degraded") {
+    return "旧版快照显示运行降级，需先补齐治理证据后再申请原文访问。";
+  }
+  if (state === "redaction_failed") {
+    return "旧版快照显示脱敏失败，需要先修复脱敏或补充审批理由。";
+  }
+  if (state === "permission_denied") {
+    return "旧版快照显示访问被拒绝，需要补充限定范围申请。";
+  }
+  return "旧版快照默认仅展示安全摘要，必要时发起原文访问申请。";
+}
+
+function legacyVaultTtl(state) {
+  if (state === "approved_limited") {
+    return "15 分钟限时窗口";
+  }
+  if (state === "degraded") {
+    return "待补偿";
+  }
+  if (state === "permission_denied") {
+    return "未授权";
+  }
+  if (state === "redaction_failed") {
+    return "脱敏失败，暂停授权";
+  }
+  return "待审批";
+}
+
+function legacyVaultPrimaryAction(state) {
+  if (state === "approved_limited") {
+    return "查看授权记录";
+  }
+  if (state === "degraded") {
+    return "等待审批";
+  }
+  if (state === "permission_denied") {
+    return "补充申请理由";
+  }
+  if (state === "redaction_failed") {
+    return "仅查看哈希告警";
+  }
+  return "申请原文访问";
+}
+
+function legacyVaultPendingScope(state) {
+  return state === "degraded" ? "待补偿范围" : "待审批范围";
+}
+
+function legacyVaultExpiresAt(state) {
+  if (state === "approved_limited") {
+    return "快照生成后 15 分钟";
+  }
+  if (state === "degraded") {
+    return "待补偿";
+  }
+  if (state === "permission_denied") {
+    return "未授权";
+  }
+  if (state === "redaction_failed") {
+    return "暂停授权";
+  }
+  return "待审批";
+}
+
+function legacyVaultStage(state) {
+  if (state === "approved_limited") {
+    return "授权";
+  }
+  if (state === "degraded") {
+    return "降级";
+  }
+  if (state === "permission_denied") {
+    return "拒绝";
+  }
+  if (state === "redaction_failed") {
+    return "脱敏失败";
+  }
+  return "申请";
+}
+
+function legacyVaultAuditSummary(state) {
+  if (state === "redaction_failed") {
+    return "旧版快照显示脱敏失败，审计仅保留哈希和告警。";
+  }
+  if (state === "degraded") {
+    return "旧版快照显示运行降级，原文访问保持待审批。";
+  }
+  if (state === "permission_denied") {
+    return "旧版快照显示访问被拒绝，需补充限定范围申请理由。";
+  }
+  if (state === "approved_limited") {
+    return "旧版快照显示限定范围授权，原文仍不在控制台展示。";
+  }
+  return "旧版快照显示原文访问尚未批准，继续展示安全摘要。";
 }
 
 function emptyAdoptionInsights() {
@@ -193,6 +400,27 @@ function emptyAdoptionInsights() {
       "旧版 v1 快照未提供采纳指标，前端仅展示安全空态。"
     ]
   };
+}
+
+function consoleDataHasEvidenceVaultShape(consoleData) {
+  if (!isRecord(consoleData.evidenceVault)) {
+    return false;
+  }
+  return Array.isArray(consoleData.evidenceVault.requests) &&
+    Array.isArray(consoleData.evidenceVault.grants) &&
+    Array.isArray(consoleData.evidenceVault.auditTrail) &&
+    Array.isArray(consoleData.evidenceVault.guardrails);
+}
+
+function consoleDataHasAdoptionShape(consoleData) {
+  if (!isRecord(consoleData.adoption)) {
+    return false;
+  }
+  return isRecord(consoleData.adoption.metrics) &&
+    Array.isArray(consoleData.adoption.explanationChains) &&
+    Array.isArray(consoleData.adoption.segments) &&
+    Array.isArray(consoleData.adoption.reviewSignals) &&
+    Array.isArray(consoleData.adoption.guardrails);
 }
 
 export function snapshotShapeIsSafe(consoleData) {
@@ -236,12 +464,8 @@ export function snapshotShapeIsSafe(consoleData) {
     }
     return Array.isArray(consoleData[key]);
   }) &&
-    isRecord(consoleData.adoption) &&
-    isRecord(consoleData.adoption.metrics) &&
-    Array.isArray(consoleData.adoption.explanationChains) &&
-    Array.isArray(consoleData.adoption.segments) &&
-    Array.isArray(consoleData.adoption.reviewSignals) &&
-    Array.isArray(consoleData.adoption.guardrails);
+    consoleDataHasAdoptionShape(consoleData) &&
+    consoleDataHasEvidenceVaultShape(consoleData);
 }
 
 function isRecord(value) {
@@ -280,6 +504,9 @@ export function statesAreKnown(consoleData) {
     ...(consoleData.adoption?.explanationChains || []).map((item) => item.status),
     ...(consoleData.adoption?.segments || []).map((item) => item.status),
     ...(consoleData.adoption?.reviewSignals || []).map((item) => item.status),
+    ...(consoleData.evidenceVault?.requests || []).map((item) => item.status),
+    ...(consoleData.evidenceVault?.grants || []).map((item) => item.status),
+    ...(consoleData.evidenceVault?.auditTrail || []).map((item) => item.status),
     ...(consoleData.agentStore?.discoveryGaps || []).map((item) => item.state),
     ...(consoleData.agentStore?.runAudits || []).flatMap((item) => [item.registration_state, item.raw_access_state]),
     ...(consoleData.agentStore?.storeSummaries || []).flatMap((item) => [item.metadata_state, item.risk_state]),
@@ -338,6 +565,179 @@ export function actionDetailsAreComplete(consoleData) {
       !auditPacket.download_url &&
       !auditPacket.raw_url;
   });
+}
+
+export function evidenceVaultIsComplete(consoleData) {
+  const evidenceVault = consoleData.evidenceVault;
+  if (!isRecord(evidenceVault) || containsUnsafeAuditReference(evidenceVault)) {
+    return false;
+  }
+  if (!keysAreExactly(evidenceVault, ["requests", "grants", "auditTrail", "guardrails"])) {
+    return false;
+  }
+  const evidenceItems = consoleData.evidence || [];
+  const evidenceById = new Map(evidenceItems.map((item) => [item.evidence_id, item]));
+  if (
+    evidenceById.size !== evidenceItems.length ||
+    !vaultRowsMatchEvidence(evidenceItems, evidenceVault.requests) ||
+    !vaultRowsMatchEvidence(evidenceItems, evidenceVault.grants) ||
+    !vaultRowsMatchEvidence(evidenceItems, evidenceVault.auditTrail)
+  ) {
+    return false;
+  }
+
+  const requestsOk = evidenceVault.requests.every((request) =>
+    keysAreExactly(request, [
+      "id",
+      "evidence_id",
+      "run_id",
+      "requester",
+      "reason",
+      "status",
+      "denied_scope",
+      "audit_id",
+      "ttl_summary",
+      "primary_action",
+      "safety_note"
+    ]) &&
+    request.id &&
+    request.evidence_id &&
+    request.run_id &&
+    request.requester &&
+    request.reason &&
+    request.status &&
+    request.audit_id &&
+    request.ttl_summary &&
+    ["申请原文访问", "查看授权记录", "补充申请理由", "仅查看哈希告警", "等待审批"].includes(request.primary_action) &&
+    /不展示 Evidence Vault 原文/.test(request.safety_note || "") &&
+    vaultRequestMatchesEvidence(request, evidenceById.get(request.evidence_id)) &&
+    !containsUnsafeLifecycleText(`${request.reason || ""} ${request.primary_action || ""} ${request.safety_note || ""}`)
+  );
+
+  const grantsOk = evidenceVault.grants.every((grant) =>
+    keysAreExactly(grant, [
+      "id",
+      "evidence_id",
+      "requester",
+      "status",
+      "scope",
+      "expires_at",
+      "audit_id",
+      "consumption_policy"
+    ]) &&
+    grant.id &&
+    grant.evidence_id &&
+    grant.requester &&
+    grant.status &&
+    grant.scope &&
+    grant.expires_at &&
+    grant.audit_id &&
+    /不提供原文下载/.test(grant.consumption_policy || "") &&
+    vaultGrantMatchesEvidence(grant, evidenceById.get(grant.evidence_id)) &&
+    !containsUnsafeLifecycleText(grant.consumption_policy || "")
+  );
+
+  const auditTrailOk = evidenceVault.auditTrail.every((node) =>
+    keysAreExactly(node, ["id", "evidence_id", "stage", "occurred_at", "summary", "owner", "status", "audit_id"]) &&
+    node.id &&
+    node.evidence_id &&
+    node.stage &&
+    node.occurred_at &&
+    node.summary &&
+    node.owner &&
+    node.status &&
+    node.audit_id &&
+    vaultAuditMatchesEvidence(node, evidenceById.get(node.evidence_id)) &&
+    !containsUnsafeLifecycleText(node.summary || "")
+  );
+
+  const guardrailsText = evidenceVault.guardrails.join(" ");
+  return requestsOk &&
+    grantsOk &&
+    auditTrailOk &&
+    evidenceVault.guardrails.every((item) => typeof item === "string" && item) &&
+    /默认不展示原文/.test(guardrailsText) &&
+    !containsUnsafeLifecycleText(guardrailsText);
+}
+
+function vaultRowsMatchEvidence(evidenceItems, rows) {
+  if (!Array.isArray(rows) || rows.length !== evidenceItems.length) {
+    return false;
+  }
+  const evidenceIds = new Set(evidenceItems.map((item) => item.evidence_id));
+  const rowIds = new Set(rows.map((item) => item.evidence_id));
+  return rowIds.size === rows.length &&
+    evidenceIds.size === evidenceItems.length &&
+    evidenceItems.every((item) => rowIds.has(item.evidence_id));
+}
+
+function vaultRequestMatchesEvidence(request, evidence) {
+  if (!evidence || request.run_id !== evidence.run_id || request.audit_id !== evidence.audit_id) {
+    return false;
+  }
+  const state = evidence.raw_access_state;
+  if (state === "approved_limited") {
+    return request.status === "approved_limited" &&
+      request.primary_action === "查看授权记录" &&
+      /限时/.test(request.ttl_summary);
+  }
+  if (state === "degraded") {
+    return request.status === "pending" &&
+      request.primary_action === "等待审批" &&
+      request.ttl_summary === "待补偿";
+  }
+  if (state === "permission_denied") {
+    return request.status === "permission_denied" &&
+      request.primary_action === "补充申请理由" &&
+      request.ttl_summary === "未授权";
+  }
+  if (state === "redaction_failed") {
+    return request.status === "redaction_failed" &&
+      request.primary_action === "仅查看哈希告警" &&
+      /脱敏失败|暂停授权/.test(request.ttl_summary);
+  }
+  if (state === "summary_only") {
+    return request.status === "pending" &&
+      request.primary_action === "申请原文访问" &&
+      request.ttl_summary === "待审批";
+  }
+  return false;
+}
+
+function vaultGrantMatchesEvidence(grant, evidence) {
+  if (!evidence || grant.audit_id !== evidence.audit_id) {
+    return false;
+  }
+  const state = evidence.raw_access_state;
+  if (state === "approved_limited") {
+    return grant.status === "active" &&
+      /限定/.test(grant.scope) &&
+      /15 分钟/.test(grant.expires_at);
+  }
+  if (state === "degraded") {
+    return grant.status === "pending" &&
+      /待补偿/.test(grant.scope) &&
+      grant.expires_at === "待补偿";
+  }
+  if (state === "permission_denied") {
+    return grant.status === "rejected" &&
+      grant.expires_at === "未授权";
+  }
+  if (state === "redaction_failed") {
+    return grant.status === "redaction_failed" &&
+      grant.expires_at === "暂停授权";
+  }
+  if (state === "summary_only") {
+    return grant.status === "pending" &&
+      grant.expires_at === "待审批";
+  }
+  return false;
+}
+
+function vaultAuditMatchesEvidence(node, evidence) {
+  return Boolean(evidence) &&
+    node.audit_id === evidence.audit_id &&
+    node.status === evidence.raw_access_state;
 }
 
 export function containsUnsafeAuditReference(value) {

@@ -186,6 +186,149 @@ consoleData.actionWorkbench.details = consoleData.actionWorkbench.details.map((d
   audit_packet: auditPacketFor(detail)
 }));
 
+const vaultRequestStatus = (state) => {
+  if (state === "summary_only") {
+    return "pending";
+  }
+  if (["approved_limited", "redaction_failed", "permission_denied"].includes(state)) {
+    return state;
+  }
+  return "pending";
+};
+
+const vaultGrantStatus = (state) => {
+  if (state === "approved_limited") {
+    return "active";
+  }
+  if (state === "permission_denied") {
+    return "rejected";
+  }
+  if (state === "redaction_failed") {
+    return "redaction_failed";
+  }
+  return "pending";
+};
+
+const vaultPrimaryAction = (state) => {
+  if (state === "approved_limited") {
+    return "查看授权记录";
+  }
+  if (state === "permission_denied") {
+    return "补充申请理由";
+  }
+  if (state === "redaction_failed") {
+    return "仅查看哈希告警";
+  }
+  return "申请原文访问";
+};
+
+const vaultReason = (item) => {
+  if (item.raw_access_state === "approved_limited") {
+    return "复核窗口已获得限定范围授权，仅查看授权记录。";
+  }
+  if (item.raw_access_state === "redaction_failed") {
+    return "脱敏失败，需要先修复脱敏或补充审批理由。";
+  }
+  if (item.raw_access_state === "permission_denied") {
+    return "当前权限边界拒绝访问，需要补充限定范围申请。";
+  }
+  return "默认仅查看安全摘要，必要时发起原文访问申请。";
+};
+
+const vaultTtl = (state) => {
+  if (state === "approved_limited") {
+    return "15 分钟限时窗口";
+  }
+  if (state === "permission_denied") {
+    return "未授权";
+  }
+  if (state === "redaction_failed") {
+    return "脱敏失败，暂停授权";
+  }
+  return "待审批";
+};
+
+const vaultExpiresAt = (state) => {
+  if (state === "approved_limited") {
+    return "快照生成后 15 分钟";
+  }
+  if (state === "permission_denied") {
+    return "未授权";
+  }
+  if (state === "redaction_failed") {
+    return "暂停授权";
+  }
+  return "待审批";
+};
+
+const vaultStage = (state) => {
+  if (state === "approved_limited") {
+    return "授权";
+  }
+  if (state === "permission_denied") {
+    return "拒绝";
+  }
+  if (state === "redaction_failed") {
+    return "脱敏失败";
+  }
+  return "申请";
+};
+
+const vaultAuditSummary = (item) => {
+  if (item.raw_access_state === "redaction_failed") {
+    return "脱敏失败，审计仅保留哈希和告警。";
+  }
+  if (item.raw_access_state === "permission_denied") {
+    return "访问被拒绝，需补充限定范围申请理由。";
+  }
+  if (item.raw_access_state === "approved_limited") {
+    return "限定范围授权已记录，原文仍不在控制台展示。";
+  }
+  return "原文访问尚未批准，继续展示安全摘要。";
+};
+
+consoleData.evidenceVault = {
+  requests: consoleData.evidence.map((item) => ({
+    id: `vault_req_${item.evidence_id}`,
+    evidence_id: item.evidence_id,
+    run_id: item.run_id,
+    requester: "证据负责人",
+    reason: vaultReason(item),
+    status: vaultRequestStatus(item.raw_access_state),
+    denied_scope: item.denied_scope,
+    audit_id: item.audit_id,
+    ttl_summary: vaultTtl(item.raw_access_state),
+    primary_action: vaultPrimaryAction(item.raw_access_state),
+    safety_note: "仅记录原文访问申请摘要，不展示 Evidence Vault 原文。"
+  })),
+  grants: consoleData.evidence.map((item) => ({
+    id: `vault_grant_${item.evidence_id}`,
+    evidence_id: item.evidence_id,
+    requester: "证据负责人",
+    status: vaultGrantStatus(item.raw_access_state),
+    scope: item.raw_access_state === "approved_limited" ? "限定复核字段" : item.denied_scope || "待审批范围",
+    expires_at: vaultExpiresAt(item.raw_access_state),
+    audit_id: item.audit_id,
+    consumption_policy: "只读复核窗口内可查看授权记录；不提供原文下载。"
+  })),
+  auditTrail: consoleData.evidence.map((item) => ({
+    id: `vault_audit_${item.evidence_id}`,
+    evidence_id: item.evidence_id,
+    stage: vaultStage(item.raw_access_state),
+    occurred_at: "快照生成时",
+    summary: vaultAuditSummary(item),
+    owner: "证据负责人",
+    status: item.raw_access_state,
+    audit_id: item.audit_id
+  })),
+  guardrails: [
+    "默认不展示原文，只展示脱敏摘要、哈希和审计引用。",
+    "原文访问申请必须绑定申请理由、审批范围、TTL 和 audit_id。",
+    "脱敏失败时只保留哈希和告警，不生成下载链接。",
+    "本阶段只读展示申请与授权状态，不自动批准、不自动写回。"
+  ]
+};
+
 const adoptionMissingEvidence = (item) => {
   const missing = [];
   if (["unknown", "degraded", "redaction_failed", "pending"].includes(item.status)) {

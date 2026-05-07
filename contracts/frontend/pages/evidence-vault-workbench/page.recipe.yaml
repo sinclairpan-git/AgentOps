@@ -1,0 +1,20 @@
+schema_version: frontend-page-recipe/v1
+page_id: evidence-vault-workbench
+recipe_id: evidence-vault-workbench-v1
+steps:
+  - id: load-evidence-page
+    description: 打开 AgentOps Console 的证据检索页。
+    expected:
+      - 页面标题包含“证据检索与 Evidence Vault”。
+      - 页面展示“原文访问申请”“限时授权”“审计轨迹”。
+  - id: inspect-guardrails
+    description: 查看 Evidence Vault 保护规则。
+    expected:
+      - 页面展示“默认不展示原文”。
+      - 页面展示“不提供原文下载”。
+  - id: validate-redline-states
+    description: 检查拒绝态和脱敏失败态。
+    expected:
+      - permission_denied 只能补充申请理由。
+      - redaction_failed 只能查看哈希告警。
+      - 只有 approved_limited 展示 active 限时授权。
