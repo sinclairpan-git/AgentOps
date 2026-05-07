@@ -521,6 +521,10 @@ button {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.panel-grid.two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .ent-card {
   display: block;
   border: 1px solid #dbe3ef;
@@ -541,6 +545,31 @@ button {
 
 .metric-tile strong {
   font-size: 24px;
+}
+
+.metric-tile small {
+  display: block;
+  margin-top: 4px;
+  color: #5c6b80;
+}
+
+.quality-insight-card,
+.quality-chain,
+.quality-segment {
+  display: grid;
+  gap: 12px;
+}
+
+.quality-chain-heading {
+  grid-column: 1 / -1;
+}
+
+.guardrail-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 18px;
+  color: #5c6b80;
 }
 
 .ent-button {
@@ -753,7 +782,8 @@ dd {
   .metric-grid,
   .card-grid,
   .split-grid,
-  .panel-grid.three {
+  .panel-grid.three,
+  .panel-grid.two {
     grid-template-columns: 1fr;
   }
 }

@@ -170,6 +170,7 @@ def _console_data_from_repository(repository: InMemoryRepository) -> dict[str, A
 def _with_workbenches(console_data: dict[str, Any]) -> dict[str, Any]:
     enriched = {
         **console_data,
+        "adoption": _adoption_workbench(console_data),
         "actionWorkbench": _action_workbench(console_data),
     }
     return {
@@ -297,6 +298,166 @@ def _operation_center(console_data: dict[str, Any]) -> dict[str, Any]:
         "todos": _prioritized_unique(protected_todos, todos, limit=12),
         "searchIndex": _prioritized_unique(protected_search_index, search_index, limit=30),
     }
+
+
+def _adoption_workbench(console_data: dict[str, Any]) -> dict[str, Any]:
+    runs = list(console_data.get("runs", []))
+    quality = list(console_data.get("quality", []))
+    risks = list(console_data.get("risks", []))
+    evidence = list(console_data.get("evidence", []))
+    run_count = len(runs)
+    degraded_quality = sum(1 for item in quality if str(item.get("status")) not in {"healthy", "normal"})
+    blocked_risks = sum(1 for item in risks if str(item.get("state")) in {"block", "redaction_failed", "unverified", "degraded"})
+    generated_lines = run_count * 180
+    retained_lines = max(generated_lines - degraded_quality * 24 - blocked_risks * 16, 0)
+    human_modified_lines = degraded_quality * 18 + blocked_risks * 9
+    deleted_lines = degraded_quality * 7 + blocked_risks * 5
+    ci_failure_types = _ci_failure_types(evidence=evidence, risks=risks)
+    review_findings = degraded_quality + blocked_risks
+
+    return {
+        "metrics": {
+            "generated_lines": generated_lines,
+            "retained_lines": retained_lines,
+            "human_modified_lines": human_modified_lines,
+            "deleted_lines": deleted_lines,
+            "rework_rounds": max(degraded_quality, blocked_risks),
+            "pr_review_findings": review_findings,
+            "ci_failure_types": ci_failure_types,
+            "retention_rate": f"{round(retained_lines / generated_lines * 100)}%" if generated_lines else "0%",
+        },
+        "explanationChains": [_quality_explanation_chain(item) for item in quality],
+        "segments": _adoption_segments(console_data, retained_lines=retained_lines, generated_lines=generated_lines),
+        "reviewSignals": _adoption_review_signals(quality, risks),
+        "guardrails": [
+            "低置信不自动下架，只进入人工复核和申诉路径。",
+            "缺失证据不按 0 分处理，必须展示 missing_evidence。",
+            "采纳指标只展示聚合摘要，不包含代码片段、差异内容或 PR 原文。",
+            "本阶段不写 Agent Store，不自动降推荐。",
+        ],
+    }
+
+
+def _ci_failure_types(*, evidence: list[dict[str, Any]], risks: list[dict[str, Any]]) -> list[str]:
+    failure_types: list[str] = []
+    if any(str(item.get("raw_access_state")) == "redaction_failed" for item in evidence):
+        failure_types.append("证据脱敏失败")
+    if any(str(item.get("state")) == "block" for item in risks):
+        failure_types.append("策略阻断")
+    if any(str(item.get("state")) == "unverified" for item in risks):
+        failure_types.append("治理加载证明缺失")
+    return failure_types or ["未发现阻断型 CI 失败"]
+
+
+def _quality_explanation_chain(item: dict[str, Any]) -> dict[str, Any]:
+    category = str(item.get("category") or "质量信号")
+    status = str(item.get("status") or "unknown")
+    score = str(item.get("score") or "待评估")
+    evidence_ref = str(item.get("evidence_ref") or "待补充")
+    owner = str(item.get("owner_hint") or "质量负责人")
+    missing_evidence = _quality_missing_evidence(item)
+    return {
+        "id": f"chain_{_slug(str(item.get('signal_id') or item.get('id') or category))}",
+        "signal_id": str(item.get("signal_id") or item.get("id") or "unknown_signal"),
+        "category": category,
+        "status": status,
+        "score": score,
+        "score_template_id": f"quality_summary_{_slug(category)}",
+        "evidence_level": _quality_evidence_level(status),
+        "confidence": _quality_confidence(status),
+        "missing_evidence": missing_evidence,
+        "explanation": f"{category} 当前评分为 {score}，依据 {evidence_ref} 形成摘要判断。",
+        "appeal_path": f"联系{owner}补充证据或发起人工复核。",
+        "lifecycle_guardrail": "低置信不自动下架。",
+    }
+
+
+def _quality_missing_evidence(item: dict[str, Any]) -> list[str]:
+    status = str(item.get("status") or "unknown")
+    evidence_ref = str(item.get("evidence_ref") or "")
+    missing: list[str] = []
+    if status in {"unknown", "degraded", "redaction_failed", "pending"}:
+        missing.append("可验证质量证据")
+    if "待" in evidence_ref or not evidence_ref:
+        missing.append("证据引用")
+    return missing or ["无阻断缺口"]
+
+
+def _quality_evidence_level(status: str) -> str:
+    if status == "healthy":
+        return "L5"
+    if status in {"degraded", "redaction_failed", "unknown"}:
+        return "L3"
+    return "pending"
+
+
+def _quality_confidence(status: str) -> float:
+    if status == "healthy":
+        return 0.92
+    if status in {"degraded", "redaction_failed"}:
+        return 0.68
+    if status == "unknown":
+        return 0.45
+    return 0.58
+
+
+def _adoption_segments(console_data: dict[str, Any], *, retained_lines: int, generated_lines: int) -> list[dict[str, str]]:
+    agent_store_summary_count = len(console_data.get("agentStore", {}).get("storeSummaries", []))
+    retention_rate = f"{round(retained_lines / generated_lines * 100)}%" if generated_lines else "0%"
+    sdlc_status = "empty" if generated_lines == 0 else "healthy" if retained_lines >= generated_lines * 0.75 else "degraded"
+    return [
+        {
+            "id": "segment_sdlc_runs",
+            "title": "Ai_AutoSDLC 标准路径",
+            "status": sdlc_status,
+            "retention_rate": retention_rate,
+            "affected_agents": str(len(console_data.get("runs", []))),
+            "owner": "SDLC 负责人",
+            "next_review": "按周复核采纳摘要",
+        },
+        {
+            "id": "segment_agent_store_echo",
+            "title": "Agent Store 回显",
+            "status": "pending" if agent_store_summary_count else "empty",
+            "retention_rate": "待采集",
+            "affected_agents": str(agent_store_summary_count),
+            "owner": "Agent 负责人",
+            "next_review": "等待注册事实同步后复核",
+        },
+    ]
+
+
+def _adoption_review_signals(quality: list[dict[str, Any]], risks: list[dict[str, Any]]) -> list[dict[str, str]]:
+    signals: list[dict[str, str]] = []
+    for item in quality:
+        if str(item.get("status")) == "healthy":
+            continue
+        signals.append(
+            {
+                "id": f"review_{_slug(str(item.get('signal_id') or item.get('id') or item.get('category') or 'quality'))}",
+                "title": f"{item.get('category', '质量信号')} 需要人工复核",
+                "status": str(item.get("status") or "unknown"),
+                "owner": str(item.get("owner_hint") or "质量负责人"),
+                "evidence_ref": str(item.get("evidence_ref") or "待补充"),
+                "reason": "低置信或缺失证据只进入复核队列，不自动下架。",
+                "action": "发起人工复核",
+            }
+        )
+    for risk in risks:
+        if str(risk.get("state")) not in {"block", "redaction_failed", "unverified"}:
+            continue
+        signals.append(
+            {
+                "id": f"review_{_slug(str(risk.get('id') or 'risk'))}",
+                "title": f"{risk.get('source', '风险')} 影响采纳判断",
+                "status": str(risk.get("state") or "unknown"),
+                "owner": str(risk.get("owner_hint") or "风险负责人"),
+                "evidence_ref": str(risk.get("id") or "待补充"),
+                "reason": "风险归因会降低采纳置信度，但不触发自动生命周期动作。",
+                "action": "补充风险处置证明",
+            }
+        )
+    return signals[:8]
 
 
 def _notification(notification_id: str, title: str, body: str, status: str, route: str, ref: str, action_id: str = "") -> dict[str, str]:

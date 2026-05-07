@@ -106,6 +106,11 @@ for (const expectedChineseText of [
   "只读复核包",
   "建议动作，不在本页执行",
   "只读处置预案",
+  "采纳概览",
+  "质量解释链",
+  "复核队列",
+  "低置信不自动下架",
+  "申诉路径",
   "总览",
   "运行记录",
   "证据检索",
@@ -217,6 +222,295 @@ assert.equal(
   validateSnapshot({
     ...validApiSnapshot,
     consoleData: { ...consoleData, actionWorkbench: { ...consoleData.actionWorkbench, details: null } }
+  }),
+  false
+);
+const legacyV1SnapshotWithoutAdoption = {
+  ...validApiSnapshot,
+  consoleData: { ...consoleData }
+};
+delete legacyV1SnapshotWithoutAdoption.consoleData.adoption;
+assert.equal(
+  validateSnapshot(legacyV1SnapshotWithoutAdoption),
+  true
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      adoption: {
+        ...consoleData.adoption,
+        guardrails: [...consoleData.adoption.guardrails, "不执行自动生命周期动作。", "不自动写回 Agent Store。"],
+        explanationChains: [{
+          ...consoleData.adoption.explanationChains[0],
+          category: "发布前质量门禁",
+          explanation: "发布前质量门禁仅展示摘要判断。"
+        }],
+        reviewSignals: [{
+          ...consoleData.adoption.reviewSignals[0],
+          reason: "执行人工复核，不触发自动生命周期动作。"
+        }]
+      }
+    }
+  }),
+  true
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: { ...consoleData, adoption: null }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      adoption: {
+        ...consoleData.adoption,
+        reviewSignals: [{
+          ...consoleData.adoption.reviewSignals[0],
+          reason: "低置信后自动-下架"
+        }]
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      quality: [{
+        ...consoleData.quality[0],
+        primary_action: "自动-批准"
+      }]
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      adoption: {
+        ...consoleData.adoption,
+        metrics: { ...consoleData.adoption.metrics, generated_lines: undefined }
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      actionWorkbench: {
+        ...consoleData.actionWorkbench,
+        details: [{
+          ...consoleData.actionWorkbench.details[0],
+          pullRequestBody: "PR 原文"
+        }]
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      quality: [{
+        ...consoleData.quality[0],
+        primary_action: "写回AgentStore"
+      }]
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      quality: [{
+        ...consoleData.quality[0],
+        primary_action: "自动写回"
+      }]
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      adoption: {
+        ...consoleData.adoption,
+        guardrails: [...consoleData.adoption.guardrails, "自动下架低质量 Agent"]
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      adoption: {
+        ...consoleData.adoption,
+        reviewSignals: [{
+          ...consoleData.adoption.reviewSignals[0],
+          reason: "低置信后自动下架"
+        }]
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      adoption: {
+        ...consoleData.adoption,
+        explanationChains: [{
+          ...consoleData.adoption.explanationChains[0],
+          lifecycle_guardrail: "低置信不自动下架；自动降推荐低质量 Agent"
+        }]
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      adoption: {
+        ...consoleData.adoption,
+        metrics: {
+          ...consoleData.adoption.metrics,
+          code_snippet: "secret"
+        }
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      adoption: {
+        ...consoleData.adoption,
+        reviewSignals: [{
+          ...consoleData.adoption.reviewSignals[0],
+          pr_body: "PR 原文"
+        }]
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      adoption: {
+        ...consoleData.adoption,
+        explanationChains: [{
+          ...consoleData.adoption.explanationChains[0],
+          missing_evidence: null
+        }]
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      adoption: {
+        ...consoleData.adoption,
+        explanationChains: [{
+          ...consoleData.adoption.explanationChains[0],
+          explanation: "查看 https://example.invalid/pr-diff"
+        }]
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      adoption: {
+        ...consoleData.adoption,
+        reviewSignals: [{
+          ...consoleData.adoption.reviewSignals[0],
+          action: "自动下架"
+        }]
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      adoption: {
+        ...consoleData.adoption,
+        reviewSignals: [{
+          ...consoleData.adoption.reviewSignals[0],
+          action: "写回 Agent Store"
+        }]
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      quality: [{
+        ...consoleData.quality[0],
+        evidence_ref: "https://example.invalid/pr"
+      }]
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      quality: [{
+        ...consoleData.quality[0],
+        diff_content: "PR 原文"
+      }]
+    }
   }),
   false
 );
@@ -433,6 +727,16 @@ const apiLoad = await loadAgentOpsSnapshot(async () => ({
 }), "http://127.0.0.1:8765");
 assert.equal(apiLoad.source, "api_snapshot");
 assert.equal(apiLoad.sourceState.label, "后端快照已连接");
+
+const legacyApiLoad = await loadAgentOpsSnapshot(async () => ({
+  ok: true,
+  json: async () => legacyV1SnapshotWithoutAdoption
+}), "http://127.0.0.1:8765");
+assert.equal(legacyApiLoad.source, "api_snapshot");
+assert.equal(legacyApiLoad.consoleData.adoption.metrics.generated_lines, 0);
+assert.equal(legacyApiLoad.consoleData.adoption.metrics.retention_rate, "0%");
+assert.equal(legacyApiLoad.consoleData.adoption.segments[0].status, "empty");
+assert.match(legacyApiLoad.consoleData.adoption.guardrails.join(" "), /低置信不自动下架/);
 
 const liveApiLoad = await loadAgentOpsSnapshot(async () => ({
   ok: true,

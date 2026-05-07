@@ -39,36 +39,40 @@ specs:
   path: specs/010-console-audit-timeline
   depends_on:
   - 009-console-triage-action-detail
+- id: 011-console-quality-adoption-insights
+  path: specs/011-console-quality-adoption-insights
+  depends_on:
+  - 010-console-audit-timeline
 truth_snapshot:
-  generated_at: '2026-05-06T16:56:23Z'
+  generated_at: '2026-05-07T01:47:20Z'
   generated_by: ai-sdlc program truth sync
   generator_version: program_truth_snapshot_v1
-  repo_revision: 330a544
-  authoring_hash: 578dd1ec515412f70702d0390db25d50070a2cdd3ba95f1bc96e39fdbd7c6ff1
+  repo_revision: 0d01128
+  authoring_hash: 58cafc22b947dd3c310d396051a877cb7acb60960fd6d276953498e20c4fdb23
   source_hashes: {}
-  snapshot_hash: 74eb29a1cdbef6d9a040b729382d4ae072f2f33b4c6db1694084a2b242136a95
+  snapshot_hash: ce63df3db487d5da22a59d8ad1ea04f1fb06cdc1d082eb362d89a94e91179d92
   computed_capabilities: []
   source_inventory:
     state: complete
-    total_sources: 50
-    mapped_sources: 50
+    total_sources: 55
+    mapped_sources: 55
     unmapped_sources: 0
     missing_sources: 2
-    phase_signal_count: 84
-    deferred_signal_count: 112
-    non_goal_signal_count: 15
+    phase_signal_count: 85
+    deferred_signal_count: 113
+    non_goal_signal_count: 17
     layer_totals:
-      spec: 10
-      plan: 10
-      tasks: 10
-      execution: 10
-      close: 10
+      spec: 11
+      plan: 11
+      tasks: 11
+      execution: 11
+      close: 11
     layer_materialized:
-      spec: 10
-      plan: 10
-      tasks: 10
-      execution: 8
-      close: 10
+      spec: 11
+      plan: 11
+      tasks: 11
+      execution: 9
+      close: 11
     entries:
     - path: specs/001-agentops-trusted-loop/spec.md
       source_type: spec_doc
@@ -517,6 +521,51 @@ truth_snapshot:
       mapped: true
       exists: true
       mapping_ref: 010-console-audit-timeline
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 0
+    - path: specs/011-console-quality-adoption-insights/spec.md
+      source_type: spec_doc
+      truth_layer: spec
+      mapped: true
+      exists: true
+      mapping_ref: 011-console-quality-adoption-insights
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 1
+    - path: specs/011-console-quality-adoption-insights/plan.md
+      source_type: plan_doc
+      truth_layer: plan
+      mapped: true
+      exists: true
+      mapping_ref: 011-console-quality-adoption-insights
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 0
+    - path: specs/011-console-quality-adoption-insights/tasks.md
+      source_type: tasks_doc
+      truth_layer: tasks
+      mapped: true
+      exists: true
+      mapping_ref: 011-console-quality-adoption-insights
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 0
+    - path: specs/011-console-quality-adoption-insights/task-execution-log.md
+      source_type: execution_log
+      truth_layer: execution
+      mapped: true
+      exists: true
+      mapping_ref: 011-console-quality-adoption-insights
+      phase_signal_count: 1
+      deferred_signal_count: 1
+      non_goal_signal_count: 1
+    - path: specs/011-console-quality-adoption-insights/development-summary.md
+      source_type: development_summary
+      truth_layer: close
+      mapped: true
+      exists: true
+      mapping_ref: 011-console-quality-adoption-insights
       phase_signal_count: 0
       deferred_signal_count: 0
       non_goal_signal_count: 0
