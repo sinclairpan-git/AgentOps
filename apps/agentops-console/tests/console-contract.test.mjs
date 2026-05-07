@@ -266,7 +266,39 @@ assert.equal(
       ...consoleData,
       adoption: {
         ...consoleData.adoption,
+        reviewSignals: [{
+          ...consoleData.adoption.reviewSignals[0],
+          reason: "低置信后自动-下架"
+        }]
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      adoption: {
+        ...consoleData.adoption,
         metrics: { ...consoleData.adoption.metrics, generated_lines: undefined }
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      actionWorkbench: {
+        ...consoleData.actionWorkbench,
+        details: [{
+          ...consoleData.actionWorkbench.details[0],
+          pullRequestBody: "PR 原文"
+        }]
       }
     }
   }),

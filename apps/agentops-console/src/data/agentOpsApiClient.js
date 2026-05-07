@@ -362,14 +362,30 @@ export function containsUnsafeAuditReference(value) {
     return value.some(containsUnsafeAuditReference);
   }
   if (value && typeof value === "object") {
-    return Object.keys(value).some((key) =>
-      forbiddenKeys.has(key) ||
-      /^code/i.test(key) ||
-      /snippet/i.test(key) ||
-      /^diff/i.test(key) ||
-      /patch/i.test(key) ||
-      /^pull_request/i.test(key)
-    ) ||
+    const compactForbiddenKeys = new Set([
+      "rawpayload",
+      "downloadurl",
+      "rawurl",
+      "originalurl",
+      "rawaccessurl",
+      "codesnippet",
+      "sourcecode",
+      "patch",
+      "diff",
+      "diffcontent",
+      "prbody",
+      "pullrequestbody"
+    ]);
+    return Object.keys(value).some((key) => {
+      const normalizedKey = key.replace(/[_\-\s]/g, "").toLowerCase();
+      return forbiddenKeys.has(key) ||
+        compactForbiddenKeys.has(normalizedKey) ||
+        /^code/i.test(key) ||
+        /snippet/i.test(key) ||
+        /^diff/i.test(key) ||
+        /patch/i.test(key) ||
+        /^pullrequest/i.test(normalizedKey);
+    }) ||
       Object.values(value).some(containsUnsafeAuditReference);
   }
   return false;
@@ -477,7 +493,7 @@ export function qualitySignalsAreSafe(consoleData) {
 
 export function containsUnsafeLifecycleText(value) {
   if (typeof value === "string") {
-    const normalized = value.replace(/\s+/g, "");
+    const normalized = value.replace(/[\s\p{P}\p{S}]+/gu, "");
     const redlineRemoved = normalized
       .replace(/低置信不自动下架/g, "")
       .replace(/不自动下架/g, "")
