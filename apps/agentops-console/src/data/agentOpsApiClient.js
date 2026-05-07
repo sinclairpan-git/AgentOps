@@ -126,6 +126,7 @@ export function validateSnapshot(snapshot) {
     "agentStore",
     "operationCenter",
     "evidenceVault",
+    "approvalWorkbench",
     "actionWorkbench",
     "connectors",
     "sdlcRuns"
@@ -140,6 +141,9 @@ export function validateSnapshot(snapshot) {
     return false;
   }
   if (!evidenceVaultIsComplete(consoleData)) {
+    return false;
+  }
+  if (!approvalWorkbenchIsComplete(consoleData)) {
     return false;
   }
   if (!adoptionInsightsAreComplete(consoleData)) {
@@ -166,12 +170,18 @@ function consoleDataWithWorkbenchDefaults(consoleData) {
       ...consoleData,
       adoption: emptyAdoptionInsights()
     };
-  if (Object.prototype.hasOwnProperty.call(withAdoption, "evidenceVault")) {
-    return withAdoption;
+  const withEvidenceVault = Object.prototype.hasOwnProperty.call(withAdoption, "evidenceVault")
+    ? withAdoption
+    : {
+      ...withAdoption,
+      evidenceVault: legacyEvidenceVault(withAdoption.evidence)
+    };
+  if (Object.prototype.hasOwnProperty.call(withEvidenceVault, "approvalWorkbench")) {
+    return withEvidenceVault;
   }
   return {
-    ...withAdoption,
-    evidenceVault: legacyEvidenceVault(withAdoption.evidence)
+    ...withEvidenceVault,
+    approvalWorkbench: legacyApprovalWorkbench(withEvidenceVault.approvals)
   };
 }
 
@@ -372,6 +382,216 @@ function legacyVaultAuditSummary(state) {
   return "旧版快照显示原文访问尚未批准，继续展示安全摘要。";
 }
 
+function legacyApprovalWorkbench(approvalItems) {
+  const items = Array.isArray(approvalItems) ? approvalItems : [];
+  return {
+    queues: items.map((item) => legacyApprovalQueue(item)),
+    grants: items.map((item) => legacyApprovalGrant(item)),
+    auditTrail: items.map((item) => legacyApprovalAudit(item)),
+    guardrails: [
+      "审批队列只展示人工处置摘要，不在本页执行批准、拒绝或撤销。",
+      "Grant 必须绑定原始审批编号、策略版本、资源范围、授权时限和审计编号。",
+      "申请人不得作为唯一审批人批准自己的高风险动作，除非存在 break_glass 审计。",
+      "补充材料只展示摘要和审计引用，不展示原文、PR 正文或下载链接。"
+    ]
+  };
+}
+
+function legacyApprovalQueue(item) {
+  return {
+    id: `legacy_approval_queue_${item.approval_id}`,
+    approval_id: item.approval_id,
+    requester: item.requester,
+    reason: item.reason,
+    affected_actions: item.affected_actions,
+    status: item.status,
+    sla_due_at: item.sla_due_at,
+    sla_state: legacyApprovalSlaState(item.status),
+    approver_scope: "安全/IAM 审批人",
+    supplemental_materials: "待补充：变更说明、影响范围、回滚预案",
+    primary_action: legacyApprovalPrimaryAction(item.status),
+    secondary_action: legacyApprovalSecondaryAction(item.status),
+    audit_id: item.audit_id,
+    denied_scope: ["rejected", "revoked", "permission_denied"].includes(item.status) ? item.affected_actions || "approval.scope" : "",
+    safety_note: "只读展示审批处置摘要，不执行批准、拒绝、撤销或生产写操作。"
+  };
+}
+
+function legacyApprovalGrant(item) {
+  const grantStatus = legacyApprovalGrantStatus(item.status, item.grant_status);
+  return {
+    id: `legacy_approval_grant_${item.approval_id}`,
+    approval_id: item.approval_id,
+    grant_status: grantStatus,
+    policy_version: item.policy_version || "runtime-v2.3",
+    resource_scope: item.resource_scope || item.affected_actions || "待确认范围",
+    ttl_summary: legacyApprovalGrantTtl(grantStatus),
+    expires_at: legacyApprovalGrantExpiresAt(grantStatus),
+    revocation_state: legacyApprovalRevocationState(grantStatus),
+    audit_id: item.audit_id,
+    consumption_policy: "Grant 仅可由绑定审批、策略版本和资源范围消费；本页不执行生产写操作。"
+  };
+}
+
+function legacyApprovalGrantStatus(approvalStatus, grantStatus) {
+  if (approvalStatus === "approved") {
+    return ["active", "expired"].includes(grantStatus) ? grantStatus : "active";
+  }
+  if (approvalStatus === "revoked") {
+    return "revoked";
+  }
+  if (approvalStatus === "rejected") {
+    return "rejected";
+  }
+  if (approvalStatus === "expired") {
+    return "expired";
+  }
+  if (approvalStatus === "escalated") {
+    return grantStatus === "expired" ? "expired" : "pending";
+  }
+  if (["pending", "needs_more_info"].includes(approvalStatus)) {
+    return "pending";
+  }
+  return grantStatus === "active" ? "pending" : grantStatus;
+}
+
+function legacyApprovalAudit(item) {
+  return {
+    id: `legacy_approval_audit_${item.approval_id}`,
+    approval_id: item.approval_id,
+    stage: legacyApprovalAuditStage(item.status),
+    occurred_at: "旧版快照同步时",
+    summary: `${item.requester} 申请 ${item.affected_actions}：${item.reason}。`,
+    owner: "安全/IAM 审批人",
+    status: item.status,
+    audit_id: item.audit_id
+  };
+}
+
+function legacyApprovalSlaState(status) {
+  if (status === "pending") {
+    return "待处理";
+  }
+  if (status === "escalated") {
+    return "已升级";
+  }
+  if (status === "approved") {
+    return "已完成";
+  }
+  if (status === "revoked") {
+    return "已撤销";
+  }
+  if (status === "rejected") {
+    return "已拒绝";
+  }
+  if (status === "expired") {
+    return "已过期";
+  }
+  if (status === "needs_more_info") {
+    return "待补充材料";
+  }
+  return "需复核";
+}
+
+function legacyApprovalPrimaryAction(status) {
+  if (status === "approved") {
+    return "查看审批记录";
+  }
+  if (status === "revoked") {
+    return "查看撤销原因";
+  }
+  if (status === "escalated") {
+    return "升级审批";
+  }
+  if (status === "rejected") {
+    return "查看拒绝原因";
+  }
+  if (status === "needs_more_info") {
+    return "补充材料";
+  }
+  return "处理审批";
+}
+
+function legacyApprovalSecondaryAction(status) {
+  if (status === "approved") {
+    return "查看 Grant 状态";
+  }
+  if (status === "revoked") {
+    return "通知申请方";
+  }
+  if (status === "escalated") {
+    return "转交安全/IAM 审批人";
+  }
+  return "补充材料或转交审批";
+}
+
+function legacyApprovalGrantTtl(status) {
+  if (status === "active") {
+    return "15 分钟限时 Grant";
+  }
+  if (status === "expired") {
+    return "Grant 已过期";
+  }
+  if (status === "revoked") {
+    return "Grant 已撤销";
+  }
+  if (status === "rejected") {
+    return "未签发 Grant";
+  }
+  return "待审批后签发";
+}
+
+function legacyApprovalGrantExpiresAt(status) {
+  if (status === "active") {
+    return "快照生成后 15 分钟";
+  }
+  if (status === "expired") {
+    return "已过期";
+  }
+  if (status === "revoked") {
+    return "已撤销";
+  }
+  if (status === "rejected") {
+    return "未授权";
+  }
+  return "待审批";
+}
+
+function legacyApprovalRevocationState(status) {
+  if (status === "revoked") {
+    return "已撤销，后续 Policy Check 不得 conditional_allow";
+  }
+  if (status === "expired") {
+    return "已过期，需重新审批";
+  }
+  if (status === "active") {
+    return "未撤销，仍需按资源范围和授权时限消费";
+  }
+  return "未签发";
+}
+
+function legacyApprovalAuditStage(status) {
+  if (status === "approved") {
+    return "批准";
+  }
+  if (status === "revoked") {
+    return "撤销";
+  }
+  if (status === "escalated") {
+    return "升级";
+  }
+  if (status === "rejected") {
+    return "拒绝";
+  }
+  if (status === "expired") {
+    return "过期";
+  }
+  if (status === "needs_more_info") {
+    return "补充材料";
+  }
+  return "申请";
+}
+
 function emptyAdoptionInsights() {
   return {
     metrics: {
@@ -440,6 +660,7 @@ export function snapshotShapeIsSafe(consoleData) {
     "risks",
     "agentStore",
     "operationCenter",
+    "approvalWorkbench",
     "actionWorkbench",
     "connectors",
     "sdlcRuns"
@@ -461,6 +682,13 @@ export function snapshotShapeIsSafe(consoleData) {
     if (key === "actionWorkbench") {
       return isRecord(consoleData.actionWorkbench) &&
         Array.isArray(consoleData.actionWorkbench.details);
+    }
+    if (key === "approvalWorkbench") {
+      return isRecord(consoleData.approvalWorkbench) &&
+        Array.isArray(consoleData.approvalWorkbench.queues) &&
+        Array.isArray(consoleData.approvalWorkbench.grants) &&
+        Array.isArray(consoleData.approvalWorkbench.auditTrail) &&
+        Array.isArray(consoleData.approvalWorkbench.guardrails);
     }
     return Array.isArray(consoleData[key]);
   }) &&
@@ -507,6 +735,9 @@ export function statesAreKnown(consoleData) {
     ...(consoleData.evidenceVault?.requests || []).map((item) => item.status),
     ...(consoleData.evidenceVault?.grants || []).map((item) => item.status),
     ...(consoleData.evidenceVault?.auditTrail || []).map((item) => item.status),
+    ...(consoleData.approvalWorkbench?.queues || []).map((item) => item.status),
+    ...(consoleData.approvalWorkbench?.grants || []).map((item) => item.grant_status),
+    ...(consoleData.approvalWorkbench?.auditTrail || []).map((item) => item.status),
     ...(consoleData.agentStore?.discoveryGaps || []).map((item) => item.state),
     ...(consoleData.agentStore?.runAudits || []).flatMap((item) => [item.registration_state, item.raw_access_state]),
     ...(consoleData.agentStore?.storeSummaries || []).flatMap((item) => [item.metadata_state, item.risk_state]),
@@ -738,6 +969,198 @@ function vaultAuditMatchesEvidence(node, evidence) {
   return Boolean(evidence) &&
     node.audit_id === evidence.audit_id &&
     node.status === evidence.raw_access_state;
+}
+
+export function approvalWorkbenchIsComplete(consoleData) {
+  const workbench = consoleData.approvalWorkbench;
+  if (!isRecord(workbench) || containsUnsafeAuditReference(workbench)) {
+    return false;
+  }
+  if (!keysAreExactly(workbench, ["queues", "grants", "auditTrail", "guardrails"])) {
+    return false;
+  }
+  const approvals = consoleData.approvals || [];
+  const approvalsById = new Map(approvals.map((item) => [item.approval_id, item]));
+  if (
+    approvalsById.size !== approvals.length ||
+    !approvalRowsMatchApprovals(approvals, workbench.queues) ||
+    !approvalRowsMatchApprovals(approvals, workbench.grants) ||
+    !approvalRowsMatchApprovals(approvals, workbench.auditTrail)
+  ) {
+    return false;
+  }
+
+  const queuesOk = workbench.queues.every((item) =>
+    keysAreExactly(item, [
+      "id",
+      "approval_id",
+      "requester",
+      "reason",
+      "affected_actions",
+      "status",
+      "sla_due_at",
+      "sla_state",
+      "approver_scope",
+      "supplemental_materials",
+      "primary_action",
+      "secondary_action",
+      "audit_id",
+      "denied_scope",
+      "safety_note"
+    ]) &&
+    item.id &&
+    item.approval_id &&
+    item.requester &&
+    item.reason &&
+    item.affected_actions &&
+    item.status &&
+    item.sla_due_at &&
+    item.sla_state &&
+    item.approver_scope &&
+    item.supplemental_materials &&
+    item.primary_action &&
+    item.secondary_action &&
+    item.audit_id &&
+    /只读展示审批处置摘要/.test(item.safety_note || "") &&
+    approvalQueueMatchesApproval(item, approvalsById.get(item.approval_id)) &&
+    !containsUnsafeLifecycleText(`${item.primary_action || ""} ${item.secondary_action || ""} ${item.safety_note || ""}`)
+  );
+
+  const grantsOk = workbench.grants.every((item) =>
+    keysAreExactly(item, [
+      "id",
+      "approval_id",
+      "grant_status",
+      "policy_version",
+      "resource_scope",
+      "ttl_summary",
+      "expires_at",
+      "revocation_state",
+      "audit_id",
+      "consumption_policy"
+    ]) &&
+    item.id &&
+    item.approval_id &&
+    item.grant_status &&
+    item.policy_version &&
+    item.resource_scope &&
+    item.ttl_summary &&
+    item.expires_at &&
+    item.revocation_state &&
+    item.audit_id &&
+    /绑定审批、策略版本和资源范围/.test(item.consumption_policy || "") &&
+    approvalGrantMatchesApproval(item, approvalsById.get(item.approval_id)) &&
+    !containsUnsafeLifecycleText(`${item.revocation_state || ""} ${item.consumption_policy || ""}`)
+  );
+
+  const auditOk = workbench.auditTrail.every((item) =>
+    keysAreExactly(item, ["id", "approval_id", "stage", "occurred_at", "summary", "owner", "status", "audit_id"]) &&
+    item.id &&
+    item.approval_id &&
+    item.stage &&
+    item.occurred_at &&
+    item.summary &&
+    item.owner &&
+    item.status &&
+    item.audit_id &&
+    approvalAuditMatchesApproval(item, approvalsById.get(item.approval_id)) &&
+    !containsUnsafeLifecycleText(item.summary || "")
+  );
+
+  const guardrailsText = workbench.guardrails.join(" ");
+  return queuesOk &&
+    grantsOk &&
+    auditOk &&
+    workbench.guardrails.every((item) => typeof item === "string" && item) &&
+    /审批队列只展示人工处置摘要/.test(guardrailsText) &&
+    /不得作为唯一审批人/.test(guardrailsText) &&
+    !containsUnsafeLifecycleText(guardrailsText);
+}
+
+function approvalRowsMatchApprovals(approvals, rows) {
+  if (!Array.isArray(rows) || rows.length !== approvals.length) {
+    return false;
+  }
+  const approvalIds = new Set(approvals.map((item) => item.approval_id));
+  const rowIds = new Set(rows.map((item) => item.approval_id));
+  return rowIds.size === rows.length &&
+    approvalIds.size === approvals.length &&
+    approvals.every((item) => rowIds.has(item.approval_id));
+}
+
+function approvalQueueMatchesApproval(item, approval) {
+  return Boolean(approval) &&
+    item.requester === approval.requester &&
+    item.reason === approval.reason &&
+    item.affected_actions === approval.affected_actions &&
+    item.status === approval.status &&
+    item.sla_due_at === approval.sla_due_at &&
+    item.audit_id === approval.audit_id;
+}
+
+function approvalGrantMatchesApproval(item, approval) {
+  return Boolean(approval) &&
+    item.grant_status === approval.grant_status &&
+    item.audit_id === approval.audit_id &&
+    approvalGrantStatusAllowed(approval.status, item.grant_status) &&
+    approvalGrantFieldsMatchStatus(item);
+}
+
+function approvalGrantStatusAllowed(approvalStatus, grantStatus) {
+  if (approvalStatus === "approved") {
+    return ["active", "expired"].includes(grantStatus);
+  }
+  if (approvalStatus === "revoked") {
+    return grantStatus === "revoked";
+  }
+  if (approvalStatus === "rejected") {
+    return grantStatus === "rejected";
+  }
+  if (approvalStatus === "expired") {
+    return grantStatus === "expired";
+  }
+  if (approvalStatus === "escalated") {
+    return ["pending", "expired"].includes(grantStatus);
+  }
+  if (["pending", "needs_more_info"].includes(approvalStatus)) {
+    return grantStatus === "pending";
+  }
+  return grantStatus !== "active";
+}
+
+function approvalGrantFieldsMatchStatus(item) {
+  if (item.grant_status === "active") {
+    return /15 分钟/.test(item.ttl_summary) &&
+      /15 分钟/.test(item.expires_at) &&
+      /未撤销/.test(item.revocation_state);
+  }
+  if (item.grant_status === "expired") {
+    return item.ttl_summary === "Grant 已过期" &&
+      item.expires_at === "已过期" &&
+      item.revocation_state === "已过期，需重新审批";
+  }
+  if (item.grant_status === "revoked") {
+    return item.ttl_summary === "Grant 已撤销" &&
+      item.expires_at === "已撤销" &&
+      /已撤销/.test(item.revocation_state);
+  }
+  if (item.grant_status === "rejected") {
+    return item.ttl_summary === "未签发 Grant" &&
+      item.expires_at === "未授权" &&
+      item.revocation_state === "未签发";
+  }
+  if (item.grant_status === "pending") {
+    return item.ttl_summary === "待审批后签发" &&
+      item.expires_at === "待审批" &&
+      item.revocation_state === "未签发";
+  }
+  return false;
+}
+
+function approvalAuditMatchesApproval(item, approval) {
+  return Boolean(approval) &&
+    item.status === approval.status &&
+    item.audit_id === approval.audit_id;
 }
 
 export function containsUnsafeAuditReference(value) {

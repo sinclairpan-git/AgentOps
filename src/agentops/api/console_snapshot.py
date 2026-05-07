@@ -172,6 +172,7 @@ def _with_workbenches(console_data: dict[str, Any]) -> dict[str, Any]:
         **console_data,
         "adoption": _adoption_workbench(console_data),
         "evidenceVault": _evidence_vault_workbench(console_data),
+        "approvalWorkbench": _approval_workbench(console_data),
         "actionWorkbench": _action_workbench(console_data),
     }
     return {
@@ -193,6 +194,177 @@ def _evidence_vault_workbench(console_data: dict[str, Any]) -> dict[str, Any]:
             "本阶段只读展示申请与授权状态，不自动批准、不自动写回。",
         ],
     }
+
+
+def _approval_workbench(console_data: dict[str, Any]) -> dict[str, Any]:
+    approvals = list(console_data.get("approvals", []))
+    return {
+        "queues": [_approval_queue_item(item) for item in approvals],
+        "grants": [_approval_grant_item(item) for item in approvals],
+        "auditTrail": [_approval_audit_item(item) for item in approvals],
+        "guardrails": [
+            "审批队列只展示人工处置摘要，不在本页执行批准、拒绝或撤销。",
+            "Grant 必须绑定原始审批编号、策略版本、资源范围、授权时限和审计编号。",
+            "申请人不得作为唯一审批人批准自己的高风险动作，除非存在 break_glass 审计。",
+            "补充材料只展示摘要和审计引用，不展示原文、PR 正文或下载链接。",
+        ],
+    }
+
+
+def _approval_queue_item(approval: dict[str, Any]) -> dict[str, str]:
+    status = str(approval["status"])
+    return {
+        "id": f"approval_queue_{approval['approval_id']}",
+        "approval_id": str(approval["approval_id"]),
+        "requester": str(approval["requester"]),
+        "reason": str(approval["reason"]),
+        "affected_actions": str(approval["affected_actions"]),
+        "status": status,
+        "sla_due_at": str(approval["sla_due_at"]),
+        "sla_state": _approval_sla_state(status),
+        "approver_scope": _approval_approver_scope(approval),
+        "supplemental_materials": _approval_supplemental_materials(approval),
+        "primary_action": _approval_primary_action(approval),
+        "secondary_action": _approval_secondary_action(approval),
+        "audit_id": str(approval["audit_id"]),
+        "denied_scope": _approval_denied_scope(approval),
+        "safety_note": "只读展示审批处置摘要，不执行批准、拒绝、撤销或生产写操作。",
+    }
+
+
+def _approval_grant_item(approval: dict[str, Any]) -> dict[str, str]:
+    grant_status = _approval_grant_status(approval)
+    return {
+        "id": f"approval_grant_{approval['approval_id']}",
+        "approval_id": str(approval["approval_id"]),
+        "grant_status": grant_status,
+        "policy_version": str(approval.get("policy_version") or "runtime-v2.3"),
+        "resource_scope": str(approval.get("resource_scope") or approval.get("affected_actions") or "待确认范围"),
+        "ttl_summary": _approval_grant_ttl(grant_status),
+        "expires_at": _approval_grant_expires_at(approval, grant_status),
+        "revocation_state": _approval_revocation_state(grant_status),
+        "audit_id": str(approval["audit_id"]),
+        "consumption_policy": "Grant 仅可由绑定审批、策略版本和资源范围消费；本页不执行生产写操作。",
+    }
+
+
+def _approval_grant_status(approval: dict[str, Any]) -> str:
+    status = str(approval["status"])
+    grant_status = str(approval["grant_status"])
+    if status == "approved":
+        return grant_status if grant_status in {"active", "expired"} else "active"
+    if status == "revoked":
+        return "revoked"
+    if status == "rejected":
+        return "rejected"
+    if status == "expired":
+        return "expired"
+    if status == "escalated":
+        return "expired" if grant_status == "expired" else "pending"
+    if status in {"pending", "needs_more_info"}:
+        return "pending"
+    return "pending" if grant_status == "active" else grant_status
+
+
+def _approval_audit_item(approval: dict[str, Any]) -> dict[str, str]:
+    status = str(approval["status"])
+    return {
+        "id": f"approval_audit_{approval['approval_id']}",
+        "approval_id": str(approval["approval_id"]),
+        "stage": _approval_audit_stage(status),
+        "occurred_at": "快照生成时",
+        "summary": _approval_audit_summary(approval),
+        "owner": _approval_approver_scope(approval),
+        "status": status,
+        "audit_id": str(approval["audit_id"]),
+    }
+
+
+def _approval_sla_state(status: str) -> str:
+    if status == "escalated":
+        return "已升级"
+    if status == "pending":
+        return "待处理"
+    if status == "approved":
+        return "已完成"
+    if status == "revoked":
+        return "已撤销"
+    if status == "rejected":
+        return "已拒绝"
+    if status == "expired":
+        return "已过期"
+    if status == "needs_more_info":
+        return "待补充材料"
+    return "需复核"
+
+
+def _approval_approver_scope(approval: dict[str, Any]) -> str:
+    return str(approval.get("approver_scope") or "安全/IAM 审批人")
+
+
+def _approval_supplemental_materials(approval: dict[str, Any]) -> str:
+    return str(approval.get("supplemental_materials") or "待补充：变更说明、影响范围、回滚预案")
+
+
+def _approval_denied_scope(approval: dict[str, Any]) -> str:
+    status = str(approval["status"])
+    if status in {"rejected", "revoked", "permission_denied"}:
+        return str(approval.get("denied_scope") or approval.get("affected_actions") or "approval.scope")
+    return str(approval.get("denied_scope") or "")
+
+
+def _approval_grant_ttl(grant_status: str) -> str:
+    if grant_status == "active":
+        return "15 分钟限时 Grant"
+    if grant_status == "expired":
+        return "Grant 已过期"
+    if grant_status == "revoked":
+        return "Grant 已撤销"
+    if grant_status == "rejected":
+        return "未签发 Grant"
+    return "待审批后签发"
+
+
+def _approval_grant_expires_at(approval: dict[str, Any], grant_status: str) -> str:
+    if grant_status == "active":
+        return str(approval.get("grant_expires_at") or "快照生成后 15 分钟")
+    if grant_status == "expired":
+        return "已过期"
+    if grant_status == "revoked":
+        return "已撤销"
+    if grant_status == "rejected":
+        return "未授权"
+    return "待审批"
+
+
+def _approval_revocation_state(grant_status: str) -> str:
+    if grant_status == "revoked":
+        return "已撤销，后续 Policy Check 不得 conditional_allow"
+    if grant_status == "expired":
+        return "已过期，需重新审批"
+    if grant_status == "active":
+        return "未撤销，仍需按资源范围和授权时限消费"
+    return "未签发"
+
+
+def _approval_audit_stage(status: str) -> str:
+    if status == "approved":
+        return "批准"
+    if status == "rejected":
+        return "拒绝"
+    if status == "revoked":
+        return "撤销"
+    if status == "expired":
+        return "过期"
+    if status == "escalated":
+        return "升级"
+    if status == "needs_more_info":
+        return "补充材料"
+    return "申请"
+
+
+def _approval_audit_summary(approval: dict[str, Any]) -> str:
+    return f"{approval['requester']} 申请 {approval['affected_actions']}：{approval['reason']}。"
 
 
 def _evidence_vault_request(evidence: dict[str, Any]) -> dict[str, Any]:

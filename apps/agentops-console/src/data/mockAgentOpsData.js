@@ -186,6 +186,182 @@ consoleData.actionWorkbench.details = consoleData.actionWorkbench.details.map((d
   audit_packet: auditPacketFor(detail)
 }));
 
+const approvalPrimaryAction = (status) => {
+  if (status === "approved") {
+    return "查看审批记录";
+  }
+  if (status === "revoked") {
+    return "查看撤销原因";
+  }
+  if (status === "escalated") {
+    return "升级审批";
+  }
+  if (status === "rejected") {
+    return "查看拒绝原因";
+  }
+  if (status === "needs_more_info") {
+    return "补充材料";
+  }
+  return "处理审批";
+};
+
+const approvalSecondaryAction = (status) => {
+  if (status === "approved") {
+    return "查看 Grant 状态";
+  }
+  if (status === "revoked") {
+    return "通知申请方";
+  }
+  if (status === "escalated") {
+    return "转交安全/IAM 审批人";
+  }
+  return "补充材料或转交审批";
+};
+
+const approvalSlaState = (status) => {
+  if (status === "pending") {
+    return "待处理";
+  }
+  if (status === "escalated") {
+    return "已升级";
+  }
+  if (status === "approved") {
+    return "已完成";
+  }
+  if (status === "revoked") {
+    return "已撤销";
+  }
+  return "需复核";
+};
+
+const approvalGrantTtl = (status) => {
+  if (status === "active") {
+    return "15 分钟限时 Grant";
+  }
+  if (status === "expired") {
+    return "Grant 已过期";
+  }
+  if (status === "revoked") {
+    return "Grant 已撤销";
+  }
+  return "待审批后签发";
+};
+
+const approvalGrantStatus = (approvalStatus, grantStatus) => {
+  if (approvalStatus === "approved") {
+    return ["active", "expired"].includes(grantStatus) ? grantStatus : "active";
+  }
+  if (approvalStatus === "revoked") {
+    return "revoked";
+  }
+  if (approvalStatus === "rejected") {
+    return "rejected";
+  }
+  if (approvalStatus === "expired") {
+    return "expired";
+  }
+  if (approvalStatus === "escalated") {
+    return grantStatus === "expired" ? "expired" : "pending";
+  }
+  if (["pending", "needs_more_info"].includes(approvalStatus)) {
+    return "pending";
+  }
+  return grantStatus === "active" ? "pending" : grantStatus;
+};
+
+const approvalGrantExpiresAt = (status) => {
+  if (status === "active") {
+    return "快照生成后 15 分钟";
+  }
+  if (status === "expired") {
+    return "已过期";
+  }
+  if (status === "revoked") {
+    return "已撤销";
+  }
+  return "待审批";
+};
+
+const approvalRevocationState = (status) => {
+  if (status === "revoked") {
+    return "已撤销，后续 Policy Check 不得 conditional_allow";
+  }
+  if (status === "expired") {
+    return "已过期，需重新审批";
+  }
+  if (status === "active") {
+    return "未撤销，仍需按资源范围和授权时限消费";
+  }
+  return "未签发";
+};
+
+const approvalAuditStage = (status) => {
+  if (status === "approved") {
+    return "批准";
+  }
+  if (status === "revoked") {
+    return "撤销";
+  }
+  if (status === "escalated") {
+    return "升级";
+  }
+  if (status === "rejected") {
+    return "拒绝";
+  }
+  return "申请";
+};
+
+consoleData.approvalWorkbench = {
+  queues: consoleData.approvals.map((item) => ({
+    id: `approval_queue_${item.approval_id}`,
+    approval_id: item.approval_id,
+    requester: item.requester,
+    reason: item.reason,
+    affected_actions: item.affected_actions,
+    status: item.status,
+    sla_due_at: item.sla_due_at,
+    sla_state: approvalSlaState(item.status),
+    approver_scope: "安全/IAM 审批人",
+    supplemental_materials: "待补充：变更说明、影响范围、回滚预案",
+    primary_action: approvalPrimaryAction(item.status),
+    secondary_action: approvalSecondaryAction(item.status),
+    audit_id: item.audit_id,
+    denied_scope: item.status === "revoked" ? item.affected_actions : "",
+    safety_note: "只读展示审批处置摘要，不执行批准、拒绝、撤销或生产写操作。"
+  })),
+  grants: consoleData.approvals.map((item) => {
+    const grantStatus = approvalGrantStatus(item.status, item.grant_status);
+    return {
+      id: `approval_grant_${item.approval_id}`,
+      approval_id: item.approval_id,
+      grant_status: grantStatus,
+      policy_version: "runtime-v2.3",
+      resource_scope: item.affected_actions,
+      ttl_summary: approvalGrantTtl(grantStatus),
+      expires_at: approvalGrantExpiresAt(grantStatus),
+      revocation_state: approvalRevocationState(grantStatus),
+      audit_id: item.audit_id,
+      consumption_policy: "Grant 仅可由绑定审批、策略版本和资源范围消费；本页不执行生产写操作。"
+    };
+  }),
+  auditTrail: consoleData.approvals.map((item) => ({
+    id: `approval_audit_${item.approval_id}`,
+    approval_id: item.approval_id,
+    stage: approvalAuditStage(item.status),
+    occurred_at: "快照生成时",
+    summary: `${item.requester} 申请 ${item.affected_actions}：${item.reason}。`,
+    owner: "安全/IAM 审批人",
+    status: item.status,
+    audit_id: item.audit_id
+  })),
+  guardrails: [
+    "审批队列只展示人工处置摘要，不在本页执行批准、拒绝或撤销。",
+    "Grant 必须绑定原始审批编号、策略版本、资源范围、授权时限和审计编号。",
+    "申请人不得作为唯一审批人批准自己的高风险动作，除非存在 break_glass 审计。",
+    "补充材料只展示摘要和审计引用，不展示原文、PR 正文或下载链接。"
+  ]
+};
+
 const vaultRequestStatus = (state) => {
   if (state === "summary_only") {
     return "pending";

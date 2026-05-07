@@ -102,6 +102,13 @@ for (const expectedChineseText of [
   "限时授权",
   "审计轨迹",
   "默认不展示原文",
+  "人工审批与 Grant 工作台",
+  "审批队列",
+  "Grant 影响",
+  "审批审计轨迹",
+  "只读审批摘要",
+  "不得作为唯一审批人",
+  "补充材料",
   "建议动作",
   "前往相关页面",
   "关闭条件",
@@ -248,6 +255,15 @@ assert.equal(
   validateSnapshot(legacyV1SnapshotWithoutEvidenceVault),
   true
 );
+const legacyV1SnapshotWithoutApprovalWorkbench = {
+  ...validApiSnapshot,
+  consoleData: { ...consoleData }
+};
+delete legacyV1SnapshotWithoutApprovalWorkbench.consoleData.approvalWorkbench;
+assert.equal(
+  validateSnapshot(legacyV1SnapshotWithoutApprovalWorkbench),
+  true
+);
 assert.equal(
   validateSnapshot({
     ...validApiSnapshot,
@@ -277,10 +293,42 @@ assert.equal(
   }),
   false
 );
+const pendingApprovalWithActiveGrant = {
+  ...consoleData,
+  approvals: consoleData.approvals.map((approval) =>
+    approval.approval_id === "ap_001" ? { ...approval, grant_status: "active" } : approval
+  ),
+  approvalWorkbench: {
+    ...consoleData.approvalWorkbench,
+    grants: consoleData.approvalWorkbench.grants.map((grant) =>
+      grant.approval_id === "ap_001" ? {
+        ...grant,
+        grant_status: "active",
+        ttl_summary: "15 分钟限时 Grant",
+        expires_at: "快照生成后 15 分钟",
+        revocation_state: "未撤销，仍需按资源范围和授权时限消费"
+      } : grant
+    )
+  }
+};
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: pendingApprovalWithActiveGrant
+  }),
+  false
+);
 assert.equal(
   validateSnapshot({
     ...validApiSnapshot,
     consoleData: { ...consoleData, evidenceVault: null }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: { ...consoleData, approvalWorkbench: null }
   }),
   false
 );
@@ -292,6 +340,21 @@ assert.equal(
       evidenceVault: {
         ...consoleData.evidenceVault,
         requests: [],
+        grants: [],
+        auditTrail: []
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      approvalWorkbench: {
+        ...consoleData.approvalWorkbench,
+        queues: [],
         grants: [],
         auditTrail: []
       }
@@ -369,6 +432,70 @@ assert.equal(
           scope: "限定复核字段",
           expires_at: "快照生成后 15 分钟"
         }]
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      approvalWorkbench: {
+        ...consoleData.approvalWorkbench,
+        queues: consoleData.approvalWorkbench.queues.map((queue) =>
+          queue.approval_id === "ap_001" ? { ...queue, status: "approved", primary_action: "查看审批记录" } : queue
+        )
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      approvalWorkbench: {
+        ...consoleData.approvalWorkbench,
+        grants: consoleData.approvalWorkbench.grants.map((grant) =>
+          grant.approval_id === "ap_001" ? {
+            ...grant,
+            grant_status: "active",
+            ttl_summary: "15 分钟限时 Grant",
+            expires_at: "快照生成后 15 分钟"
+          } : grant
+        )
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      approvalWorkbench: {
+        ...consoleData.approvalWorkbench,
+        auditTrail: [{
+          ...consoleData.approvalWorkbench.auditTrail[0],
+          raw_access_url: "/approval/raw/ap_001"
+        }]
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      approvalWorkbench: {
+        ...consoleData.approvalWorkbench,
+        guardrails: [...consoleData.approvalWorkbench.guardrails, "自动批准审批"]
       }
     }
   }),
@@ -1027,6 +1154,16 @@ assert.equal(legacyVaultApiLoad.consoleData.evidenceVault.requests.length, conso
 assert.equal(legacyVaultApiLoad.consoleData.evidenceVault.grants.length, consoleData.evidence.length);
 assert.equal(legacyVaultApiLoad.consoleData.evidenceVault.auditTrail.length, consoleData.evidence.length);
 assert.match(legacyVaultApiLoad.consoleData.evidenceVault.guardrails.join(" "), /默认不展示原文/);
+
+const legacyApprovalApiLoad = await loadAgentOpsSnapshot(async () => ({
+  ok: true,
+  json: async () => legacyV1SnapshotWithoutApprovalWorkbench
+}), "http://127.0.0.1:8765");
+assert.equal(legacyApprovalApiLoad.source, "api_snapshot");
+assert.equal(legacyApprovalApiLoad.consoleData.approvalWorkbench.queues.length, consoleData.approvals.length);
+assert.equal(legacyApprovalApiLoad.consoleData.approvalWorkbench.grants.length, consoleData.approvals.length);
+assert.equal(legacyApprovalApiLoad.consoleData.approvalWorkbench.auditTrail.length, consoleData.approvals.length);
+assert.match(legacyApprovalApiLoad.consoleData.approvalWorkbench.guardrails.join(" "), /审批队列只展示人工处置摘要/);
 
 const liveApiLoad = await loadAgentOpsSnapshot(async () => ({
   ok: true,

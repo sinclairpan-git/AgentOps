@@ -79,6 +79,15 @@ button {
   gap: 10px;
 }
 
+.view-stack > *,
+.ent-card,
+.table-wrap,
+.summary-band,
+.summary-band > *,
+.evidence-vault-metrics {
+  min-width: 0;
+}
+
 .nav-item {
   display: flex;
   align-items: center;
@@ -572,6 +581,38 @@ button {
   color: #5c6b80;
 }
 
+.boundary-list {
+  display: grid;
+  gap: 0;
+  margin-top: 12px;
+  border-top: 1px solid #e8edf5;
+}
+
+.boundary-title {
+  margin: 10px 0 0;
+  color: #52657a;
+  font-size: 13px;
+}
+
+.boundary-row {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr) minmax(180px, 0.72fr);
+  gap: 10px;
+  align-items: start;
+  padding: 10px 0;
+  border-bottom: 1px solid #e8edf5;
+  color: #5c6b80;
+}
+
+.boundary-row strong {
+  color: #243044;
+}
+
+.boundary-row span,
+.boundary-row small {
+  overflow-wrap: anywhere;
+}
+
 .ent-button {
   min-height: 34px;
   border: 1px solid #2f6fed;
@@ -652,10 +693,12 @@ button {
 }
 
 .table-wrap {
+  max-width: 100%;
   overflow-x: auto;
   border: 1px solid #dbe3ef;
   border-radius: 8px;
   background: #ffffff;
+  -webkit-overflow-scrolling: touch;
 }
 
 .data-table {
@@ -839,6 +882,20 @@ dd {
     padding: 18px;
   }
 
+  .summary-band {
+    flex-direction: column;
+  }
+
+  .evidence-vault-metrics {
+    width: 100%;
+    min-width: 0;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .evidence-vault-metrics div {
+    padding: 10px;
+  }
+
   .source-banner,
   .ops-panel {
     margin: 14px 18px 0;
@@ -863,7 +920,8 @@ dd {
 
   .detail-list div,
   .proof-panel dl div,
-  .deep-link-grid {
+  .deep-link-grid,
+  .boundary-row {
     grid-template-columns: 1fr;
   }
 }

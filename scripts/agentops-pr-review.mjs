@@ -217,6 +217,123 @@ function checkEvidenceVaultTestsAndContracts() {
   }
 }
 
+function checkApprovalWorkbenchBackend() {
+  const path = "src/agentops/api/console_snapshot.py";
+  if (!requireFile(path, "P1", "缺少后端 Approval Grant 工作台", "PR 涉及 013 人工审批与 Grant 工作台，但后端 snapshot 文件不存在，Console 无法形成可验证审批数据域。")) {
+    return;
+  }
+  const text = readText(path);
+  const required = [
+    "def _approval_workbench",
+    "\"queues\": [_approval_queue_item",
+    "\"grants\": [_approval_grant_item",
+    "\"auditTrail\": [_approval_audit_item",
+    "审批队列只展示人工处置摘要",
+    "Grant 必须绑定原始审批编号",
+    "不得作为唯一审批人",
+    "补充材料只展示摘要"
+  ];
+  for (const needle of required) {
+    if (!text.includes(needle)) {
+      addFinding("P1", path, "_approval_workbench", "Approval Grant 后端契约不完整", `后端 snapshot 必须包含 ${needle}，否则审批队列、Grant 影响和审计轨迹不可验证。`);
+    }
+  }
+  for (const forbidden of ["raw_payload", "download_url", "raw_url", "raw_access_url", "original_url"]) {
+    if (text.includes(`"${forbidden}"`) || text.includes(`'${forbidden}'`)) {
+      addFinding("P0", path, forbidden, "后端 Approval Grant 暴露了原文访问红线字段", `审批工作台不得生成 ${forbidden} 字段。只能展示审批摘要、Grant 影响和审计引用。`);
+    }
+  }
+}
+
+function checkApprovalWorkbenchFrontendValidator() {
+  const path = "apps/agentops-console/src/data/agentOpsApiClient.js";
+  if (!requireFile(path, "P1", "缺少前端快照校验器", "PR 涉及审批工作台数据域，但前端 validator 不存在，无法阻断危险快照。")) {
+    return;
+  }
+  const text = readText(path);
+  const required = [
+    "approvalWorkbenchIsComplete",
+    "legacyApprovalWorkbench",
+    "approvalRowsMatchApprovals",
+    "approvalQueueMatchesApproval",
+    "approvalGrantMatchesApproval",
+    "approvalAuditMatchesApproval",
+    "workbench.queues",
+    "workbench.grants",
+    "workbench.auditTrail",
+    "item.status === approval.status",
+    "item.grant_status === approval.grant_status",
+    "审批队列只展示人工处置摘要",
+    "不得作为唯一审批人"
+  ];
+  for (const needle of required) {
+    if (!text.includes(needle)) {
+      addFinding("P1", path, "approvalWorkbenchIsComplete", "Approval Grant 状态绑定不完整", `前端 validator 必须包含 ${needle}。否则 pending/escalated/revoked 可能被篡改成已授权态。`);
+    }
+  }
+  for (const forbidden of ["raw_payload", "download_url", "raw_url", "original_url", "raw_access_url", "pull_request_body", "pullrequestbody"]) {
+    if (!text.toLowerCase().includes(forbidden.toLowerCase())) {
+      addFinding("P1", path, "containsUnsafeAuditReference", "审批工作台危险字段拦截不完整", `validator 必须递归拒绝 ${forbidden}，以防 API 快照携带原文、下载链接或 PR 原文。`);
+    }
+  }
+}
+
+function checkApprovalWorkbenchUi() {
+  const path = "apps/agentops-console/src/views/ApprovalCenterView.js";
+  if (!requireFile(path, "P2", "缺少 Approval Center 页面", "审批中心页面不存在，用户无法看到人工审批与 Grant 工作台。")) {
+    return;
+  }
+  const text = readText(path);
+  for (const needle of ["人工审批与 Grant 工作台", "审批队列", "Grant 影响", "审批审计轨迹", "只读审批摘要", "补充材料"]) {
+    if (!text.includes(needle)) {
+      addFinding("P2", path, "人工审批与 Grant 工作台", "Approval Grant 中文界面信号不足", `页面必须展示“${needle}”，让大陆用户明确审批队列、Grant 影响、审计轨迹和只读边界。`);
+    }
+  }
+  for (const banned of ["Approval Queue", "Grant Impact", "Audit Trail", "Approve", "Reject"]) {
+    if (text.includes(banned)) {
+      addFinding("P2", path, banned, "出现非必要英文审批界面文案", `面向中国大陆用户的 UI 不应出现“${banned}”这类非固定名词英文文案。`);
+    }
+  }
+}
+
+function checkApprovalWorkbenchTestsAndContracts() {
+  const contractTest = "tests/contract/test_ao13_ct_approval_grant_workbench.py";
+  const frontendTest = "apps/agentops-console/tests/console-contract.test.mjs";
+  const specContract = "specs/013-approval-grant-workbench/contracts/approval-grant-workbench-contract.md";
+
+  for (const path of [contractTest, frontendTest, specContract]) {
+    requireFile(path, "P1", "缺少 013 契约或测试产物", `${path} 是 Approval Grant 云端 review 的必要证据，缺失会让 PR 无法证明实现满足契约。`);
+  }
+  if (fileExists(frontendTest)) {
+    const text = readText(frontendTest);
+    const requiredNegatives = [
+      "approvalWorkbench: null",
+      "queues: []",
+      "grants: []",
+      "auditTrail: []",
+      "raw_access_url",
+      "自动批准审批",
+      "legacyV1SnapshotWithoutApprovalWorkbench",
+      "grant_status: \"active\"",
+      "pendingApprovalWithActiveGrant",
+      "primary_action: \"查看审批记录\""
+    ];
+    for (const needle of requiredNegatives) {
+      if (!text.includes(needle)) {
+        addFinding("P1", frontendTest, "validateSnapshot", "审批工作台前端负例覆盖不足", `console-contract.test.mjs 必须覆盖 ${needle}，否则审批状态或 Grant 状态篡改风险不会被云端 review 捕获。`);
+      }
+    }
+  }
+  if (fileExists(contractTest)) {
+    const text = readText(contractTest);
+    for (const needle of ["pending", "escalated", "approved", "revoked", "raw_access_url", "download_url", "不得作为唯一审批人", "审批队列只展示人工处置摘要"]) {
+      if (!text.includes(needle)) {
+        addFinding("P1", contractTest, "test_ao13", "后端审批契约测试覆盖不足", `AO13 后端契约测试必须覆盖 ${needle}。`);
+      }
+    }
+  }
+}
+
 function stripSafeNegations(value) {
   return value
     .replace(/不自动批准/g, "")
@@ -285,8 +402,9 @@ function buildMarkdown(paths) {
     "审查规则：",
     "- Evidence Vault 原文访问红线：不得出现原文、下载链接、raw URL、PR 原文、diff 或代码片段。",
     "- 状态绑定红线：`permission_denied` 和 `redaction_failed` 不能被篡改为 active/approved 授权态。",
+    "- 审批 Grant 红线：`pending`、`escalated`、`revoked` 不得被篡改为有效 Grant 或已授权态。",
     "- 生命周期红线：不得自动批准、自动写回、自动下架、自动发布或自动合并。",
-    "- 前端体验红线：大陆用户界面以中文为主，Evidence Vault 必须展示申请、限时授权、审计轨迹和默认不展示原文。",
+    "- 前端体验红线：大陆用户界面以中文为主，Evidence Vault 与人工审批工作台必须展示申请、授权、审计轨迹和只读边界。",
     ""
   ];
 
@@ -358,6 +476,10 @@ async function main() {
   checkEvidenceVaultFrontendValidator();
   checkEvidenceVaultUi();
   checkEvidenceVaultTestsAndContracts();
+  checkApprovalWorkbenchBackend();
+  checkApprovalWorkbenchFrontendValidator();
+  checkApprovalWorkbenchUi();
+  checkApprovalWorkbenchTestsAndContracts();
   checkUnsafeLifecycleText(paths);
   checkWorkflowItself(paths);
 

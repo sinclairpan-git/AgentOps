@@ -47,36 +47,40 @@ specs:
   path: specs/012-console-evidence-vault-workbench
   depends_on:
   - 011-console-quality-adoption-insights
+- id: 013-approval-grant-workbench
+  path: specs/013-approval-grant-workbench
+  depends_on:
+  - 012-console-evidence-vault-workbench
 truth_snapshot:
-  generated_at: '2026-05-07T04:47:09Z'
+  generated_at: '2026-05-07T07:51:24Z'
   generated_by: ai-sdlc program truth sync
   generator_version: program_truth_snapshot_v1
-  repo_revision: 1806dee
-  authoring_hash: 31b4d6607fbcb5b996c8cfdc1a2b676f32b2d44474a6b93f31578ef3bd5ebf58
+  repo_revision: c16b176
+  authoring_hash: 2fcca6f9a04dd448b7ff445e08e294c2f222be3c2447e2f97900e1708c1bf82c
   source_hashes: {}
-  snapshot_hash: c6b64912ee4eb0ba9d1af7e963a0a302544dd2fb7b18fb33cede22bdd3fa7ede
+  snapshot_hash: 6184a5ab3c0fdc18f29e3fdf46c3bc87461c303c452f9db687697c4cdda3010a
   computed_capabilities: []
   source_inventory:
     state: complete
-    total_sources: 60
-    mapped_sources: 60
+    total_sources: 65
+    mapped_sources: 65
     unmapped_sources: 0
     missing_sources: 2
-    phase_signal_count: 87
-    deferred_signal_count: 115
-    non_goal_signal_count: 18
+    phase_signal_count: 89
+    deferred_signal_count: 118
+    non_goal_signal_count: 19
     layer_totals:
-      spec: 12
-      plan: 12
-      tasks: 12
-      execution: 12
-      close: 12
+      spec: 13
+      plan: 13
+      tasks: 13
+      execution: 13
+      close: 13
     layer_materialized:
-      spec: 12
-      plan: 12
-      tasks: 12
-      execution: 10
-      close: 12
+      spec: 13
+      plan: 13
+      tasks: 13
+      execution: 11
+      close: 13
     entries:
     - path: specs/001-agentops-trusted-loop/spec.md
       source_type: spec_doc
@@ -615,6 +619,51 @@ truth_snapshot:
       mapped: true
       exists: true
       mapping_ref: 012-console-evidence-vault-workbench
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 0
+    - path: specs/013-approval-grant-workbench/spec.md
+      source_type: spec_doc
+      truth_layer: spec
+      mapped: true
+      exists: true
+      mapping_ref: 013-approval-grant-workbench
+      phase_signal_count: 0
+      deferred_signal_count: 1
+      non_goal_signal_count: 1
+    - path: specs/013-approval-grant-workbench/plan.md
+      source_type: plan_doc
+      truth_layer: plan
+      mapped: true
+      exists: true
+      mapping_ref: 013-approval-grant-workbench
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 0
+    - path: specs/013-approval-grant-workbench/tasks.md
+      source_type: tasks_doc
+      truth_layer: tasks
+      mapped: true
+      exists: true
+      mapping_ref: 013-approval-grant-workbench
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 0
+    - path: specs/013-approval-grant-workbench/task-execution-log.md
+      source_type: execution_log
+      truth_layer: execution
+      mapped: true
+      exists: true
+      mapping_ref: 013-approval-grant-workbench
+      phase_signal_count: 2
+      deferred_signal_count: 2
+      non_goal_signal_count: 0
+    - path: specs/013-approval-grant-workbench/development-summary.md
+      source_type: development_summary
+      truth_layer: close
+      mapped: true
+      exists: true
+      mapping_ref: 013-approval-grant-workbench
       phase_signal_count: 0
       deferred_signal_count: 0
       non_goal_signal_count: 0
