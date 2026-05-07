@@ -19,7 +19,7 @@ permissions:
   issues: write
 
 concurrency:
-  group: agentops-adversarial-pr-review-${{ github.event.pull_request.number || inputs.pr_number }}
+  group: agentops-adversarial-pr-review-${{ github.event_name }}-${{ github.event.pull_request.number || inputs.pr_number }}
   cancel-in-progress: true
 
 jobs:
