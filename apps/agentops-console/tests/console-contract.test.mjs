@@ -246,6 +246,10 @@ assert.equal(
           ...consoleData.adoption.explanationChains[0],
           category: "发布前质量门禁",
           explanation: "发布前质量门禁仅展示摘要判断。"
+        }],
+        reviewSignals: [{
+          ...consoleData.adoption.reviewSignals[0],
+          reason: "执行人工复核，不触发自动生命周期动作。"
         }]
       }
     }
@@ -271,6 +275,19 @@ assert.equal(
           reason: "低置信后自动-下架"
         }]
       }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      quality: [{
+        ...consoleData.quality[0],
+        primary_action: "自动-批准"
+      }]
     }
   }),
   false

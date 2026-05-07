@@ -501,7 +501,7 @@ export function containsUnsafeLifecycleText(value) {
       .replace(/不触发自动生命周期动作/g, "")
       .replace(/不执行自动生命周期动作/g, "")
       .replace(/不写AgentStore/g, "");
-    return /自动下架|自动降推荐|写回AgentStore|自动写回|发布|合并|批准|撤销|执行/.test(redlineRemoved);
+    return /自动(?:下架|降推荐|写回|发布|合并|批准|撤销|执行)|写回AgentStore/.test(redlineRemoved);
   }
   if (Array.isArray(value)) {
     return value.some(containsUnsafeLifecycleText);
