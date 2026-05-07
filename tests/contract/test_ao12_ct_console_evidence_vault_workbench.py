@@ -50,12 +50,19 @@ def _contains_unsafe_reference(value: object) -> bool:
 
 
 def test_ao12_ct_001_snapshot_contains_evidence_vault_domain():
-    evidence_vault = build_console_snapshot(repository=_repository())["consoleData"]["evidenceVault"]
+    console_data = build_console_snapshot(repository=_repository())["consoleData"]
+    evidence_vault = console_data["evidenceVault"]
 
     assert set(evidence_vault) == {"requests", "grants", "auditTrail", "guardrails"}
     assert evidence_vault["requests"]
     assert evidence_vault["grants"]
     assert evidence_vault["auditTrail"]
+    assert len(evidence_vault["requests"]) == len(console_data["evidence"])
+    assert len(evidence_vault["grants"]) == len(console_data["evidence"])
+    assert len(evidence_vault["auditTrail"]) == len(console_data["evidence"])
+    assert {item["evidence_id"] for item in evidence_vault["requests"]} == {item["evidence_id"] for item in console_data["evidence"]}
+    assert {item["evidence_id"] for item in evidence_vault["grants"]} == {item["evidence_id"] for item in console_data["evidence"]}
+    assert {item["evidence_id"] for item in evidence_vault["auditTrail"]} == {item["evidence_id"] for item in console_data["evidence"]}
     assert "默认不展示原文" in " ".join(evidence_vault["guardrails"])
 
 

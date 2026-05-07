@@ -118,6 +118,8 @@ function checkEvidenceVaultFrontendValidator() {
   const required = [
     "evidenceVaultIsComplete",
     "const evidenceById = new Map",
+    "vaultRowsMatchEvidence",
+    "rows.length !== evidenceItems.length",
     "vaultRequestMatchesEvidence",
     "vaultGrantMatchesEvidence",
     "vaultAuditMatchesEvidence",
@@ -191,6 +193,9 @@ function checkEvidenceVaultTestsAndContracts() {
       "raw_access_state: \"degraded\"",
       "primary_action: \"等待审批\"",
       "ttl_summary: \"待补偿\"",
+      "requests: []",
+      "grants: []",
+      "auditTrail: []",
       "status: \"active\"",
       "primary_action: \"申请原文访问\""
     ];
@@ -358,7 +363,11 @@ async function main() {
   console.log(markdown);
 
   if (shouldPostComment) {
-    await postOrUpdateComment(markdown);
+    try {
+      await postOrUpdateComment(markdown);
+    } catch (error) {
+      console.warn(`PR review comment skipped: ${error.message}`);
+    }
   }
 
   const blockerCount = findings.filter((finding) => ["P0", "P1"].includes(finding.priority)).length;

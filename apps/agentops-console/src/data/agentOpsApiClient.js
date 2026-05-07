@@ -390,7 +390,16 @@ export function evidenceVaultIsComplete(consoleData) {
   if (!keysAreExactly(evidenceVault, ["requests", "grants", "auditTrail", "guardrails"])) {
     return false;
   }
-  const evidenceById = new Map((consoleData.evidence || []).map((item) => [item.evidence_id, item]));
+  const evidenceItems = consoleData.evidence || [];
+  const evidenceById = new Map(evidenceItems.map((item) => [item.evidence_id, item]));
+  if (
+    evidenceById.size !== evidenceItems.length ||
+    !vaultRowsMatchEvidence(evidenceItems, evidenceVault.requests) ||
+    !vaultRowsMatchEvidence(evidenceItems, evidenceVault.grants) ||
+    !vaultRowsMatchEvidence(evidenceItems, evidenceVault.auditTrail)
+  ) {
+    return false;
+  }
 
   const requestsOk = evidenceVault.requests.every((request) =>
     keysAreExactly(request, [
@@ -464,6 +473,17 @@ export function evidenceVaultIsComplete(consoleData) {
     evidenceVault.guardrails.every((item) => typeof item === "string" && item) &&
     /默认不展示原文/.test(guardrailsText) &&
     !containsUnsafeLifecycleText(guardrailsText);
+}
+
+function vaultRowsMatchEvidence(evidenceItems, rows) {
+  if (!Array.isArray(rows) || rows.length !== evidenceItems.length) {
+    return false;
+  }
+  const evidenceIds = new Set(evidenceItems.map((item) => item.evidence_id));
+  const rowIds = new Set(rows.map((item) => item.evidence_id));
+  return rowIds.size === rows.length &&
+    evidenceIds.size === evidenceItems.length &&
+    evidenceItems.every((item) => rowIds.has(item.evidence_id));
 }
 
 function vaultRequestMatchesEvidence(request, evidence) {

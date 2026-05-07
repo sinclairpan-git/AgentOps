@@ -162,6 +162,8 @@ def test_adversarial_pr_review_script_enforces_agentops_redlines() -> None:
 
     assert "permission_denied" in script
     assert "redaction_failed" in script
+    assert "vaultRowsMatchEvidence" in script
+    assert "rows.length !== evidenceItems.length" in script
     assert "grant.status === \\\"active\\\"" in script
     assert "raw_payload" in script
     assert "download_url" in script
@@ -169,4 +171,5 @@ def test_adversarial_pr_review_script_enforces_agentops_redlines() -> None:
     assert "自动批准" in script
     assert "自动写回" in script
     assert "AgentOps 云端对抗 Review" in script
+    assert "PR review comment skipped" in script
     assert "process.exit(1)" in script

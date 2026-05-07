@@ -246,6 +246,13 @@ const legacyV1SnapshotWithoutEvidenceVault = {
 delete legacyV1SnapshotWithoutEvidenceVault.consoleData.evidenceVault;
 assert.equal(
   validateSnapshot(legacyV1SnapshotWithoutEvidenceVault),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...legacyV1SnapshotWithoutEvidenceVault,
+    consoleData: { ...legacyV1SnapshotWithoutEvidenceVault.consoleData, evidence: [] }
+  }),
   true
 );
 assert.equal(
@@ -281,6 +288,21 @@ assert.equal(
   validateSnapshot({
     ...validApiSnapshot,
     consoleData: { ...consoleData, evidenceVault: null }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      evidenceVault: {
+        ...consoleData.evidenceVault,
+        requests: [],
+        grants: [],
+        auditTrail: []
+      }
+    }
   }),
   false
 );
@@ -1007,8 +1029,8 @@ const legacyVaultApiLoad = await loadAgentOpsSnapshot(async () => ({
   ok: true,
   json: async () => legacyV1SnapshotWithoutEvidenceVault
 }), "http://127.0.0.1:8765");
-assert.equal(legacyVaultApiLoad.source, "api_snapshot");
-assert.equal(legacyVaultApiLoad.consoleData.evidenceVault.requests.length, 0);
+assert.equal(legacyVaultApiLoad.source, "mock_fallback");
+assert.equal(legacyVaultApiLoad.sourceState.status, "degraded");
 assert.match(legacyVaultApiLoad.consoleData.evidenceVault.guardrails.join(" "), /默认不展示原文/);
 
 const liveApiLoad = await loadAgentOpsSnapshot(async () => ({
