@@ -7,6 +7,7 @@ export const routes = [
   { id: "quality", label: "质量中心", icon: "质" },
   { id: "risks", label: "风险处置", icon: "△" },
   { id: "agent-store-audit", label: "Agent Store 审计", icon: "AS" },
+  { id: "credential-handoff", label: "凭证联调", icon: "凭" },
   { id: "connectors", label: "连接器状态", icon: "∞" },
   { id: "sdlc-runs", label: "Ai_AutoSDLC 运行", icon: "SD" }
 ];
@@ -74,6 +75,31 @@ export const consoleData = {
     ],
     registryMap: [
       { id: "agent.publisher@1.0.0", agent_id: "agent.publisher", version: "1.0.0", metadata_state: "consumed", fact_owner: "Agent Store", skill_count: 2, synced_at: "2026-05-05T18:48:00-07:00" }
+    ]
+  },
+  credentialHandoff: {
+    summary: {
+      id: "credential_handoff_summary",
+      schema_version: "agentops_credential_status.v1",
+      bootstrap_count: 2,
+      credential_issued: 1,
+      signature_verified: 1,
+      agentops_fact_owner: "agentops",
+      agent_store_boundary: "display_only_no_active_inference",
+      verified_loaded: "not_asserted",
+      l5_status: "not_asserted",
+      primary_action: "展示 AgentOps 回显结果",
+      safety_note: "凭证联调只展示 AgentOps 事实回显，不把 credential 或签名测试事件提升为 verified_loaded 或 L5。"
+    },
+    sessions: [
+      { id: "credential_handoff_boot_inst_fixture", schema_version: "agentops_credential_status.v1", bootstrap_id: "boot-inst-fixture", bootstrap_status: "credential_issued", credential_status: "active", credential_id: "cred-inst-fixture", token_id: "已隐藏", device_key_id: "store-device-key-1", installation_id: "inst-fixture", device_id: "device-fixture", expires_at: "2026-05-07T15:00:00Z", next_action: "send_signature_test_event", signature_test_event_id: "待接收", agentops_fact_owner: "agentops", agent_store_consumer_boundary: "display_only_no_active_inference", allowed_actions: "display_status,show_next_action", forbidden_actions: "infer_active,issue_credential,issue_ingestion_token,issue_device_key", verified_loaded: "not_asserted", l5_status: "not_asserted", display_scope: "只读回显，不包含 token 值、token_id 明文、私钥或原始载荷。" },
+      { id: "credential_handoff_boot_inst_verified", schema_version: "agentops_credential_status.v1", bootstrap_id: "boot-inst-verified", bootstrap_status: "signature_verified", credential_status: "active", credential_id: "cred-inst-verified", token_id: "已隐藏", device_key_id: "store-device-key-2", installation_id: "inst-verified", device_id: "device-verified", expires_at: "2026-05-07T15:00:00Z", next_action: "display_activation_result", signature_test_event_id: "evt_signature_test_verified", agentops_fact_owner: "agentops", agent_store_consumer_boundary: "display_only_no_active_inference", allowed_actions: "display_status,show_next_action", forbidden_actions: "infer_active,issue_credential,issue_ingestion_token,issue_device_key", verified_loaded: "not_asserted", l5_status: "not_asserted", display_scope: "只读回显，不包含 token 值、token_id 明文、私钥或原始载荷。" }
+    ],
+    guardrails: [
+      "Agent Store 只能消费 bootstrap_status、next_action、installation_id 和 device_id 等回显字段。",
+      "Agent Store 不得本地推导 active，不得签发 ReporterCredential、IngestionToken 或 DeviceKey。",
+      "signature_verified 只表示签名测试事件通过，不构成 verified_loaded 或 L5。",
+      "控制台不展示 token 值、私钥、原始载荷、下载链接、PR 原文或外部 URL。"
     ]
   },
   operationCenter: {

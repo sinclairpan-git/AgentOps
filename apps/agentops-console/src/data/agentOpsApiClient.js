@@ -37,7 +37,11 @@ const allowedStates = new Set([
   "registered",
   "unregistered",
   "normal",
-  "warning"
+  "warning",
+  "credential_issued",
+  "signature_verified",
+  "not_asserted",
+  "authenticated"
 ]);
 
 const requiredRouteIds = [
@@ -49,6 +53,7 @@ const requiredRouteIds = [
   "quality",
   "risks",
   "agent-store-audit",
+  "credential-handoff",
   "connectors",
   "sdlc-runs"
 ];
@@ -124,6 +129,7 @@ export function validateSnapshot(snapshot) {
     "quality",
     "risks",
     "agentStore",
+    "credentialHandoff",
     "operationCenter",
     "evidenceVault",
     "approvalWorkbench",
@@ -154,6 +160,9 @@ export function validateSnapshot(snapshot) {
   if (!sdlcRunWorkbenchIsComplete(consoleData)) {
     return false;
   }
+  if (!credentialHandoffIsSafe(consoleData)) {
+    return false;
+  }
   if (!adoptionInsightsAreComplete(consoleData)) {
     return false;
   }
@@ -161,6 +170,9 @@ export function validateSnapshot(snapshot) {
     return false;
   }
   if (containsForbiddenKey(snapshot, "raw_payload")) {
+    return false;
+  }
+  if (containsForbiddenCredentialMaterial(snapshot)) {
     return false;
   }
   return statesAreKnown(consoleData) &&
@@ -197,11 +209,45 @@ function consoleDataWithWorkbenchDefaults(consoleData) {
       connectorWorkbench: legacyConnectorWorkbench(withApprovalWorkbench.connectors)
     };
   if (Object.prototype.hasOwnProperty.call(withConnectorWorkbench, "sdlcRunWorkbench")) {
-    return withConnectorWorkbench;
+    return credentialHandoffDefaulted(withConnectorWorkbench);
   }
-  return {
+  return credentialHandoffDefaulted({
     ...withConnectorWorkbench,
     sdlcRunWorkbench: legacySdlcRunWorkbench(withConnectorWorkbench)
+  });
+}
+
+function credentialHandoffDefaulted(consoleData) {
+  if (Object.prototype.hasOwnProperty.call(consoleData, "credentialHandoff")) {
+    return consoleData;
+  }
+  return {
+    ...consoleData,
+    credentialHandoff: emptyCredentialHandoff()
+  };
+}
+
+function emptyCredentialHandoff() {
+  return {
+    summary: {
+      id: "legacy_credential_handoff_summary",
+      schema_version: "agentops_credential_status.v1",
+      bootstrap_count: 0,
+      credential_issued: 0,
+      signature_verified: 0,
+      agentops_fact_owner: "agentops",
+      agent_store_boundary: "display_only_no_active_inference",
+      verified_loaded: "not_asserted",
+      l5_status: "not_asserted",
+      primary_action: "等待凭证联调记录",
+      safety_note: "旧版快照未提供凭证联调工作台，前端仅展示安全空态。"
+    },
+    sessions: [],
+    guardrails: [
+      "Agent Store 只能消费 AgentOps 回显字段，不得本地推导 active。",
+      "signature_verified 只表示签名测试事件通过，不构成 verified_loaded 或 L5。",
+      "控制台不展示 token 值、私钥、原始载荷、下载链接、PR 原文或外部 URL。"
+    ]
   };
 }
 
@@ -1035,6 +1081,7 @@ export function snapshotShapeIsSafe(consoleData) {
     "quality",
     "risks",
     "agentStore",
+    "credentialHandoff",
     "operationCenter",
     "approvalWorkbench",
     "connectorWorkbench",
@@ -1050,6 +1097,9 @@ export function snapshotShapeIsSafe(consoleData) {
         Array.isArray(consoleData.agentStore.runAudits) &&
         Array.isArray(consoleData.agentStore.storeSummaries) &&
         Array.isArray(consoleData.agentStore.registryMap);
+    }
+    if (key === "credentialHandoff") {
+      return consoleDataHasCredentialHandoffShape(consoleData);
     }
     if (key === "operationCenter") {
       return isRecord(consoleData.operationCenter) &&
@@ -1079,7 +1129,17 @@ export function snapshotShapeIsSafe(consoleData) {
     consoleDataHasAdoptionShape(consoleData) &&
     consoleDataHasEvidenceVaultShape(consoleData) &&
     consoleDataHasConnectorWorkbenchShape(consoleData) &&
-    consoleDataHasSdlcRunWorkbenchShape(consoleData);
+    consoleDataHasSdlcRunWorkbenchShape(consoleData) &&
+    consoleDataHasCredentialHandoffShape(consoleData);
+}
+
+function consoleDataHasCredentialHandoffShape(consoleData) {
+  if (!isRecord(consoleData.credentialHandoff)) {
+    return false;
+  }
+  return isRecord(consoleData.credentialHandoff.summary) &&
+    Array.isArray(consoleData.credentialHandoff.sessions) &&
+    Array.isArray(consoleData.credentialHandoff.guardrails);
 }
 
 function isRecord(value) {
@@ -1103,6 +1163,19 @@ export function containsForbiddenKey(value, forbiddenKey) {
       Object.values(value).some((item) => containsForbiddenKey(item, forbiddenKey));
   }
   return false;
+}
+
+function containsForbiddenCredentialMaterial(value) {
+  return [
+    "token_value",
+    "private_key",
+    "raw_url",
+    "download_url",
+    "raw_payload",
+    "assertion_signature",
+    "device_signature",
+    "signature"
+  ].some((key) => containsForbiddenKey(value, key));
 }
 
 export function statesAreKnown(consoleData) {
@@ -1152,6 +1225,14 @@ export function statesAreKnown(consoleData) {
       item.verification_fresh,
       item.outbox_delivered
     ]),
+    consoleData.credentialHandoff?.summary?.verified_loaded,
+    consoleData.credentialHandoff?.summary?.l5_status,
+    ...(consoleData.credentialHandoff?.sessions || []).flatMap((item) => [
+      item.bootstrap_status,
+      item.credential_status,
+      item.verified_loaded,
+      item.l5_status
+    ]),
     ...(consoleData.agentStore?.discoveryGaps || []).map((item) => item.state),
     ...(consoleData.agentStore?.runAudits || []).flatMap((item) => [item.registration_state, item.raw_access_state]),
     ...(consoleData.agentStore?.storeSummaries || []).flatMap((item) => [item.metadata_state, item.risk_state]),
@@ -1176,6 +1257,45 @@ export function operationActionsResolve(consoleData) {
     ...(consoleData.operationCenter?.searchIndex || [])
   ];
   return operationItems.every((item) => !item.action_id || detailIds.has(item.action_id));
+}
+
+export function credentialHandoffIsSafe(consoleData) {
+  const workbench = consoleData.credentialHandoff;
+  if (!consoleDataHasCredentialHandoffShape(consoleData) || containsUnsafeAuditReference(workbench)) {
+    return false;
+  }
+  const summary = workbench.summary;
+  const sessions = workbench.sessions;
+  if (
+    summary.schema_version !== "agentops_credential_status.v1" ||
+    summary.agentops_fact_owner !== "agentops" ||
+    summary.agent_store_boundary !== "display_only_no_active_inference" ||
+    summary.verified_loaded !== "not_asserted" ||
+    summary.l5_status !== "not_asserted"
+  ) {
+    return false;
+  }
+  const issued = sessions.filter((item) => item.bootstrap_status === "credential_issued").length;
+  const verified = sessions.filter((item) => item.bootstrap_status === "signature_verified").length;
+  if (summary.bootstrap_count !== sessions.length || summary.credential_issued !== issued || summary.signature_verified !== verified) {
+    return false;
+  }
+  const guardrailsText = workbench.guardrails.join(" ");
+  if (!/不得本地推导 active/.test(guardrailsText) || !/不构成 verified_loaded 或 L5/.test(guardrailsText)) {
+    return false;
+  }
+  return sessions.every((item) =>
+    item.schema_version === "agentops_credential_status.v1" &&
+    item.agentops_fact_owner === "agentops" &&
+    item.agent_store_consumer_boundary === "display_only_no_active_inference" &&
+    item.allowed_actions === "display_status,show_next_action" &&
+    item.forbidden_actions === "infer_active,issue_credential,issue_ingestion_token,issue_device_key" &&
+    item.token_id === "已隐藏" &&
+    item.verified_loaded === "not_asserted" &&
+    item.l5_status === "not_asserted" &&
+    /只读回显/.test(item.display_scope || "") &&
+    !containsUnsafeLifecycleText(`${item.next_action || ""} ${item.display_scope || ""}`)
+  );
 }
 
 export function actionDetailsAreComplete(consoleData) {

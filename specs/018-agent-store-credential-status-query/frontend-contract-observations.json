@@ -1,0 +1,33 @@
+{
+  "schema_version": "frontend-contract-observations/v1",
+  "provenance": {
+    "provider_kind": "static_contract_test",
+    "provider_name": "codex",
+    "provider_version": "018",
+    "source_ref": "tests/contract/test_ao18_ct_agent_store_credential_status.py"
+  },
+  "freshness": {
+    "generated_at": "2026-05-07T15:20:00Z",
+    "source_digest": null,
+    "source_revision": null
+  },
+  "observations": [
+    {
+      "page_id": "credential-status-query",
+      "recipe_id": "agentops-credential-status-v1",
+      "i18n_keys": [
+        "凭证状态查询为 Agent Store 消费端联调使用的后端契约"
+      ],
+      "validation_fields": [
+        "schema_version",
+        "bootstrap_status",
+        "next_action",
+        "installation_id",
+        "device_id",
+        "verified_loaded",
+        "l5_status"
+      ],
+      "new_legacy_usages": []
+    }
+  ]
+}

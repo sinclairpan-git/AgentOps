@@ -1,0 +1,8 @@
+schema_version: frontend-generation-manifest/v1
+owner: AgentOps
+artifacts:
+  - hard-rules.yaml
+  - token-rules.yaml
+  - policy.yaml
+verification:
+  static_contract_test: apps/agentops-console/tests/console-contract.test.mjs

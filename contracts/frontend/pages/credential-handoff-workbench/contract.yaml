@@ -1,0 +1,31 @@
+schema_version: frontend-page-contract/v1
+page_id: credential-handoff-workbench
+feature_id: 019-console-credential-handoff-workbench
+title: 凭证联调
+locale: zh-CN
+routes:
+  - credential-handoff
+implementation:
+  source_files:
+    - apps/agentops-console/src/views/CredentialHandoffView.js
+    - apps/agentops-console/src/data/agentOpsApiClient.js
+    - apps/agentops-console/src/data/mockAgentOpsData.js
+required_text:
+  - 凭证联调
+  - 凭证状态回显
+  - 签名测试通过
+  - 不得本地推导 active
+  - 不构成 verified_loaded 或 L5
+data_contract:
+  required_domain: consoleData.credentialHandoff
+  required_collections:
+    - summary
+    - sessions
+    - guardrails
+redlines:
+  - Agent Store 不得本地推导 active
+  - signature_verified 不构成 verified_loaded 或 L5
+  - 不展示 token 值、私钥、原始载荷、下载链接或 raw URL
+verification:
+  static_contract_test: apps/agentops-console/tests/console-contract.test.mjs
+  backend_contract_test: tests/contract/test_ao19_ct_console_credential_handoff_workbench.py

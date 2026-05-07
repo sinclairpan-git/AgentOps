@@ -1,0 +1,12 @@
+schema_version: frontend-page-metadata/v1
+page_id: credential-status-query
+feature_id: 018-agent-store-credential-status-query
+route_id: credential-handoff
+title: 凭证状态查询
+owner: AgentOps Console
+locale: zh-CN
+source_files:
+  - src/agentops/api/credentials.py
+  - src/agentops/api/server.py
+tests:
+  - tests/contract/test_ao18_ct_agent_store_credential_status.py

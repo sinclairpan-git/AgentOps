@@ -1,0 +1,15 @@
+schema_version: frontend-page-metadata/v1
+page_id: credential-handoff-workbench
+feature_id: 019-console-credential-handoff-workbench
+route_id: credential-handoff
+title: 凭证联调
+owner: AgentOps Console
+locale: zh-CN
+source_files:
+  - apps/agentops-console/src/views/CredentialHandoffView.js
+  - apps/agentops-console/src/data/agentOpsApiClient.js
+  - apps/agentops-console/src/data/mockAgentOpsData.js
+  - apps/agentops-console/src/styles.css
+tests:
+  - apps/agentops-console/tests/console-contract.test.mjs
+  - tests/contract/test_ao19_ct_console_credential_handoff_workbench.py

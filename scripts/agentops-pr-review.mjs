@@ -759,6 +759,75 @@ function checkAgentStoreCredentialStatusQuery() {
   }
 }
 
+function checkConsoleCredentialHandoffWorkbench() {
+  const backend = "src/agentops/api/console_snapshot.py";
+  const view = "apps/agentops-console/src/views/CredentialHandoffView.js";
+  const app = "apps/agentops-console/src/App.js";
+  const validator = "apps/agentops-console/src/data/agentOpsApiClient.js";
+  const contractTest = "tests/contract/test_ao19_ct_console_credential_handoff_workbench.py";
+  const spec = "specs/019-console-credential-handoff-workbench/spec.md";
+  for (const path of [backend, view, app, validator, contractTest, spec]) {
+    requireFile(path, "P1", "缺少 Console credential handoff 工作台契约", `${path} 是 AgentOps 019 凭证联调控制台工作台的必要证据。`);
+  }
+  if (fileExists(backend)) {
+    const text = readText(backend);
+    for (const needle of [
+      "\"credential-handoff\"",
+      "\"credentialHandoff\"",
+      "def _credential_handoff_workbench",
+      "agentops_credential_status.v1",
+      "display_only_no_active_inference",
+      "not_asserted",
+      "不把 credential 或签名测试事件提升为 verified_loaded 或 L5"
+    ]) {
+      if (!text.includes(needle)) {
+        addFinding("P1", backend, "_credential_handoff_workbench", "后端 credential handoff 工作台不完整", `Console snapshot 必须包含 ${needle}。`);
+      }
+    }
+  }
+  if (fileExists(view)) {
+    const text = readText(view);
+    for (const needle of ["凭证联调", "凭证状态回显", "签名测试通过", "Agent Store 只消费展示字段", "不得本地推导 active"]) {
+      if (!text.includes(needle)) {
+        addFinding("P2", view, "凭证联调", "凭证联调中文界面信号不足", `页面必须展示“${needle}”，让大陆用户理解 AgentOps/Agent Store 边界。`);
+      }
+    }
+  }
+  if (fileExists(app) && !readText(app).includes("CredentialHandoffView")) {
+    addFinding("P1", app, "views", "凭证联调页面未接入路由", "App.js 必须接入 CredentialHandoffView。");
+  }
+  if (fileExists(validator)) {
+    const text = readText(validator);
+    for (const needle of [
+      "credentialHandoffIsSafe",
+      "containsForbiddenCredentialMaterial",
+      "display_only_no_active_inference",
+      "not_asserted",
+      "不得本地推导 active",
+      "不构成 verified_loaded 或 L5"
+    ]) {
+      if (!text.includes(needle)) {
+        addFinding("P1", validator, "credentialHandoffIsSafe", "前端 credential handoff validator 不完整", `validator 必须包含 ${needle}，否则危险快照可能绕过前端。`);
+      }
+    }
+  }
+  if (fileExists(contractTest)) {
+    const text = readText(contractTest);
+    for (const needle of [
+      "test_ao19_ct_001_console_declares_credential_handoff_route_and_shape",
+      "test_ao19_ct_002_repository_snapshot_shows_agentops_status_without_store_inference",
+      "test_ao19_ct_003_signature_verified_is_display_result_not_verified_loaded",
+      "test_ao19_ct_004_credential_workbench_has_no_secret_or_raw_material",
+      "token_value",
+      "private_key"
+    ]) {
+      if (!text.includes(needle)) {
+        addFinding("P1", contractTest, "test_ao19", "AO19 凭证联调契约测试覆盖不足", `AO19 测试必须覆盖 ${needle}。`);
+      }
+    }
+  }
+}
+
 function stripSafeNegations(value) {
   return value
     .replace(/不自动批准/g, "")
@@ -918,6 +987,7 @@ async function main() {
   checkCrossProjectCredentialHandoff();
   checkSignedTestEventActivation();
   checkAgentStoreCredentialStatusQuery();
+  checkConsoleCredentialHandoffWorkbench();
   checkUnsafeLifecycleText(paths);
   checkWorkflowItself(paths);
 

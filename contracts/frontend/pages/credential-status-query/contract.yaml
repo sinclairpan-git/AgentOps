@@ -1,0 +1,30 @@
+schema_version: frontend-page-contract/v1
+page_id: credential-status-query
+feature_id: 018-agent-store-credential-status-query
+title: 凭证状态查询
+locale: zh-CN
+routes:
+  - credential-handoff
+implementation:
+  source_files:
+    - src/agentops/api/credentials.py
+    - src/agentops/api/server.py
+    - specs/001-agentops-trusted-loop/contracts/agentops-api.openapi.yaml
+required_text:
+  - 凭证状态查询为 Agent Store 消费端联调使用的后端契约
+data_contract:
+  required_domain: agentops_credential_status.v1
+  required_collections:
+    - bootstrap_status
+    - next_action
+    - installation_id
+    - device_id
+    - verified_loaded
+    - l5_status
+redlines:
+  - Agent Store 不得本地推导 active
+  - verified_loaded 必须保持 not_asserted
+  - 不展示 token 值、私钥、原始载荷或下载链接
+verification:
+  backend_contract_test: tests/contract/test_ao18_ct_agent_store_credential_status.py
+  static_contract_test: apps/agentops-console/tests/console-contract.test.mjs

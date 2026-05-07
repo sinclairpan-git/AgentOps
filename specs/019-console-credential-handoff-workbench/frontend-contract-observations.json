@@ -1,0 +1,35 @@
+{
+  "schema_version": "frontend-contract-observations/v1",
+  "provenance": {
+    "provider_kind": "static_contract_test",
+    "provider_name": "codex",
+    "provider_version": "019",
+    "source_ref": "apps/agentops-console/tests/console-contract.test.mjs"
+  },
+  "freshness": {
+    "generated_at": "2026-05-07T15:20:00Z",
+    "source_digest": null,
+    "source_revision": null
+  },
+  "observations": [
+    {
+      "page_id": "credential-handoff-workbench",
+      "recipe_id": "credential-handoff-workbench-v1",
+      "i18n_keys": [
+        "凭证联调",
+        "凭证状态回显",
+        "签名测试通过",
+        "不得本地推导 active",
+        "不构成 verified_loaded 或 L5"
+      ],
+      "validation_fields": [
+        "consoleData.credentialHandoff.summary",
+        "consoleData.credentialHandoff.sessions",
+        "consoleData.credentialHandoff.guardrails",
+        "agentops_credential_status.v1",
+        "display_only_no_active_inference"
+      ],
+      "new_legacy_usages": []
+    }
+  ]
+}
