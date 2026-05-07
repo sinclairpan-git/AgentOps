@@ -75,36 +75,40 @@ specs:
   path: specs/019-console-credential-handoff-workbench
   depends_on:
   - 018-agent-store-credential-status-query
+- id: 020-credential-revocation-propagation
+  path: specs/020-credential-revocation-propagation
+  depends_on:
+  - 019-console-credential-handoff-workbench
 truth_snapshot:
-  generated_at: '2026-05-07T15:36:34Z'
+  generated_at: '2026-05-07T16:06:26Z'
   generated_by: ai-sdlc program truth sync
   generator_version: program_truth_snapshot_v1
-  repo_revision: 05a71ad
-  authoring_hash: c37bdaf7b416a585eaa5c173e5dc2bf49ea8ade5dcec0ab313464699802dba2c
+  repo_revision: ab665f1
+  authoring_hash: 089eb744e784e81d1c9229385e74031f4b0cdd2264c807c397fa41b9efa1dad5
   source_hashes: {}
-  snapshot_hash: b4ab14e755c76d190dd5cb781f137007f969dc4dead883b2d4b5ca0a61ffbb43
+  snapshot_hash: cd8fe74c91c0a8b200c64735b87efbb6ed2592e91f7628c5a88e234f3973ab60
   computed_capabilities: []
   source_inventory:
     state: complete
-    total_sources: 95
-    mapped_sources: 95
+    total_sources: 100
+    mapped_sources: 100
     unmapped_sources: 0
     missing_sources: 2
-    phase_signal_count: 106
-    deferred_signal_count: 136
-    non_goal_signal_count: 25
+    phase_signal_count: 108
+    deferred_signal_count: 139
+    non_goal_signal_count: 26
     layer_totals:
-      spec: 19
-      plan: 19
-      tasks: 19
-      execution: 19
-      close: 19
+      spec: 20
+      plan: 20
+      tasks: 20
+      execution: 20
+      close: 20
     layer_materialized:
-      spec: 19
-      plan: 19
-      tasks: 19
-      execution: 17
-      close: 19
+      spec: 20
+      plan: 20
+      tasks: 20
+      execution: 18
+      close: 20
     entries:
     - path: specs/001-agentops-trusted-loop/spec.md
       source_type: spec_doc
@@ -960,6 +964,51 @@ truth_snapshot:
       mapping_ref: 019-console-credential-handoff-workbench
       phase_signal_count: 0
       deferred_signal_count: 0
+      non_goal_signal_count: 0
+    - path: specs/020-credential-revocation-propagation/spec.md
+      source_type: spec_doc
+      truth_layer: spec
+      mapped: true
+      exists: true
+      mapping_ref: 020-credential-revocation-propagation
+      phase_signal_count: 0
+      deferred_signal_count: 1
+      non_goal_signal_count: 1
+    - path: specs/020-credential-revocation-propagation/plan.md
+      source_type: plan_doc
+      truth_layer: plan
+      mapped: true
+      exists: true
+      mapping_ref: 020-credential-revocation-propagation
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 0
+    - path: specs/020-credential-revocation-propagation/tasks.md
+      source_type: tasks_doc
+      truth_layer: tasks
+      mapped: true
+      exists: true
+      mapping_ref: 020-credential-revocation-propagation
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 0
+    - path: specs/020-credential-revocation-propagation/task-execution-log.md
+      source_type: execution_log
+      truth_layer: execution
+      mapped: true
+      exists: true
+      mapping_ref: 020-credential-revocation-propagation
+      phase_signal_count: 1
+      deferred_signal_count: 1
+      non_goal_signal_count: 0
+    - path: specs/020-credential-revocation-propagation/development-summary.md
+      source_type: development_summary
+      truth_layer: close
+      mapped: true
+      exists: true
+      mapping_ref: 020-credential-revocation-propagation
+      phase_signal_count: 1
+      deferred_signal_count: 1
       non_goal_signal_count: 0
     unmapped_paths: []
   state: ready

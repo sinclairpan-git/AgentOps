@@ -828,6 +828,109 @@ function checkConsoleCredentialHandoffWorkbench() {
   }
 }
 
+function checkCredentialRevocationPropagation() {
+  const credentialsApi = "src/agentops/api/credentials.py";
+  const ingestionApi = "src/agentops/api/ingestion.py";
+  const repository = "src/agentops/storage/repository.py";
+  const server = "src/agentops/api/server.py";
+  const validator = "apps/agentops-console/src/data/agentOpsApiClient.js";
+  const view = "apps/agentops-console/src/views/CredentialHandoffView.js";
+  const contractTest = "tests/contract/test_ao20_ct_credential_revocation_propagation.py";
+  const spec = "specs/020-credential-revocation-propagation/spec.md";
+  const openapi = "specs/001-agentops-trusted-loop/contracts/agentops-api.openapi.yaml";
+  for (const path of [credentialsApi, ingestionApi, repository, server, validator, view, contractTest, spec, openapi]) {
+    requireFile(path, "P1", "缺少 credential revocation propagation 契约", `${path} 是 AgentOps 020 凭证撤销传播的必要证据。`);
+  }
+  if (fileExists(credentialsApi)) {
+    const text = readText(credentialsApi);
+    for (const needle of [
+      "agentops_credential_revocation.v1",
+      "revoke_credentials",
+      "reissue_credential",
+      "CREDENTIAL_REVOCATION_SCHEMA_UNSUPPORTED",
+      "display_only_no_active_inference",
+      "not_asserted"
+    ]) {
+      if (!text.includes(needle)) {
+        addFinding("P1", credentialsApi, "revoke_credentials", "凭证撤销 API 契约不完整", `credentials API 必须包含 ${needle}。`);
+      }
+    }
+  }
+  if (fileExists(repository)) {
+    const text = readText(repository);
+    for (const needle of [
+      "def revoke_credentials",
+      "def validate_known_revocation_state",
+      "EVENT_CREDENTIAL_REVOKED",
+      "bootstrap_status",
+      "revoked",
+      "revocation_scope"
+    ]) {
+      if (!text.includes(needle)) {
+        addFinding("P1", repository, "revoke_credentials", "仓储撤销状态传播不完整", `repository 必须包含 ${needle}，否则 revoked 可能继续接入事件。`);
+      }
+    }
+  }
+  if (fileExists(ingestionApi) && !readText(ingestionApi).includes("validate_known_revocation_state")) {
+    addFinding("P1", ingestionApi, "validate_event_envelope", "事件接入未检查撤销状态", "企业事件接入必须在写入前检查已知 revoked 凭证或身份。");
+  }
+  if (fileExists(server) && (!readText(server).includes("/v1/bootstrap/credentials/") || !readText(server).includes("/revoke"))) {
+    addFinding("P1", server, "do_POST", "HTTP 撤销路由缺失", "server.py 必须暴露 POST /v1/bootstrap/credentials/{bootstrap_id}/revoke。");
+  }
+  if (fileExists(validator)) {
+    const text = readText(validator);
+    for (const needle of [
+      "revocationFieldsMatchStatus",
+      "reissue_credential",
+      "revoked 必须阻断后续签名测试和企业事件接入",
+      "summary.revoked"
+    ]) {
+      if (!text.includes(needle)) {
+        addFinding("P1", validator, "credentialHandoffIsSafe", "前端撤销态 validator 不完整", `validator 必须包含 ${needle}，否则 revoked 行可能被篡改成 active 展示。`);
+      }
+    }
+  }
+  if (fileExists(view)) {
+    const text = readText(view);
+    for (const needle of ["已撤销", "重新签发凭证", "撤销原因", "撤销范围"]) {
+      if (!text.includes(needle)) {
+        addFinding("P2", view, "凭证联调", "撤销态中文界面信号不足", `页面必须展示“${needle}”，让运维人员明确撤销和重新签发边界。`);
+      }
+    }
+  }
+  if (fileExists(contractTest)) {
+    const text = readText(contractTest);
+    for (const needle of [
+      "test_ao20_ct_001_revoke_credentials_updates_agentops_status",
+      "test_ao20_ct_002_revoked_signature_test_event_is_rejected",
+      "test_ao20_ct_003_revoked_known_enterprise_event_is_rejected",
+      "test_ao20_ct_004_unknown_revocation_schema_is_rejected",
+      "test_ao20_ct_005_http_revoke_route_returns_json_and_cors",
+      "test_ao20_ct_006_revocation_not_found_returns_stable_error",
+      "EVENT_CREDENTIAL_REVOKED",
+      "CREDENTIAL_REVOCATION_SCHEMA_UNSUPPORTED"
+    ]) {
+      if (!text.includes(needle)) {
+        addFinding("P1", contractTest, "test_ao20", "AO20 撤销传播契约测试覆盖不足", `AO20 测试必须覆盖 ${needle}。`);
+      }
+    }
+  }
+  if (fileExists(openapi)) {
+    const text = readText(openapi);
+    for (const needle of [
+      "/v1/bootstrap/credentials/{bootstrap_id}/revoke",
+      "CredentialRevocationRequest",
+      "CredentialRevocationResponse",
+      "agentops_credential_revocation.v1",
+      "reissue_credential"
+    ]) {
+      if (!text.includes(needle)) {
+        addFinding("P1", openapi, "CredentialRevocation", "OpenAPI 未声明撤销契约", `OpenAPI 必须包含 ${needle}。`);
+      }
+    }
+  }
+}
+
 function stripSafeNegations(value) {
   return value
     .replace(/不自动批准/g, "")
@@ -988,6 +1091,7 @@ async function main() {
   checkSignedTestEventActivation();
   checkAgentStoreCredentialStatusQuery();
   checkConsoleCredentialHandoffWorkbench();
+  checkCredentialRevocationPropagation();
   checkUnsafeLifecycleText(paths);
   checkWorkflowItself(paths);
 

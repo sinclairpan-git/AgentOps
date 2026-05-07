@@ -11,6 +11,11 @@ steps:
     expected:
       - 页面展示“不得本地推导 active”。
       - 页面展示“不构成 verified_loaded 或 L5”。
+  - id: inspect-revocation
+    description: 查看撤销后的凭证联调状态。
+    expected:
+      - 页面展示“已撤销”“重新签发凭证”和“撤销原因”。
+      - 已撤销行只能展示重新签发建议。
   - id: validate-secret-redlines
     description: 检查敏感材料红线。
     expected:

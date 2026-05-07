@@ -1,0 +1,36 @@
+{
+  "schema_version": "frontend-contract-observations/v1",
+  "provenance": {
+    "provider_kind": "static_contract_test",
+    "provider_name": "codex",
+    "provider_version": "020",
+    "source_ref": "apps/agentops-console/tests/console-contract.test.mjs"
+  },
+  "freshness": {
+    "generated_at": "2026-05-07T15:45:00Z",
+    "source_digest": null,
+    "source_revision": null
+  },
+  "observations": [
+    {
+      "page_id": "credential-handoff-workbench",
+      "recipe_id": "credential-handoff-workbench-v1",
+      "i18n_keys": [
+        "凭证联调",
+        "已撤销",
+        "重新签发凭证",
+        "撤销原因",
+        "撤销范围"
+      ],
+      "validation_fields": [
+        "consoleData.credentialHandoff.summary.revoked",
+        "consoleData.credentialHandoff.sessions[].revocation_id",
+        "consoleData.credentialHandoff.sessions[].revoked_at",
+        "consoleData.credentialHandoff.sessions[].revocation_reason",
+        "consoleData.credentialHandoff.sessions[].revocation_scope",
+        "reissue_credential"
+      ],
+      "new_legacy_usages": []
+    }
+  ]
+}

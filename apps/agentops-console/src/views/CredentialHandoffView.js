@@ -45,7 +45,8 @@ export const CredentialHandoffView = {
       const labels = {
         issue_credential: "签发 AgentOps 凭证",
         send_signature_test_event: "发送签名测试事件",
-        display_activation_result: "展示激活回显"
+        display_activation_result: "展示激活回显",
+        reissue_credential: "重新签发凭证"
       };
       return labels[action] || action || "待确认";
     }
@@ -74,9 +75,9 @@ export const CredentialHandoffView = {
           <p class="muted">不等同 verified_loaded 或 L5。</p>
         </ent-card>
         <ent-card>
-          <p class="eyebrow">Agent Store 边界</p>
-          <h4>只读展示</h4>
-          <p class="muted">{{ workbench.summary.agent_store_boundary || "display_only_no_active_inference" }}</p>
+          <p class="eyebrow">已撤销</p>
+          <h4>{{ workbench.summary.revoked || 0 }}</h4>
+          <p class="muted">撤销后只能展示重新签发建议。</p>
         </ent-card>
       </section>
 
@@ -109,6 +110,10 @@ export const CredentialHandoffView = {
             <span>token_id：{{ item.token_id }}</span>
             <span>device_key_id：{{ item.device_key_id }}</span>
             <span>signature_test_event_id：{{ item.signature_test_event_id }}</span>
+            <span>revocation_id：{{ item.revocation_id }}</span>
+            <span>撤销时间：{{ item.revoked_at }}</span>
+            <span>撤销原因：{{ item.revocation_reason }}</span>
+            <span>撤销范围：{{ item.revocation_scope }}</span>
             <span>允许动作：{{ item.allowed_actions }}</span>
             <span>禁止动作：{{ item.forbidden_actions }}</span>
           </div>

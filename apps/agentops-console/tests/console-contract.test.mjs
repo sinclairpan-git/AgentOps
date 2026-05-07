@@ -136,6 +136,9 @@ for (const expectedChineseText of [
   "凭证联调",
   "凭证状态回显",
   "签名测试通过",
+  "已撤销",
+  "重新签发凭证",
+  "撤销原因",
   "Agent Store 只消费展示字段",
   "不得本地推导 active",
   "不构成 verified_loaded 或 L5",
@@ -589,6 +592,58 @@ assert.equal(
         ...consoleData.credentialHandoff,
         sessions: consoleData.credentialHandoff.sessions.map((item) =>
           item.bootstrap_id === "boot-inst-fixture" ? { ...item, signature: "sig-fixture" } : item
+        )
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      credentialHandoff: {
+        ...consoleData.credentialHandoff,
+        summary: {
+          ...consoleData.credentialHandoff.summary,
+          revoked: 0
+        }
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      credentialHandoff: {
+        ...consoleData.credentialHandoff,
+        sessions: consoleData.credentialHandoff.sessions.map((item) =>
+          item.bootstrap_status === "revoked" ? {
+            ...item,
+            next_action: "display_activation_result"
+          } : item
+        )
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      credentialHandoff: {
+        ...consoleData.credentialHandoff,
+        sessions: consoleData.credentialHandoff.sessions.map((item) =>
+          item.bootstrap_status !== "revoked" ? {
+            ...item,
+            revocation_id: "revoke-spoof"
+          } : item
         )
       }
     }

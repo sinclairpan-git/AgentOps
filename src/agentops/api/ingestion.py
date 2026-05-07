@@ -27,6 +27,7 @@ def ingest_events_batch(events: list[dict[str, Any]], repository: InMemoryReposi
             continue
         try:
             validate_event_envelope(event)
+            repository.validate_known_revocation_state(event)
             signature_test_bootstrap_id = None
             if event["event_type"] == SIGNATURE_TEST_EVENT_TYPE:
                 signature_test_bootstrap_id = repository.validate_signature_test_event(event)

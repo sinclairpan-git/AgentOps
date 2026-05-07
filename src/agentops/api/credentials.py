@@ -16,7 +16,9 @@ AGENT_STORE_ISSUER = "agent-store"
 AGENTOPS_AUDIENCE = "agentops"
 NEXT_ACTION_SIGNATURE_TEST = "send_signature_test_event"
 NEXT_ACTION_DISPLAY_RESULT = "display_activation_result"
+NEXT_ACTION_REISSUE_CREDENTIAL = "reissue_credential"
 CREDENTIAL_STATUS_SCHEMA_VERSION = "agentops_credential_status.v1"
+REVOCATION_SCHEMA_VERSION = "agentops_credential_revocation.v1"
 
 
 def issue_credentials(
@@ -137,8 +139,8 @@ def get_credential_status(
         raise AgentOpsError("CREDENTIAL_STATUS_NOT_FOUND", "Credential status does not exist for this bootstrap.")
 
     bootstrap_status = str(credentials.get("bootstrap_status") or session.get("bootstrap_status") or session.get("status"))
-    next_action = NEXT_ACTION_DISPLAY_RESULT if bootstrap_status == "signature_verified" else NEXT_ACTION_SIGNATURE_TEST
-    return {
+    next_action = _status_next_action(bootstrap_status)
+    response = {
         "schema_version": CREDENTIAL_STATUS_SCHEMA_VERSION,
         "bootstrap_id": bootstrap_id,
         "bootstrap_status": bootstrap_status,
@@ -158,6 +160,72 @@ def get_credential_status(
         "verified_loaded": "not_asserted",
         "l5_status": "not_asserted",
     }
+    if bootstrap_status == "revoked" or credentials.get("status") == "revoked":
+        response.update(
+            {
+                "revocation_id": credentials.get("revocation_id"),
+                "revoked_at": credentials.get("revoked_at"),
+                "revoked_by": credentials.get("revoked_by"),
+                "revocation_reason": credentials.get("revocation_reason"),
+                "revocation_scope": credentials.get("revocation_scope"),
+            }
+        )
+    return response
+
+
+def revoke_credentials(
+    request: dict[str, Any],
+    repository: InMemoryRepository,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    now = now or datetime.now(UTC)
+    schema_version = _required_string(request, "schema_version", error_code="CREDENTIAL_REVOCATION_SCHEMA_REQUIRED")
+    if schema_version != REVOCATION_SCHEMA_VERSION:
+        raise AgentOpsError("CREDENTIAL_REVOCATION_SCHEMA_UNSUPPORTED", "Unsupported credential revocation schema.")
+
+    bootstrap_id = _required_string(request, "bootstrap_id", error_code="CREDENTIAL_REVOCATION_BOOTSTRAP_REQUIRED")
+    revocation_id = _required_string(request, "revocation_id", error_code="CREDENTIAL_REVOCATION_ID_REQUIRED")
+    revoked_by = _required_string(request, "revoked_by", error_code="CREDENTIAL_REVOCATION_ACTOR_REQUIRED")
+    reason = _required_string(request, "reason", error_code="CREDENTIAL_REVOCATION_REASON_REQUIRED")
+    scope = _required_string(request, "scope", error_code="CREDENTIAL_REVOCATION_SCOPE_REQUIRED")
+    if scope not in {"credential", "credential_and_device_key", "installation"}:
+        raise AgentOpsError("CREDENTIAL_REVOCATION_SCOPE_UNSUPPORTED", "Unsupported credential revocation scope.")
+
+    revoked = repository.revoke_credentials(
+        bootstrap_id,
+        {
+            "revocation_id": revocation_id,
+            "revoked_at": now.isoformat(),
+            "revoked_by": revoked_by,
+            "reason": reason,
+            "scope": scope,
+        },
+    )
+    return {
+        "schema_version": REVOCATION_SCHEMA_VERSION,
+        "bootstrap_id": bootstrap_id,
+        "credential_id": str(revoked["credential_id"]),
+        "credential_status": "revoked",
+        "bootstrap_status": "revoked",
+        "revocation_id": revocation_id,
+        "revoked_at": str(revoked["revoked_at"]),
+        "revoked_by": revoked_by,
+        "revocation_reason": reason,
+        "revocation_scope": scope,
+        "next_action": NEXT_ACTION_REISSUE_CREDENTIAL,
+        "agentops_fact_owner": "agentops",
+        "agent_store_consumer_boundary": "display_only_no_active_inference",
+        "verified_loaded": "not_asserted",
+        "l5_status": "not_asserted",
+    }
+
+
+def _status_next_action(bootstrap_status: str) -> str:
+    if bootstrap_status == "signature_verified":
+        return NEXT_ACTION_DISPLAY_RESULT
+    if bootstrap_status == "revoked":
+        return NEXT_ACTION_REISSUE_CREDENTIAL
+    return NEXT_ACTION_SIGNATURE_TEST
 
 
 def _validate_schema_version(request: dict[str, Any]) -> None:
