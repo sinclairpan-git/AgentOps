@@ -1,12 +1,12 @@
 pipeline_started_at: '2026-05-04T06:14:47+00:00'
-pipeline_last_updated: '2026-05-06T16:44:41+00:00'
+pipeline_last_updated: '2026-05-07T01:34:53+00:00'
 current_stage: close
 feature:
-  id: 010-console-audit-timeline
-  spec_dir: specs/010-console-audit-timeline
-  design_branch: design/010-console-audit-timeline-docs
-  feature_branch: feature/010-console-audit-timeline-dev
-  current_branch: codex/010-console-audit-timeline
+  id: 011-console-quality-adoption-insights
+  spec_dir: specs/011-console-quality-adoption-insights
+  design_branch: design/011-console-quality-adoption-insights-docs
+  feature_branch: feature/011-console-quality-adoption-insights-dev
+  current_branch: codex/011-console-quality-adoption-insights
   docs_baseline_ref: ''
   docs_baseline_at: ''
 multi_agent:
@@ -16,33 +16,33 @@ multi_agent:
 prd_source: /Users/sinclairpan/project/AI-Native底座开发文档/AgentOps_项目_PRD.md
 completed_stages:
 - stage: init
-  completed_at: '2026-05-06T16:44:41+00:00'
+  completed_at: '2026-05-07T01:34:53+00:00'
   artifacts: []
 - stage: refine
-  completed_at: '2026-05-06T16:44:41+00:00'
+  completed_at: '2026-05-07T01:34:53+00:00'
   artifacts:
   - spec.md
 - stage: design
-  completed_at: '2026-05-06T16:44:41+00:00'
+  completed_at: '2026-05-07T01:34:53+00:00'
   artifacts:
   - plan.md
 - stage: decompose
-  completed_at: '2026-05-06T16:44:41+00:00'
+  completed_at: '2026-05-07T01:34:53+00:00'
   artifacts:
   - tasks.md
 - stage: verify
-  completed_at: '2026-05-06T16:44:41+00:00'
+  completed_at: '2026-05-07T01:34:53+00:00'
   artifacts:
   - task-execution-log.md
   - tasks.md
 - stage: execute
-  completed_at: '2026-05-06T16:44:41+00:00'
+  completed_at: '2026-05-07T01:34:53+00:00'
   artifacts:
   - development-summary.md
   - task-execution-log.md
 execute_progress: null
 ai_decisions_count: 0
 execution_mode: auto
-linked_wi_id: 010-console-audit-timeline
-linked_plan_uri: specs/010-console-audit-timeline/plan.md
-last_synced_at: '2026-05-06T16:44:41+00:00'
+linked_wi_id: 011-console-quality-adoption-insights
+linked_plan_uri: specs/011-console-quality-adoption-insights/plan.md
+last_synced_at: '2026-05-07T01:34:53+00:00'

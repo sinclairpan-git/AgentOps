@@ -185,3 +185,103 @@ consoleData.actionWorkbench.details = consoleData.actionWorkbench.details.map((d
   timeline: timelineFor(detail),
   audit_packet: auditPacketFor(detail)
 }));
+
+const adoptionMissingEvidence = (item) => {
+  const missing = [];
+  if (["unknown", "degraded", "redaction_failed", "pending"].includes(item.status)) {
+    missing.push("可验证质量证据");
+  }
+  if (!item.evidence_ref || item.evidence_ref.includes("待")) {
+    missing.push("证据引用");
+  }
+  return missing.length ? missing : ["无阻断缺口"];
+};
+
+const adoptionEvidenceLevel = (status) => {
+  if (status === "healthy") {
+    return "L5";
+  }
+  if (["degraded", "redaction_failed", "unknown"].includes(status)) {
+    return "L3";
+  }
+  return "pending";
+};
+
+const adoptionConfidence = (status) => {
+  if (status === "healthy") {
+    return 0.92;
+  }
+  if (["degraded", "redaction_failed"].includes(status)) {
+    return 0.68;
+  }
+  if (status === "unknown") {
+    return 0.45;
+  }
+  return 0.58;
+};
+
+const generatedLines = Math.max(consoleData.runs.length, 1) * 180;
+const degradedQuality = consoleData.quality.filter((item) => item.status !== "healthy").length;
+const blockedRisks = consoleData.risks.filter((item) => ["block", "redaction_failed", "unverified", "degraded"].includes(item.state)).length;
+const retainedLines = Math.max(generatedLines - degradedQuality * 24 - blockedRisks * 16, 0);
+
+consoleData.adoption = {
+  metrics: {
+    generated_lines: generatedLines,
+    retained_lines: retainedLines,
+    human_modified_lines: degradedQuality * 18 + blockedRisks * 9,
+    deleted_lines: degradedQuality * 7 + blockedRisks * 5,
+    rework_rounds: Math.max(degradedQuality, blockedRisks),
+    pr_review_findings: degradedQuality + blockedRisks,
+    ci_failure_types: ["证据脱敏失败", "策略阻断", "治理加载证明缺失"],
+    retention_rate: `${Math.round(retainedLines / generatedLines * 100)}%`
+  },
+  explanationChains: consoleData.quality.map((item) => ({
+    id: `chain_${slug(item.signal_id || item.id)}`,
+    signal_id: item.signal_id,
+    category: item.category,
+    status: item.status,
+    score: item.score,
+    score_template_id: `quality_summary_${slug(item.category)}`,
+    evidence_level: adoptionEvidenceLevel(item.status),
+    confidence: adoptionConfidence(item.status),
+    missing_evidence: adoptionMissingEvidence(item),
+    explanation: `${item.category} 当前评分为 ${item.score}，依据 ${item.evidence_ref} 形成摘要判断。`,
+    appeal_path: `联系${item.owner_hint}补充证据或发起人工复核。`,
+    lifecycle_guardrail: "低置信不自动下架。"
+  })),
+  segments: [
+    { id: "segment_sdlc_runs", title: "Ai_AutoSDLC 标准路径", status: "healthy", retention_rate: `${Math.round(retainedLines / generatedLines * 100)}%`, affected_agents: String(consoleData.runs.length), owner: "SDLC 负责人", next_review: "按周复核采纳摘要" },
+    { id: "segment_agent_store_echo", title: "Agent Store 回显", status: "pending", retention_rate: "待采集", affected_agents: String(consoleData.agentStore.storeSummaries.length), owner: "Agent 负责人", next_review: "等待注册事实同步后复核" }
+  ],
+  reviewSignals: [
+    ...consoleData.quality
+      .filter((item) => item.status !== "healthy")
+      .map((item) => ({
+        id: `review_${slug(item.signal_id || item.id)}`,
+        title: `${item.category} 需要人工复核`,
+        status: item.status,
+        owner: item.owner_hint,
+        evidence_ref: item.evidence_ref,
+        reason: "低置信或缺失证据只进入复核队列，不自动下架。",
+        action: "发起人工复核"
+      })),
+    ...consoleData.risks
+      .filter((item) => ["block", "redaction_failed", "unverified"].includes(item.state))
+      .map((item) => ({
+        id: `review_${slug(item.id)}`,
+        title: `${item.source} 影响采纳判断`,
+        status: item.state,
+        owner: item.owner_hint,
+        evidence_ref: item.id,
+        reason: "风险归因会降低采纳置信度，但不触发自动生命周期动作。",
+        action: "补充风险处置证明"
+      }))
+  ].slice(0, 8),
+  guardrails: [
+    "低置信不自动下架，只进入人工复核和申诉路径。",
+    "缺失证据不按 0 分处理，必须展示 missing_evidence。",
+    "采纳指标只展示聚合摘要，不包含代码片段、差异内容或 PR 原文。",
+    "本阶段不写 Agent Store，不自动降推荐。"
+  ]
+};

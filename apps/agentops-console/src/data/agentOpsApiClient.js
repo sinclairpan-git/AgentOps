@@ -121,6 +121,7 @@ export function validateSnapshot(snapshot) {
     "approvals",
     "policies",
     "quality",
+    "adoption",
     "risks",
     "agentStore",
     "operationCenter",
@@ -135,6 +136,12 @@ export function validateSnapshot(snapshot) {
     return false;
   }
   if (!actionDetailsAreComplete(snapshot.consoleData)) {
+    return false;
+  }
+  if (!adoptionInsightsAreComplete(snapshot.consoleData)) {
+    return false;
+  }
+  if (!qualitySignalsAreSafe(snapshot.consoleData)) {
     return false;
   }
   if (containsForbiddenKey(snapshot, "raw_payload")) {
@@ -159,6 +166,7 @@ export function snapshotShapeIsSafe(consoleData) {
     "approvals",
     "policies",
     "quality",
+    "adoption",
     "risks",
     "agentStore",
     "operationCenter",
@@ -183,6 +191,14 @@ export function snapshotShapeIsSafe(consoleData) {
     if (key === "actionWorkbench") {
       return isRecord(consoleData.actionWorkbench) &&
         Array.isArray(consoleData.actionWorkbench.details);
+    }
+    if (key === "adoption") {
+      return isRecord(consoleData.adoption) &&
+        isRecord(consoleData.adoption.metrics) &&
+        Array.isArray(consoleData.adoption.explanationChains) &&
+        Array.isArray(consoleData.adoption.segments) &&
+        Array.isArray(consoleData.adoption.reviewSignals) &&
+        Array.isArray(consoleData.adoption.guardrails);
     }
     return Array.isArray(consoleData[key]);
   });
@@ -221,6 +237,9 @@ export function statesAreKnown(consoleData) {
     ...(consoleData.policies || []).map((item) => item.decision),
     ...(consoleData.risks || []).map((item) => item.state),
     ...(consoleData.quality || []).map((item) => item.status),
+    ...(consoleData.adoption?.explanationChains || []).map((item) => item.status),
+    ...(consoleData.adoption?.segments || []).map((item) => item.status),
+    ...(consoleData.adoption?.reviewSignals || []).map((item) => item.status),
     ...(consoleData.agentStore?.discoveryGaps || []).map((item) => item.state),
     ...(consoleData.agentStore?.runAudits || []).flatMap((item) => [item.registration_state, item.raw_access_state]),
     ...(consoleData.agentStore?.storeSummaries || []).flatMap((item) => [item.metadata_state, item.risk_state]),
@@ -282,7 +301,20 @@ export function actionDetailsAreComplete(consoleData) {
 }
 
 export function containsUnsafeAuditReference(value) {
-  const forbiddenKeys = new Set(["raw_payload", "download_url", "raw_url", "original_url", "raw_access_url"]);
+  const forbiddenKeys = new Set([
+    "raw_payload",
+    "download_url",
+    "raw_url",
+    "original_url",
+    "raw_access_url",
+    "code_snippet",
+    "source_code",
+    "patch",
+    "diff",
+    "diff_content",
+    "pr_body",
+    "pull_request_body"
+  ]);
   if (typeof value === "string") {
     return /https?:\/\//i.test(value);
   }
@@ -290,10 +322,149 @@ export function containsUnsafeAuditReference(value) {
     return value.some(containsUnsafeAuditReference);
   }
   if (value && typeof value === "object") {
-    return Object.keys(value).some((key) => forbiddenKeys.has(key)) ||
+    return Object.keys(value).some((key) =>
+      forbiddenKeys.has(key) ||
+      /^code/i.test(key) ||
+      /snippet/i.test(key) ||
+      /^diff/i.test(key) ||
+      /patch/i.test(key) ||
+      /^pull_request/i.test(key)
+    ) ||
       Object.values(value).some(containsUnsafeAuditReference);
   }
   return false;
+}
+
+export function adoptionInsightsAreComplete(consoleData) {
+  const adoption = consoleData.adoption;
+  if (!adoption || containsUnsafeAuditReference(adoption) || containsUnsafeLifecycleText(adoption)) {
+    return false;
+  }
+  if (!keysAreExactly(adoption, ["metrics", "explanationChains", "segments", "reviewSignals", "guardrails"])) {
+    return false;
+  }
+  if (!keysAreExactly(adoption.metrics, [
+    "generated_lines",
+    "retained_lines",
+    "human_modified_lines",
+    "deleted_lines",
+    "rework_rounds",
+    "pr_review_findings",
+    "ci_failure_types",
+    "retention_rate"
+  ])) {
+    return false;
+  }
+  const metricKeys = [
+    "generated_lines",
+    "retained_lines",
+    "human_modified_lines",
+    "deleted_lines",
+    "rework_rounds",
+    "pr_review_findings",
+    "ci_failure_types"
+  ];
+  if (!metricKeys.every((key) => Object.prototype.hasOwnProperty.call(adoption.metrics, key))) {
+    return false;
+  }
+  if (!Array.isArray(adoption.metrics.ci_failure_types)) {
+    return false;
+  }
+  for (const key of metricKeys.filter((item) => item !== "ci_failure_types")) {
+    if (typeof adoption.metrics[key] !== "number") {
+      return false;
+    }
+  }
+  const chainsOk = adoption.explanationChains.every((chain) =>
+    keysAreExactly(chain, [
+      "id",
+      "signal_id",
+      "category",
+      "status",
+      "score",
+      "score_template_id",
+      "evidence_level",
+      "confidence",
+      "missing_evidence",
+      "explanation",
+      "appeal_path",
+      "lifecycle_guardrail"
+    ]) &&
+    chain.id &&
+    chain.score_template_id &&
+    chain.evidence_level &&
+    typeof chain.confidence === "number" &&
+    Array.isArray(chain.missing_evidence) &&
+    chain.explanation &&
+    chain.appeal_path &&
+    /低置信不自动下架/.test(chain.lifecycle_guardrail || "")
+  );
+  const reviewSignalsOk = adoption.reviewSignals.every((signal) =>
+    keysAreExactly(signal, ["id", "title", "status", "owner", "evidence_ref", "reason", "action"]) &&
+    signal.id &&
+    signal.title &&
+    signal.status &&
+    signal.owner &&
+    signal.reason &&
+    ["发起人工复核", "补充风险处置证明"].includes(signal.action) &&
+    !/自动下架|自动降推荐|写回 Agent Store|发布|合并|批准|撤销|执行/.test(signal.action || "")
+  );
+  const segmentsOk = adoption.segments.every((segment) =>
+    keysAreExactly(segment, ["id", "title", "status", "retention_rate", "affected_agents", "owner", "next_review"]) &&
+    segment.id &&
+    segment.title &&
+    segment.status &&
+    segment.owner
+  );
+  const guardrailsText = adoption.guardrails.join(" ");
+  return chainsOk &&
+    segmentsOk &&
+    reviewSignalsOk &&
+    /低置信不自动下架/.test(guardrailsText) &&
+    !containsUnsafeLifecycleText(guardrailsText);
+}
+
+export function qualitySignalsAreSafe(consoleData) {
+  const allowedQualityKeys = ["id", "signal_id", "category", "status", "score", "evidence_ref", "owner_hint", "primary_action"];
+  return (consoleData.quality || []).every((item) =>
+    keysAreSubset(item, allowedQualityKeys) &&
+    !containsUnsafeAuditReference(item) &&
+    !containsUnsafeLifecycleText(item.primary_action || "")
+  );
+}
+
+export function containsUnsafeLifecycleText(value) {
+  if (typeof value === "string") {
+    const normalized = value.replace(/\s+/g, "");
+    const redlineRemoved = normalized
+      .replace(/低置信不自动下架/g, "")
+      .replace(/不自动下架/g, "")
+      .replace(/不自动降推荐/g, "")
+      .replace(/不触发自动生命周期动作/g, "")
+      .replace(/不写AgentStore/g, "");
+    return /自动下架|自动降推荐|写回AgentStore|自动写回|发布|合并|批准|撤销|执行/.test(redlineRemoved);
+  }
+  if (Array.isArray(value)) {
+    return value.some(containsUnsafeLifecycleText);
+  }
+  if (value && typeof value === "object") {
+    return Object.values(value).some(containsUnsafeLifecycleText);
+  }
+  return false;
+}
+
+function keysAreExactly(value, allowedKeys) {
+  return isRecord(value) &&
+    keysAreSubset(value, allowedKeys) &&
+    allowedKeys.every((key) => Object.prototype.hasOwnProperty.call(value, key));
+}
+
+function keysAreSubset(value, allowedKeys) {
+  if (!isRecord(value)) {
+    return false;
+  }
+  const allowed = new Set(allowedKeys);
+  return Object.keys(value).every((key) => allowed.has(key));
 }
 
 export function verifiedLoadedProofIsSafe(consoleData) {
