@@ -1,9 +1,6 @@
 {
   "schema_version": "agentops_credential_handoff.v2",
-  "bootstrap_id": "boot-inst-fixture",
-  "installation_assertion": {},
-  "device_proof": {},
-  "trace_id": "trace-fixture",
-  "audit_id": "audit-fixture",
-  "return_url": "/agent-store/installations/inst-fixture"
+  "error_code": "UNSUPPORTED_SCHEMA",
+  "message_key": "errors.unsupportedSchema",
+  "recommended_action_id": "upgrade_contract_adapter"
 }

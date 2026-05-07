@@ -47,6 +47,13 @@ def test_cct_001_agent_store_handoff_fixture_issues_credential(repository):
     assert response == load_fixture("credential_issue_response.v1.json")
 
 
+def test_cct_001_handoff_embeds_external_assertion_and_device_proof_fixtures():
+    request = credential_request()
+
+    assert request["installation_assertion"] == load_fixture("signed_installation_assertion.v1.json")
+    assert request["device_proof"] == load_fixture("device_proof.v1.json")
+
+
 def test_cct_002_device_proof_binds_installation_device_and_assertion_hash(repository):
     repository.add_bootstrap_session(bootstrap_session())
     request = credential_request()
