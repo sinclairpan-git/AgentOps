@@ -118,6 +118,62 @@ class InMemoryRepository:
                     self.credential_issue_idempotency[idempotency_key] = dict(handoff_identity)
             return dict(self.credentials_by_bootstrap[bootstrap_id])
 
+    def revoke_credentials(self, bootstrap_id: str, revocation: dict[str, Any]) -> dict[str, Any]:
+        with self._lock:
+            credentials = self.credentials_by_bootstrap.get(bootstrap_id)
+            session = self.bootstrap_sessions.get(bootstrap_id)
+            if not credentials or not session:
+                raise AgentOpsError("CREDENTIAL_REVOCATION_NOT_FOUND", "Credential status does not exist for this bootstrap.")
+
+            revoked_credentials = {
+                **credentials,
+                "status": "revoked",
+                "bootstrap_status": "revoked",
+                "next_action": "reissue_credential",
+                "revocation_id": revocation["revocation_id"],
+                "revoked_at": revocation["revoked_at"],
+                "revoked_by": revocation["revoked_by"],
+                "revocation_reason": revocation["reason"],
+                "revocation_scope": revocation["scope"],
+            }
+            revoked_session = {
+                **session,
+                "status": "revoked",
+                "bootstrap_status": "revoked",
+                "revocation_id": revocation["revocation_id"],
+                "revoked_at": revocation["revoked_at"],
+                "revoked_by": revocation["revoked_by"],
+                "revocation_reason": revocation["reason"],
+                "revocation_scope": revocation["scope"],
+            }
+            self.credentials_by_bootstrap[bootstrap_id] = revoked_credentials
+            self.bootstrap_sessions[bootstrap_id] = revoked_session
+            return dict(revoked_credentials)
+
+    def validate_known_revocation_state(self, event: dict[str, Any]) -> None:
+        if event.get("integration_mode") != "enterprise_managed":
+            return
+        ingestion_token = event.get("ingestion_token")
+        installation_id = event.get("installation_id")
+        device_id = event.get("device_id")
+        with self._lock:
+            matched_known_credential = False
+            for credentials in self.credentials_by_bootstrap.values():
+                token_matches = ingestion_token not in (None, "") and ingestion_token == credentials.get("token_id")
+                identity_matches = (
+                    installation_id not in (None, "")
+                    and device_id not in (None, "")
+                    and installation_id == credentials.get("installation_id")
+                    and device_id == credentials.get("device_id")
+                )
+                if not token_matches and not identity_matches:
+                    continue
+                if credentials.get("status") == "revoked":
+                    raise AgentOpsError("EVENT_CREDENTIAL_REVOKED", "enterprise_managed event uses a revoked credential.")
+                matched_known_credential = True
+            if matched_known_credential:
+                return
+
     def record_credential_issue_idempotency(self, idempotency_key: str, handoff_identity: dict[str, Any]) -> None:
         with self._lock:
             self.credential_issue_idempotency[idempotency_key] = dict(handoff_identity)
@@ -133,6 +189,8 @@ class InMemoryRepository:
             credentials = self.credentials_by_bootstrap.get(bootstrap_id)
             if not credentials:
                 raise AgentOpsError("SIGNATURE_TEST_CREDENTIAL_NOT_FOUND", "No credential has been issued for this bootstrap.")
+            if credentials.get("status") == "revoked":
+                raise AgentOpsError("EVENT_CREDENTIAL_REVOKED", "signature_test_event uses a revoked credential.")
             if credentials.get("status") != "active" or event.get("credential_status") != "active":
                 raise AgentOpsError("EVENT_CREDENTIAL_INACTIVE", "signature_test_event requires an active credential.")
             if event.get("device_key_status") != "active":

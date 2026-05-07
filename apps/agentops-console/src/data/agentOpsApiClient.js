@@ -1277,11 +1277,21 @@ export function credentialHandoffIsSafe(consoleData) {
   }
   const issued = sessions.filter((item) => item.bootstrap_status === "credential_issued").length;
   const verified = sessions.filter((item) => item.bootstrap_status === "signature_verified").length;
-  if (summary.bootstrap_count !== sessions.length || summary.credential_issued !== issued || summary.signature_verified !== verified) {
+  const revoked = sessions.filter((item) => item.bootstrap_status === "revoked" || item.credential_status === "revoked").length;
+  if (
+    summary.bootstrap_count !== sessions.length ||
+    summary.credential_issued !== issued ||
+    summary.signature_verified !== verified ||
+    summary.revoked !== revoked
+  ) {
     return false;
   }
   const guardrailsText = workbench.guardrails.join(" ");
-  if (!/不得本地推导 active/.test(guardrailsText) || !/不构成 verified_loaded 或 L5/.test(guardrailsText)) {
+  if (
+    !/不得本地推导 active/.test(guardrailsText) ||
+    !/不构成 verified_loaded 或 L5/.test(guardrailsText) ||
+    !/revoked 必须阻断后续签名测试和企业事件接入/.test(guardrailsText)
+  ) {
     return false;
   }
   return sessions.every((item) =>
@@ -1293,9 +1303,28 @@ export function credentialHandoffIsSafe(consoleData) {
     item.token_id === "已隐藏" &&
     item.verified_loaded === "not_asserted" &&
     item.l5_status === "not_asserted" &&
+    revocationFieldsMatchStatus(item) &&
     /只读回显/.test(item.display_scope || "") &&
     !containsUnsafeLifecycleText(`${item.next_action || ""} ${item.display_scope || ""}`)
   );
+}
+
+function revocationFieldsMatchStatus(item) {
+  if (item.bootstrap_status === "revoked" || item.credential_status === "revoked") {
+    return item.next_action === "reissue_credential" &&
+      item.revocation_id &&
+      item.revocation_id !== "未撤销" &&
+      item.revoked_at &&
+      item.revoked_at !== "未撤销" &&
+      item.revocation_reason &&
+      item.revocation_reason !== "未撤销" &&
+      item.revocation_scope &&
+      item.revocation_scope !== "未撤销";
+  }
+  return item.revocation_id === "未撤销" &&
+    item.revoked_at === "未撤销" &&
+    item.revocation_reason === "未撤销" &&
+    item.revocation_scope === "未撤销";
 }
 
 export function actionDetailsAreComplete(consoleData) {

@@ -14,6 +14,9 @@ required_text:
   - 凭证联调
   - 凭证状态回显
   - 签名测试通过
+  - 已撤销
+  - 重新签发凭证
+  - 撤销原因
   - 不得本地推导 active
   - 不构成 verified_loaded 或 L5
 data_contract:
@@ -25,7 +28,8 @@ data_contract:
 redlines:
   - Agent Store 不得本地推导 active
   - signature_verified 不构成 verified_loaded 或 L5
+  - revoked 必须阻断后续签名测试和企业事件接入，只允许展示重新签发建议
   - 不展示 token 值、私钥、原始载荷、下载链接或 raw URL
 verification:
   static_contract_test: apps/agentops-console/tests/console-contract.test.mjs
-  backend_contract_test: tests/contract/test_ao19_ct_console_credential_handoff_workbench.py
+  backend_contract_test: tests/contract/test_ao20_ct_credential_revocation_propagation.py

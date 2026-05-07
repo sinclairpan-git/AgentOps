@@ -85,6 +85,41 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /v1/bootstrap/credentials/{bootstrap_id}/revoke:
+    post:
+      summary: Revoke AgentOps-owned credential and propagate display-only reissue state
+      operationId: revokeCredentials
+      parameters:
+        - name: bootstrap_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CredentialRevocationRequest"
+      responses:
+        "200":
+          description: Credential revoked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CredentialRevocationResponse"
+        "400":
+          description: Unsupported revocation schema or scope
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Credential revocation target not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/runs/{run_id}/evidence-summary:
     get:
       summary: Read redacted evidence summary for a run
@@ -353,6 +388,81 @@ components:
         next_action:
           type: string
           enum: [send_signature_test_event]
+    CredentialRevocationRequest:
+      type: object
+      required: [schema_version, revocation_id, revoked_by, reason, scope]
+      properties:
+        schema_version:
+          type: string
+          enum: [agentops_credential_revocation.v1]
+        revocation_id:
+          type: string
+        revoked_by:
+          type: string
+        reason:
+          type: string
+        scope:
+          type: string
+          enum: [credential, credential_and_device_key, installation]
+    CredentialRevocationResponse:
+      type: object
+      required:
+        - schema_version
+        - bootstrap_id
+        - credential_id
+        - credential_status
+        - bootstrap_status
+        - revocation_id
+        - revoked_at
+        - revoked_by
+        - revocation_reason
+        - revocation_scope
+        - next_action
+        - agentops_fact_owner
+        - agent_store_consumer_boundary
+        - verified_loaded
+        - l5_status
+      properties:
+        schema_version:
+          type: string
+          enum: [agentops_credential_revocation.v1]
+        bootstrap_id:
+          type: string
+        credential_id:
+          type: string
+        credential_status:
+          type: string
+          enum: [revoked]
+        bootstrap_status:
+          type: string
+          enum: [revoked]
+        revocation_id:
+          type: string
+        revoked_at:
+          type: string
+          format: date-time
+        revoked_by:
+          type: string
+        revocation_reason:
+          type: string
+        revocation_scope:
+          type: string
+          enum: [credential, credential_and_device_key, installation]
+        next_action:
+          type: string
+          enum: [reissue_credential]
+        agentops_fact_owner:
+          type: string
+          enum: [agentops]
+        agent_store_consumer_boundary:
+          type: string
+          enum: [display_only_no_active_inference]
+        verified_loaded:
+          type: string
+          enum: [not_asserted]
+        l5_status:
+          type: string
+          enum: [not_asserted]
     CredentialStatusResponse:
       type: object
       required:
@@ -381,7 +491,7 @@ components:
           type: string
         bootstrap_status:
           type: string
-          enum: [credential_issued, signature_verified]
+          enum: [credential_issued, signature_verified, revoked]
         credential_status:
           type: string
           enum: [active, rotating, expired, revoked, unknown]
@@ -401,8 +511,19 @@ components:
           format: date-time
         next_action:
           type: string
-          enum: [send_signature_test_event, display_activation_result]
+          enum: [send_signature_test_event, display_activation_result, reissue_credential]
         signature_test_event_id:
+          type: [string, "null"]
+        revocation_id:
+          type: [string, "null"]
+        revoked_at:
+          type: [string, "null"]
+          format: date-time
+        revoked_by:
+          type: [string, "null"]
+        revocation_reason:
+          type: [string, "null"]
+        revocation_scope:
           type: [string, "null"]
         agentops_fact_owner:
           type: string

@@ -212,6 +212,13 @@ def test_adversarial_pr_review_script_enforces_agentops_redlines() -> None:
     assert "credentialHandoffIsSafe" in script
     assert "test_ao19_ct_002_repository_snapshot_shows_agentops_status_without_store_inference" in script
     assert "test_ao19_ct_003_signature_verified_is_display_result_not_verified_loaded" in script
+    assert "agentops_credential_revocation.v1" in script
+    assert "revoke_credentials" in script
+    assert "EVENT_CREDENTIAL_REVOKED" in script
+    assert "reissue_credential" in script
+    assert "revocationFieldsMatchStatus" in script
+    assert "test_ao20_ct_003_revoked_known_enterprise_event_is_rejected" in script
+    assert "test_ao20_ct_003b_revoked_duplicate_identity_is_rejected_after_active_match" in script
     assert "test_cct_001_agent_store_handoff_fixture_issues_credential" in script
     assert "test_cct_006_unknown_major_schema_returns_unsupported_error" in script
     assert "Reporter active" in script

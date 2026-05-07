@@ -13,3 +13,4 @@ source_files:
 tests:
   - apps/agentops-console/tests/console-contract.test.mjs
   - tests/contract/test_ao19_ct_console_credential_handoff_workbench.py
+  - tests/contract/test_ao20_ct_credential_revocation_propagation.py
