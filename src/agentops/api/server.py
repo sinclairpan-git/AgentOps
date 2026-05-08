@@ -51,7 +51,6 @@ def create_http_handler(
     live_repository = repository or InMemoryRepository()
     audit_cursor_secret_bytes = _audit_cursor_secret_bytes(
         audit_cursor_secret,
-        audit_log,
     )
 
     class AgentOpsRequestHandler(BaseHTTPRequestHandler):
@@ -136,8 +135,13 @@ def create_http_handler(
                         resource=request_path,
                         error_code=exc.error_code,
                     )
+                    status = (
+                        HTTPStatus.SERVICE_UNAVAILABLE
+                        if exc.error_code == "AUDIT_CURSOR_SECRET_UNCONFIGURED"
+                        else HTTPStatus.BAD_REQUEST
+                    )
                     self._send_json(
-                        HTTPStatus.BAD_REQUEST,
+                        status,
                         {
                             "error_code": exc.error_code,
                             "message": exc.message,
@@ -500,6 +504,11 @@ def create_http_handler(
                 if any(record_payload.get(name) != value for name, value in filters.items()):
                     continue
                 matched_records.append(record_payload)
+                if (
+                    cursor_state["end"] is not None
+                    and len(matched_records) >= cursor_state["end"]
+                ):
+                    break
             snapshot_end = cursor_state["end"]
             if snapshot_end is None:
                 snapshot_end = len(matched_records)
@@ -584,9 +593,10 @@ def create_http_handler(
                     "AUDIT_CURSOR_INVALID",
                     "Runtime audit query cursor is invalid.",
                 )
+            signing_secret = self._audit_query_signing_secret()
             serialized_payload = self._audit_query_cursor_payload_bytes(payload)
             expected_signature = hmac.new(
-                audit_cursor_secret_bytes,
+                signing_secret,
                 serialized_payload,
                 hashlib.sha256,
             ).hexdigest()
@@ -628,11 +638,12 @@ def create_http_handler(
                 "offset": offset,
                 "v": AUDIT_QUERY_CURSOR_VERSION,
             }
+            signing_secret = self._audit_query_signing_secret()
             serialized_payload = self._audit_query_cursor_payload_bytes(payload)
             envelope = {
                 "payload": payload,
                 "sig": hmac.new(
-                    audit_cursor_secret_bytes,
+                    signing_secret,
                     serialized_payload,
                     hashlib.sha256,
                 ).hexdigest(),
@@ -656,6 +667,15 @@ def create_http_handler(
                 separators=(",", ":"),
                 sort_keys=True,
             ).encode("utf-8")
+
+        def _audit_query_signing_secret(self) -> bytes:
+            if audit_cursor_secret_bytes is None:
+                raise AgentOpsError(
+                    "AUDIT_CURSOR_SECRET_UNCONFIGURED",
+                    "Runtime audit query cursor signing secret is not configured.",
+                    retryable=True,
+                )
+            return audit_cursor_secret_bytes
 
         def _store_summary_status(self, exc: AgentOpsError) -> HTTPStatus:
             if exc.error_code == "RUN_NOT_FOUND":
@@ -771,8 +791,7 @@ def create_http_handler(
 
 def _audit_cursor_secret_bytes(
     audit_cursor_secret: str | bytes | None,
-    audit_log: JsonlAuditLog | None,
-) -> bytes:
+) -> bytes | None:
     if isinstance(audit_cursor_secret, bytes) and audit_cursor_secret:
         return audit_cursor_secret
     if isinstance(audit_cursor_secret, str) and audit_cursor_secret:
@@ -782,13 +801,7 @@ def _audit_cursor_secret_bytes(
     if env_secret:
         return env_secret.encode("utf-8")
 
-    audit_log_path = getattr(audit_log, "path", None)
-    if audit_log_path is not None:
-        return hashlib.sha256(
-            f"agentops-runtime-audit-cursor:{audit_log_path.resolve()}".encode("utf-8")
-        ).digest()
-
-    return hashlib.sha256(b"agentops-runtime-audit-cursor:local-dev").digest()
+    return None
 
 
 def run_server(

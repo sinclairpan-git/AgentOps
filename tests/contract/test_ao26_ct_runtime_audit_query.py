@@ -54,7 +54,12 @@ def _start_server(
 ) -> ThreadingHTTPServer:
     server = ThreadingHTTPServer(
         ("127.0.0.1", 0),
-        create_http_handler(repository, require_auth=True, audit_log=audit_log),
+        create_http_handler(
+            repository,
+            require_auth=True,
+            audit_log=audit_log,
+            audit_cursor_secret="test-runtime-audit-cursor-secret",
+        ),
     )
     thread = Thread(target=server.serve_forever, daemon=True)
     thread.start()

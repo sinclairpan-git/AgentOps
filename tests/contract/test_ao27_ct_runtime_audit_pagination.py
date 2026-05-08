@@ -36,7 +36,7 @@ def _start_server(
     repository: InMemoryRepository,
     *,
     audit_log: JsonlAuditLog | None,
-    audit_cursor_secret: str | bytes | None = None,
+    audit_cursor_secret: str | bytes | None = "test-runtime-audit-cursor-secret",
 ) -> ThreadingHTTPServer:
     server = ThreadingHTTPServer(
         ("127.0.0.1", 0),
@@ -387,3 +387,35 @@ def test_ao27_ct_010_cursor_survives_handler_recreation_with_stable_secret(
         "audit_runtime_3",
         "audit_runtime_4",
     ]
+
+
+def test_ao27_ct_011_missing_cursor_secret_fails_closed(tmp_path: Path):
+    audit_path = tmp_path / "audit.jsonl"
+    audit_log = _audit_log(audit_path)
+    server = ThreadingHTTPServer(
+        ("127.0.0.1", 0),
+        create_http_handler(
+            InMemoryRepository(),
+            require_auth=True,
+            audit_log=audit_log,
+        ),
+    )
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        response, payload = _json_request(
+            server,
+            "GET",
+            "/v1/audit/runtime?action=credential.revoke&limit=2",
+            headers=_auth_headers(),
+        )
+    finally:
+        server.shutdown()
+
+    records = JsonlAuditLog(audit_path).records()
+    assert response.status == 503
+    assert payload["error_code"] == "AUDIT_CURSOR_SECRET_UNCONFIGURED"
+    assert payload["retryable"] is True
+    assert records[-1].action == "runtime.audit.read"
+    assert records[-1].outcome == "rejected"
+    assert records[-1].error_code == "AUDIT_CURSOR_SECRET_UNCONFIGURED"
