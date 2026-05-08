@@ -208,6 +208,41 @@ def test_ao21_ct_001b_reissue_uses_new_bootstrap_for_replacement_ids(revoked_rep
     assert response["token_id"] != "token-fixture"
 
 
+def test_ao21_ct_001c_reissue_source_allows_only_one_replacement(revoked_repository):
+    first = reissue_credentials(
+        reissue_request(),
+        revoked_repository,
+        now=REISSUE_NOW,
+        headers={"Idempotency-Key": "idem-reissue-fixture"},
+    )
+    handoff = reissue_handoff(bootstrap_id="boot-inst-fixture-r2")
+    handoff["installation_assertion"]["assertion_hash"] = "sha256:assertion-fixture-r2"
+    handoff["installation_assertion"]["nonce"] = "nonce-install-fixture-r2"
+    handoff["installation_assertion"]["signature"] = "sig-install-fixture-r2"
+    handoff["device_proof"]["assertion_hash"] = "sha256:assertion-fixture-r2"
+    handoff["device_proof"]["nonce"] = "nonce-device-fixture-r2"
+    handoff["device_proof"]["key_id"] = "device-key-fixture-r2"
+    handoff["device_proof"]["signature"] = "sig-device-fixture-r2"
+
+    with pytest.raises(AgentOpsError) as exc:
+        reissue_credentials(
+            reissue_request(
+                new_bootstrap_id="boot-inst-fixture-r2",
+                reissue_id="reissue-inst-fixture-r2",
+                credential_handoff=handoff,
+            ),
+            revoked_repository,
+            now=REISSUE_NOW,
+            headers={"Idempotency-Key": "idem-reissue-fixture-r2"},
+        )
+
+    source_status = get_credential_status(revoked_repository, "boot-inst-fixture")
+    assert first["credential_id"] == "cred-fixture-r1"
+    assert exc.value.error_code == "CREDENTIAL_REISSUE_SOURCE_ALREADY_REISSUED"
+    assert source_status["reissued_bootstrap_id"] == "boot-inst-fixture-r1"
+    assert revoked_repository.get_bootstrap_session("boot-inst-fixture-r2") is None
+
+
 def test_ao21_ct_002_reissued_credential_passes_signature_test_but_old_token_stays_revoked(revoked_repository):
     reissue_credentials(
         reissue_request(),

@@ -6,6 +6,7 @@
 - 状态查询支持 revoked source 的 reissue resolution 回显。
 - 替代 credential 使用新的 bootstrap id、nonce、token 和 device key，下一步为 `send_signature_test_event`。
 - 替代 credential id 和 token id 绑定新 bootstrap id，避免自定义 reissue bootstrap 复用旧 installation token。
+- 同一个 revoked source credential 只允许一个 replacement；后续相同请求幂等返回同一 replacement，不同 replacement 请求稳定拒绝。
 - 签名测试可推进新 credential；旧 token 和随机 token 不得借 reissued identity 接入。
 - Console 凭证联调工作台展示 reissued 计数和替代 credential 摘要。
 - 补齐 AO21 契约测试和 OpenAPI。

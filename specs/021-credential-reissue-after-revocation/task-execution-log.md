@@ -19,7 +19,7 @@
 | T21-02 | 完成 | 新增 `agentops_credential_reissue.v1`、HTTP reissue route 和 OpenAPI schema。 |
 | T21-03 | 完成 | `Repository` 增加 reissue resolution、失败清理和 replacement token 边界。 |
 | T21-04 | 完成 | Console 凭证联调工作台展示 reissued 计数、新 bootstrap id 和新 credential id。 |
-| T21-05 | 完成 | 补 AO21 契约测试，覆盖重新签发、替代 id 生成、签名测试、旧 token、新 nonce、幂等和 HTTP route。 |
+| T21-05 | 完成 | 补 AO21 契约测试，覆盖重新签发、替代 id 生成、单 replacement 限制、签名测试、旧 token、新 nonce、幂等和 HTTP route。 |
 | T21-06 | 完成 | 统一验证和 AI-SDLC close-check 准备完成；提交后复跑 close-check。 |
 
 ## 统一验证命令
@@ -56,6 +56,7 @@
 - 自检结论：reissue 由 AgentOps 作为事实源签发替代 credential，Agent Store 和 Console 只显示回显事实。
 - 安全边界：source credential 保持 revoked；旧 token 和随机 token 不得借同一 identity 绕过撤销。
 - 状态边界：reissued 不构成 `verified_loaded` 或 L5，所有回显保持 `not_asserted`。
+- PR #21 Codex review 反馈：source credential 已 reissued 后仍可用不同 `new_bootstrap_id` 二次重新签发。已新增 source-level guard，只允许同一 `reissue_id`/`reissued_bootstrap_id` 幂等返回同一个 replacement，并补 `test_ao21_ct_001c_reissue_source_allows_only_one_replacement` 回归测试。
 
 ## 任务/计划同步状态
 

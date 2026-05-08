@@ -27,6 +27,7 @@
 
 - AO21-CT-001：已撤销 source credential 可重新签发新的 AgentOps-owned credential，并返回 `send_signature_test_event`。
 - AO21-CT-001b：替代 credential id 和 token id 必须绑定新的 bootstrap id，不能依赖旧 installation id 复用旧 token。
+- AO21-CT-001c：已完成 reissue resolution 的 source credential 只能幂等返回同一个 replacement，不允许创建第二个 replacement。
 - AO21-CT-002：新 credential 的签名测试事件可通过，旧 token 仍被拒绝。
 - AO21-CT-003：reissue 必须使用新的 bootstrap id。
 - AO21-CT-003b：复用旧 nonce 必须稳定返回 replay 错误，且不能留下未签发 bootstrap session。

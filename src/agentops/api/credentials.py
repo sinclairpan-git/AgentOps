@@ -263,13 +263,14 @@ def reissue_credentials(
         raise AgentOpsError("CREDENTIAL_REISSUE_SOURCE_NOT_REVOKED", "Credential reissue requires a revoked source credential.")
     if source_credentials.get("revocation_scope") == "installation":
         raise AgentOpsError("CREDENTIAL_REISSUE_INSTALLATION_REVOKED", "Installation-scoped revocation requires a new installation handoff.")
-    existing_reissue_credentials = repository.get_credentials(new_bootstrap_id)
-    if existing_reissue_credentials is not None:
+    if source_credentials.get("revocation_resolution") == "reissued":
         if (
-            source_credentials.get("revocation_resolution") == "reissued"
-            and source_credentials.get("reissue_id") == reissue_id
+            source_credentials.get("reissue_id") == reissue_id
             and source_credentials.get("reissued_bootstrap_id") == new_bootstrap_id
         ):
+            existing_reissue_credentials = repository.get_credentials(new_bootstrap_id)
+            if existing_reissue_credentials is None:
+                raise AgentOpsError("CREDENTIAL_REISSUE_TARGET_MISSING", "Reissue source points to a missing replacement credential.")
             return _reissue_response(
                 source_bootstrap_id=source_bootstrap_id,
                 new_bootstrap_id=new_bootstrap_id,
@@ -278,6 +279,9 @@ def reissue_credentials(
                 reason=str(source_credentials.get("reissue_reason") or reason),
                 issued=existing_reissue_credentials,
             )
+        raise AgentOpsError("CREDENTIAL_REISSUE_SOURCE_ALREADY_REISSUED", "Source credential has already been reissued.")
+    existing_reissue_credentials = repository.get_credentials(new_bootstrap_id)
+    if existing_reissue_credentials is not None:
         raise AgentOpsError("CREDENTIAL_REISSUE_TARGET_EXISTS", "Reissue target bootstrap already exists.")
     if repository.get_bootstrap_session(new_bootstrap_id) is not None:
         raise AgentOpsError("CREDENTIAL_REISSUE_TARGET_EXISTS", "Reissue target bootstrap already exists.")

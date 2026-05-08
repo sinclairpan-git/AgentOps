@@ -950,6 +950,7 @@ function checkCredentialReissueAfterRevocation() {
       "agentops_credential_reissue.v1",
       "reissue_credentials",
       "CREDENTIAL_REISSUE_SOURCE_NOT_REVOKED",
+      "CREDENTIAL_REISSUE_SOURCE_ALREADY_REISSUED",
       "CREDENTIAL_REISSUE_TARGET_INVALID",
       "CREDENTIAL_REISSUE_HANDOFF_MISMATCH",
       "send_signature_test_event",
@@ -1011,6 +1012,7 @@ function checkCredentialReissueAfterRevocation() {
     for (const needle of [
       "test_ao21_ct_001_reissue_revoked_credential_returns_new_agentops_credential",
       "test_ao21_ct_001b_reissue_uses_new_bootstrap_for_replacement_ids",
+      "test_ao21_ct_001c_reissue_source_allows_only_one_replacement",
       "test_ao21_ct_002_reissued_credential_passes_signature_test_but_old_token_stays_revoked",
       "test_ao21_ct_003_reissue_requires_new_nonce_and_new_bootstrap",
       "test_ao21_ct_003b_reissue_rejects_reused_nonce_without_orphan_session",
