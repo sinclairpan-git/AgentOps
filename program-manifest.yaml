@@ -1,4 +1,5 @@
 schema_version: '2'
+prd_path: /Users/sinclairpan/project/AI-Native底座开发文档/AgentOps_项目_PRD.md
 program:
   goal: ''
 specs:
@@ -109,36 +110,47 @@ specs:
   path: specs/029-runtime-audit-export-bundle
   depends_on: []
 truth_snapshot:
-  generated_at: '2026-05-08T14:18:17Z'
+  generated_at: '2026-05-08T14:45:49Z'
   generated_by: ai-sdlc program truth sync
   generator_version: program_truth_snapshot_v1
-  repo_revision: c3397bb
-  authoring_hash: ba91e85682d60a6074b3e580241c65677c45bc72767e6d8378d7cbe779e4949e
+  repo_revision: e7cccae
+  authoring_hash: 92c1df893ced3630c23d326268440221be6e70de1d519b60a4a787ef571deab7
   source_hashes: {}
-  snapshot_hash: da6ddb2196bd63a6c6f1295cde22e8a7eca987ad140664b696e2740831f96e97
+  snapshot_hash: 6a38de9949cb7a39552ace3a92e3c87585c5b067757dbfce6422823d7cf3e920
   computed_capabilities: []
   source_inventory:
     state: complete
-    total_sources: 145
-    mapped_sources: 145
+    total_sources: 146
+    mapped_sources: 146
     unmapped_sources: 0
     missing_sources: 0
     phase_signal_count: 133
     deferred_signal_count: 220
-    non_goal_signal_count: 54
+    non_goal_signal_count: 57
     layer_totals:
+      blueprint: 1
       spec: 29
       plan: 29
       tasks: 29
       execution: 29
       close: 29
     layer_materialized:
+      blueprint: 1
       spec: 29
       plan: 29
       tasks: 29
       execution: 29
       close: 29
     entries:
+    - path: /Users/sinclairpan/project/AI-Native底座开发文档/AgentOps_项目_PRD.md
+      source_type: prd
+      truth_layer: blueprint
+      mapped: true
+      exists: true
+      mapping_ref: prd_path
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 3
     - path: specs/001-agentops-trusted-loop/spec.md
       source_type: spec_doc
       truth_layer: spec
