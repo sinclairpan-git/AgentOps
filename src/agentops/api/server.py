@@ -498,23 +498,27 @@ def create_http_handler(
             }
             cursor = self._query_value(query, "cursor")
             cursor_state = self._audit_query_cursor_state(cursor, filters)
-            matched_records = []
+            cursor_offset = cursor_state["offset"]
+            page_end = cursor_offset + limit
+            page_records = []
+            matched_count = 0
             for record in audit_log.records() if audit_log is not None else []:
+                if (
+                    cursor_state["end"] is not None
+                    and matched_count >= cursor_state["end"]
+                ):
+                    break
                 record_payload = record.to_dict()
                 if any(record_payload.get(name) != value for name, value in filters.items()):
                     continue
-                matched_records.append(record_payload)
-                if (
-                    cursor_state["end"] is not None
-                    and len(matched_records) >= cursor_state["end"]
-                ):
-                    break
+                if cursor_offset <= matched_count < page_end:
+                    page_records.append(record_payload)
+                matched_count += 1
             snapshot_end = cursor_state["end"]
             if snapshot_end is None:
-                snapshot_end = len(matched_records)
-            snapshot_end = min(snapshot_end, len(matched_records))
-            cursor_offset = min(cursor_state["offset"], snapshot_end)
-            page_records = matched_records[cursor_offset : cursor_offset + limit]
+                snapshot_end = matched_count
+            snapshot_end = min(snapshot_end, matched_count)
+            cursor_offset = min(cursor_offset, snapshot_end)
             next_offset = cursor_offset + len(page_records)
             has_more = next_offset < snapshot_end
             next_cursor = (
