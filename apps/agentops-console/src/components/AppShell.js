@@ -188,7 +188,7 @@ export const AppShell = {
               <template v-if="searchResults.length">
                 <button
                   v-for="item in searchResults"
-                  :key="item.id"
+                  :key="item.route + ':' + item.kind + ':' + item.id"
                   type="button"
                   class="search-result"
                   @click="chooseSearchResult(item)"

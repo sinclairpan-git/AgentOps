@@ -1,5 +1,5 @@
 schema_version: '2'
-prd_path: /Users/sinclairpan/project/AI-Native底座开发文档/AgentOps_项目_PRD.md
+prd_path: ''
 program:
   goal: ''
 specs:
@@ -113,47 +113,36 @@ specs:
   path: specs/030-frontend-adversarial-remediation
   depends_on: []
 truth_snapshot:
-  generated_at: '2026-05-08T17:14:57Z'
+  generated_at: '2026-05-08T17:27:05Z'
   generated_by: ai-sdlc program truth sync
   generator_version: program_truth_snapshot_v1
-  repo_revision: af1f50c
-  authoring_hash: b3dfde5b557219af4d4f6db485119a4685d6f1aca371b0bbe9c2f1d035fa06f3
+  repo_revision: 7e73944
+  authoring_hash: 3072b46238dc77a85ea38c977b8831af70a22fab2d25b9e0e272e8bc87ec1479
   source_hashes: {}
-  snapshot_hash: 01f376b9f4268a3ec5f66d20026e50ca75bb186514d725c88f970b32fd599906
+  snapshot_hash: 3dde4c214cd4e483e9c5492604c4d03d4e0d06bccfb2c51714b659247883ecd1
   computed_capabilities: []
   source_inventory:
     state: complete
-    total_sources: 151
-    mapped_sources: 151
+    total_sources: 150
+    mapped_sources: 150
     unmapped_sources: 0
     missing_sources: 0
     phase_signal_count: 157
     deferred_signal_count: 244
-    non_goal_signal_count: 58
+    non_goal_signal_count: 55
     layer_totals:
-      blueprint: 1
       spec: 30
       plan: 30
       tasks: 30
       execution: 30
       close: 30
     layer_materialized:
-      blueprint: 1
       spec: 30
       plan: 30
       tasks: 30
       execution: 30
       close: 30
     entries:
-    - path: /Users/sinclairpan/project/AI-Native底座开发文档/AgentOps_项目_PRD.md
-      source_type: prd
-      truth_layer: blueprint
-      mapped: true
-      exists: true
-      mapping_ref: prd_path
-      phase_signal_count: 0
-      deferred_signal_count: 0
-      non_goal_signal_count: 3
     - path: specs/001-agentops-trusted-loop/spec.md
       source_type: spec_doc
       truth_layer: spec
