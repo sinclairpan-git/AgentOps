@@ -219,6 +219,17 @@ def test_adversarial_pr_review_script_enforces_agentops_redlines() -> None:
     assert "revocationFieldsMatchStatus" in script
     assert "test_ao20_ct_003_revoked_known_enterprise_event_is_rejected" in script
     assert "test_ao20_ct_003b_revoked_duplicate_identity_is_rejected_after_active_match" in script
+    assert "agentops_credential_reissue.v1" in script
+    assert "reissue_credentials" in script
+    assert "mark_credentials_reissued" in script
+    assert "remove_unissued_bootstrap_session" in script
+    assert "replacement_token_matches" in script
+    assert "reissueFieldsMatchResolution" in script
+    assert "test_ao21_ct_001b_reissue_uses_new_bootstrap_for_replacement_ids" in script
+    assert "test_ao21_ct_002_reissued_credential_passes_signature_test_but_old_token_stays_revoked" in script
+    assert "test_ao21_ct_003b_reissue_rejects_reused_nonce_without_orphan_session" in script
+    assert "test_ao21_ct_007_reissued_identity_requires_replacement_token" in script
+    assert "CredentialReissueResponse" in script
     assert "test_cct_001_agent_store_handoff_fixture_issues_credential" in script
     assert "test_cct_006_unknown_major_schema_returns_unsupported_error" in script
     assert "Reporter active" in script

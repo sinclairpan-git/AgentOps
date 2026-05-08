@@ -71,6 +71,11 @@ class InMemoryRepository:
         with self._lock:
             self.bootstrap_sessions[session["bootstrap_id"]] = dict(session)
 
+    def remove_unissued_bootstrap_session(self, bootstrap_id: str) -> None:
+        with self._lock:
+            if bootstrap_id not in self.credentials_by_bootstrap:
+                self.bootstrap_sessions.pop(bootstrap_id, None)
+
     def get_bootstrap_session(self, bootstrap_id: str) -> dict[str, Any] | None:
         with self._lock:
             session = self.bootstrap_sessions.get(bootstrap_id)
@@ -150,6 +155,27 @@ class InMemoryRepository:
             self.bootstrap_sessions[bootstrap_id] = revoked_session
             return dict(revoked_credentials)
 
+    def mark_credentials_reissued(self, bootstrap_id: str, reissue: dict[str, Any]) -> dict[str, Any]:
+        with self._lock:
+            credentials = self.credentials_by_bootstrap.get(bootstrap_id)
+            session = self.bootstrap_sessions.get(bootstrap_id)
+            if not credentials or not session:
+                raise AgentOpsError("CREDENTIAL_REISSUE_NOT_FOUND", "Source credential status does not exist for this bootstrap.")
+            reissue_fields = {
+                "revocation_resolution": "reissued",
+                "reissue_id": reissue["reissue_id"],
+                "reissued_at": reissue["reissued_at"],
+                "reissued_by": reissue["reissued_by"],
+                "reissue_reason": reissue["reissue_reason"],
+                "reissued_bootstrap_id": reissue["reissued_bootstrap_id"],
+                "reissued_credential_id": reissue["reissued_credential_id"],
+                "reissued_token_id": reissue["reissued_token_id"],
+                "reissued_device_key_id": reissue["reissued_device_key_id"],
+            }
+            self.credentials_by_bootstrap[bootstrap_id] = {**credentials, **reissue_fields}
+            self.bootstrap_sessions[bootstrap_id] = {**session, **reissue_fields}
+            return dict(self.credentials_by_bootstrap[bootstrap_id])
+
     def validate_known_revocation_state(self, event: dict[str, Any]) -> None:
         if event.get("integration_mode") != "enterprise_managed":
             return
@@ -169,6 +195,14 @@ class InMemoryRepository:
                 if not token_matches and not identity_matches:
                     continue
                 if credentials.get("status") == "revoked":
+                    replacement_credentials = self.credentials_by_bootstrap.get(str(credentials.get("reissued_bootstrap_id") or ""))
+                    replacement_token_matches = (
+                        replacement_credentials is not None
+                        and ingestion_token not in (None, "")
+                        and ingestion_token == replacement_credentials.get("token_id")
+                    )
+                    if identity_matches and not token_matches and credentials.get("revocation_resolution") == "reissued" and replacement_token_matches:
+                        continue
                     raise AgentOpsError("EVENT_CREDENTIAL_REVOKED", "enterprise_managed event uses a revoked credential.")
                 matched_known_credential = True
             if matched_known_credential:

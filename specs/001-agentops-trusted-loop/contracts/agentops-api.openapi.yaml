@@ -120,6 +120,42 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /v1/bootstrap/credentials/{bootstrap_id}/reissue:
+    post:
+      summary: Reissue an AgentOps-owned replacement credential after revocation
+      operationId: reissueCredentials
+      parameters:
+        - name: bootstrap_id
+          in: path
+          required: true
+          description: Revoked source bootstrap id.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CredentialReissueRequest"
+      responses:
+        "200":
+          description: Replacement credential issued by AgentOps
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CredentialReissueResponse"
+        "400":
+          description: Unsupported reissue schema, non-revoked source, reused nonce, or target conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Reissue source credential not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/runs/{run_id}/evidence-summary:
     get:
       summary: Read redacted evidence summary for a run
@@ -463,6 +499,99 @@ components:
         l5_status:
           type: string
           enum: [not_asserted]
+    CredentialReissueRequest:
+      type: object
+      required: [schema_version, new_bootstrap_id, reissue_id, requested_by, reason, credential_handoff]
+      properties:
+        schema_version:
+          type: string
+          enum: [agentops_credential_reissue.v1]
+        new_bootstrap_id:
+          type: string
+          description: Fresh bootstrap id for the replacement credential. Must differ from the revoked source id.
+        reissue_id:
+          type: string
+        requested_by:
+          type: string
+        reason:
+          type: string
+        credential_handoff:
+          $ref: "#/components/schemas/CredentialIssueRequest"
+    CredentialReissueResponse:
+      type: object
+      required:
+        - schema_version
+        - source_bootstrap_id
+        - reissued_bootstrap_id
+        - reissue_id
+        - requested_by
+        - reason
+        - old_credential_status
+        - credential_id
+        - token_id
+        - device_key_id
+        - credential_status
+        - bootstrap_status
+        - installation_id
+        - device_id
+        - expires_at
+        - next_action
+        - agentops_fact_owner
+        - agent_store_consumer_boundary
+        - verified_loaded
+        - l5_status
+      properties:
+        schema_version:
+          type: string
+          enum: [agentops_credential_reissue.v1]
+        source_bootstrap_id:
+          type: string
+        reissued_bootstrap_id:
+          type: string
+        reissue_id:
+          type: string
+        requested_by:
+          type: string
+        reason:
+          type: string
+        old_credential_status:
+          type: string
+          enum: [revoked]
+        credential_id:
+          type: string
+        token_id:
+          type: string
+          description: Identifier only; never a token secret value.
+        device_key_id:
+          type: string
+        credential_status:
+          type: string
+          enum: [active]
+        bootstrap_status:
+          type: string
+          enum: [credential_issued]
+        installation_id:
+          type: string
+        device_id:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+        next_action:
+          type: string
+          enum: [send_signature_test_event]
+        agentops_fact_owner:
+          type: string
+          enum: [agentops]
+        agent_store_consumer_boundary:
+          type: string
+          enum: [display_only_no_active_inference]
+        verified_loaded:
+          type: string
+          enum: [not_asserted]
+        l5_status:
+          type: string
+          enum: [not_asserted]
     CredentialStatusResponse:
       type: object
       required:
@@ -524,6 +653,20 @@ components:
         revocation_reason:
           type: [string, "null"]
         revocation_scope:
+          type: [string, "null"]
+        revocation_resolution:
+          type: [string, "null"]
+          enum: [reissued, null]
+        reissue_id:
+          type: [string, "null"]
+        reissued_at:
+          type: [string, "null"]
+          format: date-time
+        reissued_by:
+          type: [string, "null"]
+        reissued_bootstrap_id:
+          type: [string, "null"]
+        reissued_credential_id:
           type: [string, "null"]
         agentops_fact_owner:
           type: string
