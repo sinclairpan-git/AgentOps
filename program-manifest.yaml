@@ -109,23 +109,23 @@ specs:
   path: specs/029-runtime-audit-export-bundle
   depends_on: []
 truth_snapshot:
-  generated_at: '2026-05-08T13:16:11Z'
+  generated_at: '2026-05-08T14:18:17Z'
   generated_by: ai-sdlc program truth sync
   generator_version: program_truth_snapshot_v1
-  repo_revision: 5591acc
+  repo_revision: c3397bb
   authoring_hash: ba91e85682d60a6074b3e580241c65677c45bc72767e6d8378d7cbe779e4949e
   source_hashes: {}
-  snapshot_hash: 82cf03a93f283fb5cb995a4e660c5aedf99bbc23b05fe84a47a62b3af157cbe9
+  snapshot_hash: da6ddb2196bd63a6c6f1295cde22e8a7eca987ad140664b696e2740831f96e97
   computed_capabilities: []
   source_inventory:
     state: complete
     total_sources: 145
     mapped_sources: 145
     unmapped_sources: 0
-    missing_sources: 2
+    missing_sources: 0
     phase_signal_count: 133
     deferred_signal_count: 220
-    non_goal_signal_count: 52
+    non_goal_signal_count: 54
     layer_totals:
       spec: 29
       plan: 29
@@ -136,7 +136,7 @@ truth_snapshot:
       spec: 29
       plan: 29
       tasks: 29
-      execution: 27
+      execution: 29
       close: 29
     entries:
     - path: specs/001-agentops-trusted-loop/spec.md
@@ -395,11 +395,11 @@ truth_snapshot:
       source_type: execution_log
       truth_layer: execution
       mapped: true
-      exists: false
+      exists: true
       mapping_ref: 006-agent-store-discovery-audit
       phase_signal_count: 0
       deferred_signal_count: 0
-      non_goal_signal_count: 0
+      non_goal_signal_count: 1
     - path: specs/006-agent-store-discovery-audit/development-summary.md
       source_type: development_summary
       truth_layer: close
@@ -440,11 +440,11 @@ truth_snapshot:
       source_type: execution_log
       truth_layer: execution
       mapped: true
-      exists: false
+      exists: true
       mapping_ref: 007-agent-store-console-audit-workbench
       phase_signal_count: 0
       deferred_signal_count: 0
-      non_goal_signal_count: 0
+      non_goal_signal_count: 1
     - path: specs/007-agent-store-console-audit-workbench/development-summary.md
       source_type: development_summary
       truth_layer: close
