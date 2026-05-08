@@ -4,7 +4,11 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from agentops.api.agent_store import get_run_audit, list_agent_store_discovery_gaps, sync_agent_store_metadata
+from agentops.api.agent_store import (
+    get_run_audit,
+    list_agent_store_discovery_gaps,
+    sync_agent_store_metadata,
+)
 from agentops.api.app import create_app
 from agentops.api.console_snapshot import build_console_snapshot
 from agentops.api.store_summary import get_agent_store_summary
@@ -37,7 +41,10 @@ def test_ao6_ct_001_agent_store_metadata_is_consumed_not_owned():
 
     assert result["metadata_state"] == "consumed"
     assert result["fact_owner"] == "Agent Store"
-    assert repository.get_agent_store_metadata("agent.ai-sdlc", "1.0.0")["owner"] == "AI-SDLC 团队"
+    assert (
+        repository.get_agent_store_metadata("agent.ai-sdlc", "1.0.0")["owner"]
+        == "AI-SDLC 团队"
+    )
     assert repository.has_agent_store_skill("agent.ai-sdlc", "1.0.0", "refine") is True
 
 
@@ -54,7 +61,10 @@ def test_ao6_ct_001a_agent_store_metadata_accepts_agent_version_alias():
     )
 
     assert result["version"] == "1.0.0"
-    assert repository.get_agent_store_metadata("agent.ai-sdlc", "1.0.0")["agent_version"] == "1.0.0"
+    assert (
+        repository.get_agent_store_metadata("agent.ai-sdlc", "1.0.0")["agent_version"]
+        == "1.0.0"
+    )
     assert repository.has_agent_store_skill("agent.ai-sdlc", "1.0.0", "refine") is True
 
 
@@ -77,7 +87,9 @@ def test_ao6_ct_001b_agent_store_metadata_preserves_explicit_version_values():
 
 def test_ao6_ct_002_unregistered_agent_is_discovered_without_raw_payload():
     repository = InMemoryRepository()
-    repository.write_event(base_event("stage_started", agent_id="agent.unknown", agent_version="0.1.0"))
+    repository.write_event(
+        base_event("stage_started", agent_id="agent.unknown", agent_version="0.1.0")
+    )
 
     gaps = list_agent_store_discovery_gaps(repository)
 
@@ -101,7 +113,9 @@ def test_ao6_ct_002_unregistered_agent_is_discovered_without_raw_payload():
 
 def test_ao6_ct_002a_discovery_ignores_events_without_agent_store_identity():
     repository = InMemoryRepository()
-    event = base_event("stage_started", event_id="evt_custom_sink", idempotency_key="custom_sink:run_1")
+    event = base_event(
+        "stage_started", event_id="evt_custom_sink", idempotency_key="custom_sink:run_1"
+    )
     event.pop("agent_id", None)
     event.pop("agent_version", None)
     event["integration_mode"] = "custom_sink"
@@ -183,7 +197,9 @@ def test_ao6_ct_003b_metadata_refresh_accepts_null_skills():
 
     gaps = list_agent_store_discovery_gaps(repository)
 
-    assert repository.get_agent_store_metadata("agent.ai-sdlc", "1.0.0")["skills"] is None
+    assert (
+        repository.get_agent_store_metadata("agent.ai-sdlc", "1.0.0")["skills"] is None
+    )
     assert repository.has_agent_store_skill("agent.ai-sdlc", "1.0.0", "refine") is False
     assert len(gaps) == 1
     assert gaps[0]["gap_type"] == "skill_unregistered"
@@ -286,7 +302,10 @@ def test_ao6_ct_004a_run_audit_marks_mixed_agent_run_as_suspected():
 
     assert audit["registration_state"] == "suspected"
     assert audit["discovery_gap_ids"] == ["gap_agent_agent_ai_sdlc_2_0_0"]
-    assert audit["related_agent_versions"] == ["agent.ai-sdlc@1.0.0", "agent.ai-sdlc@2.0.0"]
+    assert audit["related_agent_versions"] == [
+        "agent.ai-sdlc@1.0.0",
+        "agent.ai-sdlc@2.0.0",
+    ]
     assert "raw_payload" not in str(audit)
 
 
@@ -300,7 +319,9 @@ def test_ao6_ct_004b_run_audit_resolves_identity_from_agent_store_mapped_event()
             "skills": [{"skill_id": "refine"}],
         },
     )
-    custom_event = base_event("stage_started", event_id="evt_custom_sink", idempotency_key="custom_sink:run_1")
+    custom_event = base_event(
+        "stage_started", event_id="evt_custom_sink", idempotency_key="custom_sink:run_1"
+    )
     custom_event.pop("agent_id", None)
     custom_event.pop("agent_version", None)
     custom_event["integration_mode"] = "custom_sink"
@@ -316,12 +337,17 @@ def test_ao6_ct_004b_run_audit_resolves_identity_from_agent_store_mapped_event()
     )
 
     audit = get_run_audit(repository, "run_1")
-    summary = get_agent_store_summary("agent.ai-sdlc", "1.0.0", evidence_summary("run_1"), repository=repository)
+    summary = get_agent_store_summary(
+        "agent.ai-sdlc", "1.0.0", evidence_summary("run_1"), repository=repository
+    )
 
     assert audit["agent_id"] == "agent.ai-sdlc"
     assert audit["version"] == "1.0.0"
     assert audit["registration_state"] == "governed"
-    assert audit["related_agent_versions"] == ["agent.ai-sdlc@1.0.0", "unknown_agent@unknown"]
+    assert audit["related_agent_versions"] == [
+        "agent.ai-sdlc@1.0.0",
+        "unknown_agent@unknown",
+    ]
     assert summary["run_audit"]["registration_state"] == "governed"
 
 
@@ -337,7 +363,9 @@ def test_ao6_ct_005_agent_store_echo_summary_includes_policy_requirement_and_aud
     )
     repository.write_event(base_event("stage_started"))
 
-    summary = get_agent_store_summary("agent.ai-sdlc", "1.0.0", evidence_summary(), repository=repository)
+    summary = get_agent_store_summary(
+        "agent.ai-sdlc", "1.0.0", evidence_summary(), repository=repository
+    )
 
     assert summary["schema_version"] == "agentops.agent_store.echo.v1"
     assert summary["metadata_state"] == "registered"
@@ -353,7 +381,10 @@ def test_ao6_ct_005_agent_store_echo_summary_includes_policy_requirement_and_aud
         "affected_actions": ["运行审计", "高风险 Skill 调用"],
     }
     assert summary["run_audit"]["audit_id"] == "audit_run_run_1"
-    assert summary["deep_links"]["return_url"] == "/agent-store/agents/agent.ai-sdlc/runs/run_1"
+    assert (
+        summary["deep_links"]["return_url"]
+        == "/agent-store/agents/agent.ai-sdlc/runs/run_1"
+    )
     assert "raw_payload" not in str(summary)
 
 
@@ -380,15 +411,21 @@ def test_ao6_ct_005a_agent_store_echo_summary_uses_only_current_run_gaps():
     run_2["payload"]["stage_name"] = "deploy"
     repository.write_event(run_2)
 
-    summary = get_agent_store_summary("agent.ai-sdlc", "1.0.0", evidence_summary("run_1"), repository=repository)
-    risky_summary = get_agent_store_summary("agent.ai-sdlc", "1.0.0", evidence_summary("run_2"), repository=repository)
+    summary = get_agent_store_summary(
+        "agent.ai-sdlc", "1.0.0", evidence_summary("run_1"), repository=repository
+    )
+    risky_summary = get_agent_store_summary(
+        "agent.ai-sdlc", "1.0.0", evidence_summary("run_2"), repository=repository
+    )
 
     assert summary["run_audit"]["registration_state"] == "governed"
     assert summary["risk_state"] == "normal"
     assert summary["discovery_gap_ids"] == []
     assert risky_summary["run_audit"]["registration_state"] == "suspected"
     assert risky_summary["risk_state"] == "warning"
-    assert risky_summary["discovery_gap_ids"] == ["gap_skill_agent_ai_sdlc_1_0_0_deploy"]
+    assert risky_summary["discovery_gap_ids"] == [
+        "gap_skill_agent_ai_sdlc_1_0_0_deploy"
+    ]
 
 
 def test_ao6_ct_005b_agent_store_echo_summary_includes_cross_version_run_gaps():
@@ -412,7 +449,9 @@ def test_ao6_ct_005b_agent_store_echo_summary_includes_cross_version_run_gaps():
         )
     )
 
-    summary = get_agent_store_summary("agent.ai-sdlc", "1.0.0", evidence_summary("run_1"), repository=repository)
+    summary = get_agent_store_summary(
+        "agent.ai-sdlc", "1.0.0", evidence_summary("run_1"), repository=repository
+    )
 
     assert summary["run_audit"]["registration_state"] == "suspected"
     assert summary["risk_state"] == "warning"
@@ -431,11 +470,18 @@ def test_ao6_ct_005c_agent_store_echo_summary_policy_requirement_is_isolated():
     )
     repository.write_event(base_event("stage_started"))
 
-    summary = get_agent_store_summary("agent.ai-sdlc", "1.0.0", evidence_summary(), repository=repository)
+    summary = get_agent_store_summary(
+        "agent.ai-sdlc", "1.0.0", evidence_summary(), repository=repository
+    )
     summary["policy_requirement"]["affected_actions"].append("污染项")
-    fresh_summary = get_agent_store_summary("agent.ai-sdlc", "1.0.0", evidence_summary(), repository=repository)
+    fresh_summary = get_agent_store_summary(
+        "agent.ai-sdlc", "1.0.0", evidence_summary(), repository=repository
+    )
 
-    assert fresh_summary["policy_requirement"]["affected_actions"] == ["运行审计", "高风险 Skill 调用"]
+    assert fresh_summary["policy_requirement"]["affected_actions"] == [
+        "运行审计",
+        "高风险 Skill 调用",
+    ]
 
 
 def test_ao6_ct_005d_agent_store_echo_summary_uses_runtime_validity_window():
@@ -451,10 +497,14 @@ def test_ao6_ct_005d_agent_store_echo_summary_uses_runtime_validity_window():
     repository.write_event(base_event("stage_started"))
     before = datetime.now(UTC) - timedelta(seconds=1)
 
-    summary = get_agent_store_summary("agent.ai-sdlc", "1.0.0", evidence_summary(), repository=repository)
+    summary = get_agent_store_summary(
+        "agent.ai-sdlc", "1.0.0", evidence_summary(), repository=repository
+    )
 
     after = datetime.now(UTC) + timedelta(seconds=1)
-    calculated_at = datetime.fromisoformat(summary["calculated_at"].replace("Z", "+00:00"))
+    calculated_at = datetime.fromisoformat(
+        summary["calculated_at"].replace("Z", "+00:00")
+    )
     valid_until = datetime.fromisoformat(summary["valid_until"].replace("Z", "+00:00"))
     assert before <= calculated_at <= after
     assert valid_until == calculated_at + timedelta(days=30)
@@ -465,7 +515,13 @@ def test_ao6_ct_006_agent_store_echo_summary_rejects_unsupported_schema():
     repository.write_event(base_event("stage_started"))
 
     with pytest.raises(AgentOpsError) as exc:
-        get_agent_store_summary("agent.ai-sdlc", "1.0.0", evidence_summary(), repository=repository, consumer_schema_version="2.0")
+        get_agent_store_summary(
+            "agent.ai-sdlc",
+            "1.0.0",
+            evidence_summary(),
+            repository=repository,
+            consumer_schema_version="2.0",
+        )
 
     assert exc.value.error_code == "SUMMARY_SCHEMA_UNSUPPORTED"
 
@@ -475,19 +531,28 @@ def test_ao6_ct_006a_agent_store_echo_summary_rejects_run_target_mismatch():
     repository.write_event(base_event("stage_started"))
 
     with pytest.raises(AgentOpsError) as exc:
-        get_agent_store_summary("agent.other", "9.9.9", evidence_summary(), repository=repository)
+        get_agent_store_summary(
+            "agent.other", "9.9.9", evidence_summary(), repository=repository
+        )
 
     assert exc.value.error_code == "STORE_SUMMARY_RUN_MISMATCH"
 
 
 def test_ao6_ct_007_console_snapshot_surfaces_agent_store_discovery_risks():
     repository = InMemoryRepository()
-    repository.write_event(base_event("stage_started", agent_id="agent.unknown", agent_version="0.1.0"))
+    repository.write_event(
+        base_event("stage_started", agent_id="agent.unknown", agent_version="0.1.0")
+    )
 
     snapshot = build_console_snapshot(repository=repository)
 
-    assert any(risk["source"] == "Agent Store" for risk in snapshot["consoleData"]["risks"])
-    assert any(connector["id"] == "conn_agent_store" and connector["status"] == "degraded" for connector in snapshot["consoleData"]["connectors"])
+    assert any(
+        risk["source"] == "Agent Store" for risk in snapshot["consoleData"]["risks"]
+    )
+    assert any(
+        connector["id"] == "conn_agent_store" and connector["status"] == "degraded"
+        for connector in snapshot["consoleData"]["connectors"]
+    )
 
 
 def test_ao6_ct_008_app_declares_agent_store_and_run_audit_routes():

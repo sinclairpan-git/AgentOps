@@ -6,8 +6,15 @@ from collections import defaultdict
 from datetime import UTC, datetime
 from typing import Any
 
-from agentops.api.credentials import CREDENTIAL_STATUS_SCHEMA_VERSION, get_credential_status
-from agentops.core.agent_store import build_agent_store_echo_summary, build_run_audit, discover_agent_store_gaps
+from agentops.api.credentials import (
+    CREDENTIAL_STATUS_SCHEMA_VERSION,
+    get_credential_status,
+)
+from agentops.core.agent_store import (
+    build_agent_store_echo_summary,
+    build_run_audit,
+    discover_agent_store_gaps,
+)
 from agentops.core.errors import AgentOpsError
 from agentops.core.l5_gate import evaluate_l5_gate
 from agentops.storage.repository import InMemoryRepository
@@ -30,10 +37,16 @@ ROUTES = [
 ]
 
 
-def build_console_snapshot(*, generated_at: str | None = None, repository: InMemoryRepository | None = None) -> dict[str, Any]:
+def build_console_snapshot(
+    *, generated_at: str | None = None, repository: InMemoryRepository | None = None
+) -> dict[str, Any]:
     """Build a safe snapshot matching the Vue2 Console information architecture."""
 
-    console_data = _console_data_from_repository(repository) if repository is not None else _console_data()
+    console_data = (
+        _console_data_from_repository(repository)
+        if repository is not None
+        else _console_data()
+    )
     console_data = _with_workbenches(console_data)
     return {
         "schema_version": SCHEMA_VERSION,
@@ -41,7 +54,9 @@ def build_console_snapshot(*, generated_at: str | None = None, repository: InMem
         "source": "api_snapshot",
         "source_detail": {
             "mode": "repository_backed" if repository is not None else "sample_fixture",
-            "fact_source": "InMemoryRepository" if repository is not None else "console_snapshot_fixture",
+            "fact_source": "InMemoryRepository"
+            if repository is not None
+            else "console_snapshot_fixture",
         },
         "routes": [dict(route) for route in ROUTES],
         "consoleData": console_data,
@@ -67,7 +82,9 @@ def _console_data_from_repository(repository: InMemoryRepository) -> dict[str, A
         events = sorted(events_by_run[run_id], key=_event_sequence_no)
         l5_input = _last_payload(events, "l5_eligibility_input")
         governance_state = _governance_state(events)
-        policy_state_known = _strict_bool(l5_input.get("policy_state_known"), default=False)
+        policy_state_known = _strict_bool(
+            l5_input.get("policy_state_known"), default=False
+        )
         outbox_status = str(l5_input.get("outbox_status", "delivered"))
         evaluation = evaluate_l5_gate(
             events,
@@ -76,7 +93,9 @@ def _console_data_from_repository(repository: InMemoryRepository) -> dict[str, A
             policy_state_known=policy_state_known,
         )
         l5_state = _l5_state(evaluation["result"])
-        policy_state = _policy_state(policy_state_known=policy_state_known, has_l5_input=bool(l5_input))
+        policy_state = _policy_state(
+            policy_state_known=policy_state_known, has_l5_input=bool(l5_input)
+        )
         evidence_state = "summary_only" if evaluation["result"] == "L5" else "degraded"
         agent = str(events[0].get("agent_id") or "未知 Agent")
         skill = _run_skill(events)
@@ -89,7 +108,11 @@ def _console_data_from_repository(repository: InMemoryRepository) -> dict[str, A
         else:
             degraded_count += 1
 
-        run_models.append(_run(run_id, agent, skill, risk_level, l5_state, policy_state, evidence_state))
+        run_models.append(
+            _run(
+                run_id, agent, skill, risk_level, l5_state, policy_state, evidence_state
+            )
+        )
         evidence_models.append(
             _evidence(
                 f"ev_{run_id}",
@@ -122,7 +145,9 @@ def _console_data_from_repository(repository: InMemoryRepository) -> dict[str, A
                 evaluation["evidence_level"],
                 ",".join(sorted({event["event_type"] for event in events})),
                 "AI-SDLC 负责人",
-                "补齐缺失证据" if evaluation["missing_evidence"] or evaluation["failed_conditions"] else "保持基线",
+                "补齐缺失证据"
+                if evaluation["missing_evidence"] or evaluation["failed_conditions"]
+                else "保持基线",
             )
         )
 
@@ -140,13 +165,37 @@ def _console_data_from_repository(repository: InMemoryRepository) -> dict[str, A
         )
 
     run_count = len(run_models)
-    approvals = [_approval_from_record(approval) for approval in repository.approval_records()]
-    approval_pending_count = sum(1 for approval in approvals if approval["status"] in {"pending", "escalated"})
+    approvals = [
+        _approval_from_record(approval) for approval in repository.approval_records()
+    ]
+    approval_pending_count = sum(
+        1 for approval in approvals if approval["status"] in {"pending", "escalated"}
+    )
     metrics = [
-        {"label": "今日运行", "value": run_count, "status": "healthy" if run_count else "empty", "detail": f"{l5_count} 条 L5，{degraded_count} 条降级，{pending_count} 条待补偿"},
-        {"label": "Policy SLO", "value": "本地内核", "status": "healthy", "detail": "当前由可执行内核生成策略摘要"},
-        {"label": "审批待办", "value": approval_pending_count, "status": "pending" if approval_pending_count else "healthy", "detail": "来自 AgentOps 审批仓库事实"},
-        {"label": "证据状态", "value": f"{len(evidence_models)} 条摘要", "status": "healthy" if evidence_models else "empty", "detail": "仅展示脱敏摘要和哈希，不暴露原文"},
+        {
+            "label": "今日运行",
+            "value": run_count,
+            "status": "healthy" if run_count else "empty",
+            "detail": f"{l5_count} 条 L5，{degraded_count} 条降级，{pending_count} 条待补偿",
+        },
+        {
+            "label": "Policy SLO",
+            "value": "本地内核",
+            "status": "healthy",
+            "detail": "当前由可执行内核生成策略摘要",
+        },
+        {
+            "label": "审批待办",
+            "value": approval_pending_count,
+            "status": "pending" if approval_pending_count else "healthy",
+            "detail": "来自 AgentOps 审批仓库事实",
+        },
+        {
+            "label": "证据状态",
+            "value": f"{len(evidence_models)} 条摘要",
+            "status": "healthy" if evidence_models else "empty",
+            "detail": "仅展示脱敏摘要和哈希，不暴露原文",
+        },
     ]
 
     return {
@@ -207,16 +256,28 @@ def _sdlc_run_workbench(console_data: dict[str, Any]) -> dict[str, Any]:
     sdlc_runs = list(console_data.get("sdlcRuns", []))
     verified_count = sum(1 for item in sdlc_runs if _sdlc_proof_verified(item))
     pending_count = len(sdlc_runs) - verified_count
-    status = "verified_loaded" if sdlc_runs and verified_count == len(sdlc_runs) else "materialized"
+    status = (
+        "verified_loaded"
+        if sdlc_runs and verified_count == len(sdlc_runs)
+        else "materialized"
+    )
     return {
         "summary": {
             "id": "sdlc_run_summary",
-            "adapter_status": str(console_data.get("summary", {}).get("adapter", {}).get("status", "materialized")),
-            "proof_state": "verified_loaded" if status == "verified_loaded" else "unverified",
+            "adapter_status": str(
+                console_data.get("summary", {})
+                .get("adapter", {})
+                .get("status", "materialized")
+            ),
+            "proof_state": "verified_loaded"
+            if status == "verified_loaded"
+            else "unverified",
             "dry_run_state": _sdlc_dry_run_state(sdlc_runs),
             "reporter_ready": verified_count,
             "pending_proofs": pending_count,
-            "primary_action": "保持治理加载证明" if status == "verified_loaded" else "补齐 verified_loaded 机器证明",
+            "primary_action": "保持治理加载证明"
+            if status == "verified_loaded"
+            else "补齐 verified_loaded 机器证明",
             "safety_note": "CLI dry-run、AGENTS.md 或本地仓库事实不构成 verified_loaded 治理激活证明。",
         },
         "reporter": [_sdlc_reporter_item(item) for item in sdlc_runs],
@@ -235,13 +296,24 @@ def _sdlc_run_workbench(console_data: dict[str, Any]) -> dict[str, Any]:
 def _sdlc_dry_run_state(items: list[dict[str, Any]]) -> str:
     if not items:
         return "empty"
-    return "dry_run_passed" if all(item.get("dry_run_status") == "dry_run_passed" for item in items) else "pending"
+    return (
+        "dry_run_passed"
+        if all(item.get("dry_run_status") == "dry_run_passed" for item in items)
+        else "pending"
+    )
 
 
 def _sdlc_proof_verified(item: dict[str, Any]) -> bool:
     proof_text = f"{item.get('proof_source', '')} {item.get('captured_at', '')}"
-    pending = any(marker in proof_text for marker in ("待采集", "待接入", "CLI 预演", "AGENTS.md"))
-    return item.get("verified_loaded") == "verified_loaded" and bool(item.get("proof_source")) and bool(item.get("captured_at")) and not pending
+    pending = any(
+        marker in proof_text for marker in ("待采集", "待接入", "CLI 预演", "AGENTS.md")
+    )
+    return (
+        item.get("verified_loaded") == "verified_loaded"
+        and bool(item.get("proof_source"))
+        and bool(item.get("captured_at"))
+        and not pending
+    )
 
 
 def _sdlc_run_ref(item: dict[str, Any]) -> str:
@@ -279,7 +351,9 @@ def _sdlc_outbox_item(item: dict[str, Any]) -> dict[str, Any]:
         "pending_events": "0" if verified else "待验证",
         "oldest_pending_age": "0 分钟" if verified else "待采集",
         "replay_boundary": "只读摘要，不在 Console 执行 Outbox Replay 或事件重放。",
-        "evidence_impact": "可进入 L5 复核" if verified else "pending L5 verification，不提升证据等级。",
+        "evidence_impact": "可进入 L5 复核"
+        if verified
+        else "pending L5 verification，不提升证据等级。",
         "audit_id": f"audit_sdlc_{_slug(run_ref)}",
         "safety_note": "Outbox Replay 必须由后端审批流程执行，本页不提供重放按钮。",
     }
@@ -288,7 +362,9 @@ def _sdlc_outbox_item(item: dict[str, Any]) -> dict[str, Any]:
 def _sdlc_eligibility_item(item: dict[str, Any]) -> dict[str, Any]:
     verified = _sdlc_proof_verified(item)
     run_ref = _sdlc_run_ref(item)
-    failed_conditions = "无" if verified else "governance_loaded,source_signed,outbox_delivered"
+    failed_conditions = (
+        "无" if verified else "governance_loaded,source_signed,outbox_delivered"
+    )
     return {
         "id": f"sdlc_eligibility_{_slug(run_ref)}",
         "run_id": run_ref,
@@ -299,7 +375,9 @@ def _sdlc_eligibility_item(item: dict[str, Any]) -> dict[str, Any]:
         "governance_loaded": "verified_loaded" if verified else "unverified",
         "verification_fresh": "healthy" if verified else "pending",
         "outbox_delivered": "healthy" if verified else "pending",
-        "next_action": "保持证据链" if verified else "补齐 verified_loaded、签名来源和 Outbox delivered 证明",
+        "next_action": "保持证据链"
+        if verified
+        else "补齐 verified_loaded、签名来源和 Outbox delivered 证明",
         "safety_note": "Eligibility 仅解释 L5 条件，不覆盖 AgentOps 后端最终等级判定。",
     }
 
@@ -347,7 +425,11 @@ def _approval_grant_item(approval: dict[str, Any]) -> dict[str, str]:
         "approval_id": str(approval["approval_id"]),
         "grant_status": grant_status,
         "policy_version": str(approval.get("policy_version") or "runtime-v2.3"),
-        "resource_scope": str(approval.get("resource_scope") or approval.get("affected_actions") or "待确认范围"),
+        "resource_scope": str(
+            approval.get("resource_scope")
+            or approval.get("affected_actions")
+            or "待确认范围"
+        ),
         "ttl_summary": _approval_grant_ttl(grant_status),
         "expires_at": _approval_grant_expires_at(approval, grant_status),
         "revocation_state": _approval_revocation_state(grant_status),
@@ -411,13 +493,19 @@ def _approval_approver_scope(approval: dict[str, Any]) -> str:
 
 
 def _approval_supplemental_materials(approval: dict[str, Any]) -> str:
-    return str(approval.get("supplemental_materials") or "待补充：变更说明、影响范围、回滚预案")
+    return str(
+        approval.get("supplemental_materials") or "待补充：变更说明、影响范围、回滚预案"
+    )
 
 
 def _approval_denied_scope(approval: dict[str, Any]) -> str:
     status = str(approval["status"])
     if status in {"rejected", "revoked", "permission_denied"}:
-        return str(approval.get("denied_scope") or approval.get("affected_actions") or "approval.scope")
+        return str(
+            approval.get("denied_scope")
+            or approval.get("affected_actions")
+            or "approval.scope"
+        )
     return str(approval.get("denied_scope") or "")
 
 
@@ -658,7 +746,10 @@ def _operation_center(console_data: dict[str, Any]) -> dict[str, Any]:
             )
 
     for evidence in console_data.get("evidence", []):
-        if evidence.get("raw_access_state") in {"redaction_failed", "permission_denied"}:
+        if evidence.get("raw_access_state") in {
+            "redaction_failed",
+            "permission_denied",
+        }:
             notifications.append(
                 _notification(
                     f"notif_{evidence['evidence_id']}",
@@ -684,7 +775,9 @@ def _operation_center(console_data: dict[str, Any]) -> dict[str, Any]:
             )
 
     for risk in console_data.get("risks", []):
-        is_agent_store_gap = str(risk["source"]) == "Agent Store" and str(risk["id"]).startswith("gap_")
+        is_agent_store_gap = str(risk["source"]) == "Agent Store" and str(
+            risk["id"]
+        ).startswith("gap_")
         notifications.append(
             _notification(
                 f"notif_{risk['id']}",
@@ -726,22 +819,68 @@ def _operation_center(console_data: dict[str, Any]) -> dict[str, Any]:
         )
 
     for run in console_data.get("runs", []):
-        search_index.append(_search_item(str(run["run_id"]), "运行记录", f"{run['agent']} / {run['skill']}", "runs", str(run["l5_state"])))
+        search_index.append(
+            _search_item(
+                str(run["run_id"]),
+                "运行记录",
+                f"{run['agent']} / {run['skill']}",
+                "runs",
+                str(run["l5_state"]),
+            )
+        )
     for evidence in console_data.get("evidence", []):
-        search_index.append(_search_item(str(evidence["evidence_id"]), "证据检索", str(evidence["summary"]), "evidence", str(evidence["raw_access_state"]), _evidence_action_id(evidence)))
+        search_index.append(
+            _search_item(
+                str(evidence["evidence_id"]),
+                "证据检索",
+                str(evidence["summary"]),
+                "evidence",
+                str(evidence["raw_access_state"]),
+                _evidence_action_id(evidence),
+            )
+        )
     for approval in console_data.get("approvals", []):
-        search_index.append(_search_item(str(approval["approval_id"]), "审批中心", str(approval["reason"]), "approvals", str(approval["status"]), _approval_action_id(approval)))
+        search_index.append(
+            _search_item(
+                str(approval["approval_id"]),
+                "审批中心",
+                str(approval["reason"]),
+                "approvals",
+                str(approval["status"]),
+                _approval_action_id(approval),
+            )
+        )
     for risk in console_data.get("risks", []):
         if str(risk["source"]) == "Agent Store" and str(risk["id"]).startswith("gap_"):
             continue
-        search_index.append(_search_item(str(risk["id"]), str(risk["source"]), _localized_action(str(risk["primary_action"])), str(risk["deep_link"]), str(risk["state"]), _risk_action_id(risk)))
+        search_index.append(
+            _search_item(
+                str(risk["id"]),
+                str(risk["source"]),
+                _localized_action(str(risk["primary_action"])),
+                str(risk["deep_link"]),
+                str(risk["state"]),
+                _risk_action_id(risk),
+            )
+        )
     for gap in console_data.get("agentStore", {}).get("discoveryGaps", []):
-        protected_search_index.append(_search_item(str(gap["gap_id"]), "Agent Store 审计", _localized_action(str(gap["primary_action"])), "agent-store-audit", str(gap["state"]), _gap_action_id(gap)))
+        protected_search_index.append(
+            _search_item(
+                str(gap["gap_id"]),
+                "Agent Store 审计",
+                _localized_action(str(gap["primary_action"])),
+                "agent-store-audit",
+                str(gap["state"]),
+                _gap_action_id(gap),
+            )
+        )
 
     return {
         "notifications": notifications[:8],
         "todos": _prioritized_unique(protected_todos, todos, limit=12),
-        "searchIndex": _prioritized_unique(protected_search_index, search_index, limit=30),
+        "searchIndex": _prioritized_unique(
+            protected_search_index, search_index, limit=30
+        ),
     }
 
 
@@ -751,10 +890,19 @@ def _adoption_workbench(console_data: dict[str, Any]) -> dict[str, Any]:
     risks = list(console_data.get("risks", []))
     evidence = list(console_data.get("evidence", []))
     run_count = len(runs)
-    degraded_quality = sum(1 for item in quality if str(item.get("status")) not in {"healthy", "normal"})
-    blocked_risks = sum(1 for item in risks if str(item.get("state")) in {"block", "redaction_failed", "unverified", "degraded"})
+    degraded_quality = sum(
+        1 for item in quality if str(item.get("status")) not in {"healthy", "normal"}
+    )
+    blocked_risks = sum(
+        1
+        for item in risks
+        if str(item.get("state"))
+        in {"block", "redaction_failed", "unverified", "degraded"}
+    )
     generated_lines = run_count * 180
-    retained_lines = max(generated_lines - degraded_quality * 24 - blocked_risks * 16, 0)
+    retained_lines = max(
+        generated_lines - degraded_quality * 24 - blocked_risks * 16, 0
+    )
     human_modified_lines = degraded_quality * 18 + blocked_risks * 9
     deleted_lines = degraded_quality * 7 + blocked_risks * 5
     ci_failure_types = _ci_failure_types(evidence=evidence, risks=risks)
@@ -769,10 +917,14 @@ def _adoption_workbench(console_data: dict[str, Any]) -> dict[str, Any]:
             "rework_rounds": max(degraded_quality, blocked_risks),
             "pr_review_findings": review_findings,
             "ci_failure_types": ci_failure_types,
-            "retention_rate": f"{round(retained_lines / generated_lines * 100)}%" if generated_lines else "0%",
+            "retention_rate": f"{round(retained_lines / generated_lines * 100)}%"
+            if generated_lines
+            else "0%",
         },
         "explanationChains": [_quality_explanation_chain(item) for item in quality],
-        "segments": _adoption_segments(console_data, retained_lines=retained_lines, generated_lines=generated_lines),
+        "segments": _adoption_segments(
+            console_data, retained_lines=retained_lines, generated_lines=generated_lines
+        ),
         "reviewSignals": _adoption_review_signals(quality, risks),
         "guardrails": [
             "低置信不自动下架，只进入人工复核和申诉路径。",
@@ -783,9 +935,13 @@ def _adoption_workbench(console_data: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _ci_failure_types(*, evidence: list[dict[str, Any]], risks: list[dict[str, Any]]) -> list[str]:
+def _ci_failure_types(
+    *, evidence: list[dict[str, Any]], risks: list[dict[str, Any]]
+) -> list[str]:
     failure_types: list[str] = []
-    if any(str(item.get("raw_access_state")) == "redaction_failed" for item in evidence):
+    if any(
+        str(item.get("raw_access_state")) == "redaction_failed" for item in evidence
+    ):
         failure_types.append("证据脱敏失败")
     if any(str(item.get("state")) == "block" for item in risks):
         failure_types.append("策略阻断")
@@ -846,10 +1002,22 @@ def _quality_confidence(status: str) -> float:
     return 0.58
 
 
-def _adoption_segments(console_data: dict[str, Any], *, retained_lines: int, generated_lines: int) -> list[dict[str, str]]:
-    agent_store_summary_count = len(console_data.get("agentStore", {}).get("storeSummaries", []))
-    retention_rate = f"{round(retained_lines / generated_lines * 100)}%" if generated_lines else "0%"
-    sdlc_status = "empty" if generated_lines == 0 else "healthy" if retained_lines >= generated_lines * 0.75 else "degraded"
+def _adoption_segments(
+    console_data: dict[str, Any], *, retained_lines: int, generated_lines: int
+) -> list[dict[str, str]]:
+    agent_store_summary_count = len(
+        console_data.get("agentStore", {}).get("storeSummaries", [])
+    )
+    retention_rate = (
+        f"{round(retained_lines / generated_lines * 100)}%" if generated_lines else "0%"
+    )
+    sdlc_status = (
+        "empty"
+        if generated_lines == 0
+        else "healthy"
+        if retained_lines >= generated_lines * 0.75
+        else "degraded"
+    )
     return [
         {
             "id": "segment_sdlc_runs",
@@ -872,7 +1040,9 @@ def _adoption_segments(console_data: dict[str, Any], *, retained_lines: int, gen
     ]
 
 
-def _adoption_review_signals(quality: list[dict[str, Any]], risks: list[dict[str, Any]]) -> list[dict[str, str]]:
+def _adoption_review_signals(
+    quality: list[dict[str, Any]], risks: list[dict[str, Any]]
+) -> list[dict[str, str]]:
     signals: list[dict[str, str]] = []
     for item in quality:
         if str(item.get("status")) == "healthy":
@@ -905,7 +1075,15 @@ def _adoption_review_signals(quality: list[dict[str, Any]], risks: list[dict[str
     return signals[:8]
 
 
-def _notification(notification_id: str, title: str, body: str, status: str, route: str, ref: str, action_id: str = "") -> dict[str, str]:
+def _notification(
+    notification_id: str,
+    title: str,
+    body: str,
+    status: str,
+    route: str,
+    ref: str,
+    action_id: str = "",
+) -> dict[str, str]:
     return {
         "id": notification_id,
         "title": title,
@@ -917,7 +1095,16 @@ def _notification(notification_id: str, title: str, body: str, status: str, rout
     }
 
 
-def _todo(todo_id: str, title: str, body: str, owner: str, status: str, route: str, due: str, action_id: str = "") -> dict[str, str]:
+def _todo(
+    todo_id: str,
+    title: str,
+    body: str,
+    owner: str,
+    status: str,
+    route: str,
+    due: str,
+    action_id: str = "",
+) -> dict[str, str]:
     return {
         "id": todo_id,
         "title": title,
@@ -930,7 +1117,9 @@ def _todo(todo_id: str, title: str, body: str, owner: str, status: str, route: s
     }
 
 
-def _search_item(item_id: str, kind: str, title: str, route: str, status: str, action_id: str = "") -> dict[str, str]:
+def _search_item(
+    item_id: str, kind: str, title: str, route: str, status: str, action_id: str = ""
+) -> dict[str, str]:
     return {
         "id": item_id,
         "kind": kind,
@@ -941,7 +1130,9 @@ def _search_item(item_id: str, kind: str, title: str, route: str, status: str, a
     }
 
 
-def _prioritized_unique(protected_items: list[dict[str, str]], items: list[dict[str, str]], *, limit: int) -> list[dict[str, str]]:
+def _prioritized_unique(
+    protected_items: list[dict[str, str]], items: list[dict[str, str]], *, limit: int
+) -> list[dict[str, str]]:
     selected: list[dict[str, str]] = []
     seen: set[str] = set()
     for item in [*protected_items, *items]:
@@ -976,7 +1167,12 @@ def _action_workbench(console_data: dict[str, Any]) -> dict[str, Any]:
             )
         )
     for evidence in console_data.get("evidence", []):
-        target = protected_details if evidence.get("raw_access_state") in {"redaction_failed", "permission_denied", "degraded"} else details
+        target = (
+            protected_details
+            if evidence.get("raw_access_state")
+            in {"redaction_failed", "permission_denied", "degraded"}
+            else details
+        )
         target.append(
             _action_detail(
                 _evidence_action_id(evidence),
@@ -1029,7 +1225,11 @@ def _action_workbench(console_data: dict[str, Any]) -> dict[str, Any]:
                 ",".join(str(run_id) for run_id in gap.get("affected_runs", [])),
             )
         )
-    return {"details": _prioritized_unique(protected_details, details, limit=len(protected_details) + len(details))}
+    return {
+        "details": _prioritized_unique(
+            protected_details, details, limit=len(protected_details) + len(details)
+        )
+    }
 
 
 def _action_detail(
@@ -1337,7 +1537,10 @@ def _run_skill(events: list[dict[str, Any]]) -> str:
 def _evidence_summary(evaluation: dict[str, Any], events: list[dict[str, Any]]) -> str:
     if evaluation["result"] == "L5":
         return f"已接收 {len(events)} 条签名事件，核心证据链完整。"
-    missing = "、".join(_localized_evidence_gap(item) for item in evaluation["missing_evidence"] or evaluation["failed_conditions"])
+    missing = "、".join(
+        _localized_evidence_gap(item)
+        for item in evaluation["missing_evidence"] or evaluation["failed_conditions"]
+    )
     return f"已接收 {len(events)} 条事件，但仍缺少：{missing}。"
 
 
@@ -1376,10 +1579,20 @@ def _approval_from_record(approval: dict[str, Any]) -> dict[str, str]:
     return {
         "approval_id": approval_id,
         "id": approval_id,
-        "requester": str(approval.get("requester") or approval.get("agent_id") or "未知申请方"),
-        "reason": str(approval.get("reason") or approval.get("request_reason") or "需要审批后继续"),
-        "affected_actions": str(approval.get("affected_actions") or approval.get("resource_scope") or "未声明动作"),
-        "sla_due_at": str(approval.get("sla_due_at") or approval.get("expires_at") or "待确认"),
+        "requester": str(
+            approval.get("requester") or approval.get("agent_id") or "未知申请方"
+        ),
+        "reason": str(
+            approval.get("reason") or approval.get("request_reason") or "需要审批后继续"
+        ),
+        "affected_actions": str(
+            approval.get("affected_actions")
+            or approval.get("resource_scope")
+            or "未声明动作"
+        ),
+        "sla_due_at": str(
+            approval.get("sla_due_at") or approval.get("expires_at") or "待确认"
+        ),
         "status": str(approval.get("status") or "pending"),
         "grant_status": str(approval.get("grant_status") or "pending"),
         "audit_id": str(approval.get("audit_id") or f"audit_{approval_id}"),
@@ -1389,7 +1602,15 @@ def _approval_from_record(approval: dict[str, Any]) -> dict[str, str]:
 def _policies_from_grants(grants: tuple[dict[str, Any], ...]) -> list[dict[str, str]]:
     if not grants:
         return [
-            _policy("pol_repository_default", "warn", "本地事实接入", "require_online", "runtime-v2", "无", "audit_repository_default")
+            _policy(
+                "pol_repository_default",
+                "warn",
+                "本地事实接入",
+                "require_online",
+                "runtime-v2",
+                "无",
+                "audit_repository_default",
+            )
         ]
     return [
         _policy(
@@ -1399,29 +1620,79 @@ def _policies_from_grants(grants: tuple[dict[str, Any], ...]) -> list[dict[str, 
             "require_online",
             str(grant.get("policy_version") or "runtime-v2"),
             str(grant.get("expires_at") or "待确认"),
-            str(grant.get("audit_id") or f"audit_{grant.get('grant_id') or 'grant_unknown'}"),
+            str(
+                grant.get("audit_id")
+                or f"audit_{grant.get('grant_id') or 'grant_unknown'}"
+            ),
         )
-        for grant in sorted(grants, key=lambda item: str(item.get("grant_id") or "grant_unknown"))
+        for grant in sorted(
+            grants, key=lambda item: str(item.get("grant_id") or "grant_unknown")
+        )
     ]
 
 
-def _repository_connectors(repository: InMemoryRepository, *, event_count: int | None = None) -> list[dict[str, str]]:
+def _repository_connectors(
+    repository: InMemoryRepository, *, event_count: int | None = None
+) -> list[dict[str, str]]:
     now = datetime.now(UTC).isoformat()
     event_count = repository.raw_event_count() if event_count is None else event_count
     metadata_count = len(repository.agent_store_metadata_records())
     agent_store_status = "healthy" if metadata_count else "degraded"
-    agent_store_action = f"{metadata_count} 条元数据快照" if metadata_count else "等待 Agent Store 元数据同步"
+    agent_store_action = (
+        f"{metadata_count} 条元数据快照"
+        if metadata_count
+        else "等待 Agent Store 元数据同步"
+    )
     return [
-        _connector("conn_agent_store", "Agent Store", agent_store_status, now, agent_store_action, "req_conn_agent_store"),
-        _connector("conn_ingestion", "事件接入", "healthy", now, "无", "req_conn_ingestion"),
-        _connector("conn_repository", "运行事实仓库", "healthy", now, f"{event_count} 条事件", "req_conn_repository"),
+        _connector(
+            "conn_agent_store",
+            "Agent Store",
+            agent_store_status,
+            now,
+            agent_store_action,
+            "req_conn_agent_store",
+        ),
+        _connector(
+            "conn_ingestion", "事件接入", "healthy", now, "无", "req_conn_ingestion"
+        ),
+        _connector(
+            "conn_repository",
+            "运行事实仓库",
+            "healthy",
+            now,
+            f"{event_count} 条事件",
+            "req_conn_repository",
+        ),
         _connector("conn_git", "Git 仓库", "healthy", now, "无", "req_conn_git"),
         _connector("conn_pr", "PR 服务", "healthy", now, "无", "req_conn_pr"),
-        _connector("conn_ci", "CI 检查", "degraded", now, "降级为本地检查摘要", "req_conn_ci"),
+        _connector(
+            "conn_ci", "CI 检查", "degraded", now, "降级为本地检查摘要", "req_conn_ci"
+        ),
         _connector("conn_test", "测试执行", "healthy", now, "无", "req_conn_test"),
-        _connector("conn_sdlc", "Ai_AutoSDLC", "materialized", now, "需要 verified_loaded 机器证明", "req_conn_sdlc"),
-        _connector("conn_evidence", "证据存储", "healthy", now, "仅展示摘要", "req_conn_evidence"),
-        _connector("conn_policy", "策略服务", "healthy", now, "本地内核策略摘要", "req_conn_policy"),
+        _connector(
+            "conn_sdlc",
+            "Ai_AutoSDLC",
+            "materialized",
+            now,
+            "需要 verified_loaded 机器证明",
+            "req_conn_sdlc",
+        ),
+        _connector(
+            "conn_evidence",
+            "证据存储",
+            "healthy",
+            now,
+            "仅展示摘要",
+            "req_conn_evidence",
+        ),
+        _connector(
+            "conn_policy",
+            "策略服务",
+            "healthy",
+            now,
+            "本地内核策略摘要",
+            "req_conn_policy",
+        ),
         _connector("conn_iam", "IAM/安全", "healthy", now, "无", "req_conn_iam"),
     ]
 
@@ -1639,21 +1910,50 @@ def _connector_sync_summary(connector: dict[str, Any]) -> str:
     return f"{connector['name']} 进入降级路径：{connector['degrade_action']}。"
 
 
-def _repository_sdlc_runs(repository: InMemoryRepository, *, event_count: int | None = None) -> list[dict[str, str]]:
+def _repository_sdlc_runs(
+    repository: InMemoryRepository, *, event_count: int | None = None
+) -> list[dict[str, str]]:
     now = datetime.now(UTC).isoformat()
     event_count = repository.raw_event_count() if event_count is None else event_count
     return [
-        _sdlc_run("sdlc_repository_snapshot", "console repository snapshot", "materialized", "dry_run_passed", "InMemoryRepository", now),
-        _sdlc_run("sdlc_repository_events", "ingestion event count", "materialized", "dry_run_passed", f"{event_count} 条事件", now),
+        _sdlc_run(
+            "sdlc_repository_snapshot",
+            "console repository snapshot",
+            "materialized",
+            "dry_run_passed",
+            "InMemoryRepository",
+            now,
+        ),
+        _sdlc_run(
+            "sdlc_repository_events",
+            "ingestion event count",
+            "materialized",
+            "dry_run_passed",
+            f"{event_count} 条事件",
+            now,
+        ),
     ]
 
 
 def _credential_handoff_workbench(repository: InMemoryRepository) -> dict[str, Any]:
-    rows = [_credential_handoff_row(repository, record) for record in repository.credential_bootstrap_records()]
-    issued_count = sum(1 for row in rows if row["bootstrap_status"] == "credential_issued")
-    verified_count = sum(1 for row in rows if row["bootstrap_status"] == "signature_verified")
-    revoked_count = sum(1 for row in rows if row["bootstrap_status"] == "revoked" or row["credential_status"] == "revoked")
-    reissued_count = sum(1 for row in rows if row["revocation_resolution"] == "reissued")
+    rows = [
+        _credential_handoff_row(repository, record)
+        for record in repository.credential_bootstrap_records()
+    ]
+    issued_count = sum(
+        1 for row in rows if row["bootstrap_status"] == "credential_issued"
+    )
+    verified_count = sum(
+        1 for row in rows if row["bootstrap_status"] == "signature_verified"
+    )
+    revoked_count = sum(
+        1
+        for row in rows
+        if row["bootstrap_status"] == "revoked" or row["credential_status"] == "revoked"
+    )
+    reissued_count = sum(
+        1 for row in rows if row["revocation_resolution"] == "reissued"
+    )
     return {
         "summary": {
             "id": "credential_handoff_summary",
@@ -1667,7 +1967,13 @@ def _credential_handoff_workbench(repository: InMemoryRepository) -> dict[str, A
             "agent_store_boundary": "display_only_no_active_inference",
             "verified_loaded": "not_asserted",
             "l5_status": "not_asserted",
-            "primary_action": "展示重新签发结果" if reissued_count else "处理撤销并重新签发" if revoked_count else "等待签名测试事件" if issued_count and not verified_count else "展示 AgentOps 回显结果",
+            "primary_action": "展示重新签发结果"
+            if reissued_count
+            else "处理撤销并重新签发"
+            if revoked_count
+            else "等待签名测试事件"
+            if issued_count and not verified_count
+            else "展示 AgentOps 回显结果",
             "safety_note": "凭证联调只展示 AgentOps 事实回显，不把 credential 或签名测试事件提升为 verified_loaded 或 L5。",
         },
         "sessions": rows,
@@ -1682,7 +1988,9 @@ def _credential_handoff_workbench(repository: InMemoryRepository) -> dict[str, A
     }
 
 
-def _credential_handoff_row(repository: InMemoryRepository, record: dict[str, Any]) -> dict[str, Any]:
+def _credential_handoff_row(
+    repository: InMemoryRepository, record: dict[str, Any]
+) -> dict[str, Any]:
     session = dict(record["bootstrap_session"])
     bootstrap_id = str(session["bootstrap_id"])
     try:
@@ -1691,7 +1999,9 @@ def _credential_handoff_row(repository: InMemoryRepository, record: dict[str, An
         status = {
             "schema_version": CREDENTIAL_STATUS_SCHEMA_VERSION,
             "bootstrap_id": bootstrap_id,
-            "bootstrap_status": str(session.get("bootstrap_status") or session.get("status") or "pending"),
+            "bootstrap_status": str(
+                session.get("bootstrap_status") or session.get("status") or "pending"
+            ),
             "credential_status": "pending",
             "credential_id": "待签发",
             "token_id": "待签发",
@@ -1719,17 +2029,25 @@ def _credential_handoff_row(repository: InMemoryRepository, record: dict[str, An
         "device_id": str(status["device_id"]),
         "expires_at": str(status["expires_at"]),
         "next_action": str(status["next_action"]),
-        "signature_test_event_id": str(status.get("signature_test_event_id") or "待接收"),
+        "signature_test_event_id": str(
+            status.get("signature_test_event_id") or "待接收"
+        ),
         "revocation_id": str(status.get("revocation_id") or "未撤销"),
         "revoked_at": str(status.get("revoked_at") or "未撤销"),
         "revocation_reason": str(status.get("revocation_reason") or "未撤销"),
         "revocation_scope": str(status.get("revocation_scope") or "未撤销"),
-        "revocation_resolution": str(status.get("revocation_resolution") or "未重新签发"),
+        "revocation_resolution": str(
+            status.get("revocation_resolution") or "未重新签发"
+        ),
         "reissue_id": str(status.get("reissue_id") or "未重新签发"),
         "reissued_at": str(status.get("reissued_at") or "未重新签发"),
         "reissued_by": str(status.get("reissued_by") or "未重新签发"),
-        "reissued_bootstrap_id": str(status.get("reissued_bootstrap_id") or "未重新签发"),
-        "reissued_credential_id": str(status.get("reissued_credential_id") or "未重新签发"),
+        "reissued_bootstrap_id": str(
+            status.get("reissued_bootstrap_id") or "未重新签发"
+        ),
+        "reissued_credential_id": str(
+            status.get("reissued_credential_id") or "未重新签发"
+        ),
         "agentops_fact_owner": str(status["agentops_fact_owner"]),
         "agent_store_consumer_boundary": str(status["agent_store_consumer_boundary"]),
         "allowed_actions": "display_status,show_next_action",
@@ -1740,7 +2058,9 @@ def _credential_handoff_row(repository: InMemoryRepository, record: dict[str, An
     }
 
 
-def _agent_store_workbench(repository: InMemoryRepository, events_by_run: dict[str, list[dict[str, Any]]]) -> dict[str, Any]:
+def _agent_store_workbench(
+    repository: InMemoryRepository, events_by_run: dict[str, list[dict[str, Any]]]
+) -> dict[str, Any]:
     raw_gaps = discover_agent_store_gaps(repository)
     gaps = [_agent_store_gap(gap) for gap in raw_gaps]
     agent_store_events_by_run: dict[str, list[dict[str, Any]]] = defaultdict(list)
@@ -1753,11 +2073,15 @@ def _agent_store_workbench(repository: InMemoryRepository, events_by_run: dict[s
     for run_id in sorted(agent_store_events_by_run):
         events = sorted(agent_store_events_by_run[run_id], key=_event_sequence_no)
         try:
-            audit = build_run_audit(repository, run_id, events=events, discovery_gaps=raw_gaps)
+            audit = build_run_audit(
+                repository, run_id, events=events, discovery_gaps=raw_gaps
+            )
         except Exception:
             audit = _agent_store_failed_audit(run_id, events)
             audits.append(_agent_store_audit(audit))
-            summaries.append(_agent_store_summary(_agent_store_failed_summary(run_id, audit)))
+            summaries.append(
+                _agent_store_summary(_agent_store_failed_summary(run_id, audit))
+            )
             continue
         audits.append(_agent_store_audit(audit))
         try:
@@ -1777,7 +2101,10 @@ def _agent_store_workbench(repository: InMemoryRepository, events_by_run: dict[s
         "discoveryGaps": gaps,
         "runAudits": audits,
         "storeSummaries": summaries,
-        "registryMap": [_agent_store_registry_record(record) for record in repository.agent_store_metadata_records()],
+        "registryMap": [
+            _agent_store_registry_record(record)
+            for record in repository.agent_store_metadata_records()
+        ],
     }
 
 
@@ -1789,13 +2116,17 @@ def _agent_store_run_id(event: dict[str, Any]) -> str:
     return str(event.get("event_id") or "unknown_run")
 
 
-def _agent_store_evidence_summary(run_id: str, events: list[dict[str, Any]]) -> dict[str, Any]:
+def _agent_store_evidence_summary(
+    run_id: str, events: list[dict[str, Any]]
+) -> dict[str, Any]:
     l5_input = _last_payload(events, "l5_eligibility_input")
     evaluation = evaluate_l5_gate(
         events,
         governance_state=_governance_state(events),
         outbox_status=str(l5_input.get("outbox_status", "delivered")),
-        policy_state_known=_strict_bool(l5_input.get("policy_state_known"), default=False),
+        policy_state_known=_strict_bool(
+            l5_input.get("policy_state_known"), default=False
+        ),
     )
     return {
         "run_id": run_id,
@@ -1805,7 +2136,9 @@ def _agent_store_evidence_summary(run_id: str, events: list[dict[str, Any]]) -> 
     }
 
 
-def _agent_store_failed_audit(run_id: str, events: list[dict[str, Any]]) -> dict[str, Any]:
+def _agent_store_failed_audit(
+    run_id: str, events: list[dict[str, Any]]
+) -> dict[str, Any]:
     first = events[0] if events else {}
     agent_id = str(first.get("agent_id") or "unknown_agent")
     version = str(first.get("agent_version") or first.get("version") or "unknown")
@@ -1818,13 +2151,16 @@ def _agent_store_failed_audit(run_id: str, events: list[dict[str, Any]]) -> dict
         "event_count": len(events),
         "raw_access_state": "summary_only",
         "discovery_gap_ids": [],
-        "related_agent_versions": [_agent_version_label(event) for event in events] or [f"{agent_id}@{version}"],
+        "related_agent_versions": [_agent_version_label(event) for event in events]
+        or [f"{agent_id}@{version}"],
         "deep_links": {
             "agent_id": agent_id,
             "version": version,
             "session_id": str(first.get("session_id") or f"sess_{run_id}"),
             "run_id": run_id,
-            "installation_id": str(first.get("installation_id") or "unknown_installation"),
+            "installation_id": str(
+                first.get("installation_id") or "unknown_installation"
+            ),
             "trace_id": str(first.get("trace_id") or f"trace_{run_id}"),
             "audit_id": f"audit_run_{_slug(run_id)}",
             "return_url": f"/agent-store/agents/{agent_id}/runs/{run_id}",
@@ -1913,8 +2249,12 @@ def _agent_store_audit(audit: dict[str, Any]) -> dict[str, Any]:
         "event_count": int(audit["event_count"]),
         "raw_access_state": str(audit["raw_access_state"]),
         "discovery_gap_ids": [str(gap_id) for gap_id in audit["discovery_gap_ids"]],
-        "related_agent_versions": [str(version) for version in audit["related_agent_versions"]],
-        "deep_links": {str(key): str(value) for key, value in audit["deep_links"].items()},
+        "related_agent_versions": [
+            str(version) for version in audit["related_agent_versions"]
+        ],
+        "deep_links": {
+            str(key): str(value) for key, value in audit["deep_links"].items()
+        },
     }
     if audit.get("processing_error"):
         model["processing_error"] = str(audit["processing_error"])
@@ -1939,7 +2279,10 @@ def _agent_store_summary(summary: dict[str, Any]) -> dict[str, Any]:
             "policy_owner": str(summary["policy_requirement"]["policy_owner"]),
             "policy_version": str(summary["policy_requirement"]["policy_version"]),
             "can_ignore": bool(summary["policy_requirement"]["can_ignore"]),
-            "affected_actions": [str(action) for action in summary["policy_requirement"]["affected_actions"]],
+            "affected_actions": [
+                str(action)
+                for action in summary["policy_requirement"]["affected_actions"]
+            ],
         },
         "discovery_gap_ids": [str(gap_id) for gap_id in summary["discovery_gap_ids"]],
         "run_audit": {
@@ -1999,26 +2342,87 @@ def _console_data() -> dict[str, Any]:
                 "captured_at": "2026-05-06T05:20:00Z",
             },
             "metrics": [
-                {"label": "今日运行", "value": 42, "status": "healthy", "detail": "39 条可信，3 条需复核"},
+                {
+                    "label": "今日运行",
+                    "value": 42,
+                    "status": "healthy",
+                    "detail": "39 条可信，3 条需复核",
+                },
                 {
                     "label": "Policy SLO",
                     "value": "P95 860ms",
                     "status": "degraded",
                     "detail": "高风险动作需在线校验/阻断（require_online/block）",
                 },
-                {"label": "审批待办", "value": 7, "status": "pending", "detail": "2 条超过 SLA 并已升级"},
-                {"label": "证据状态", "value": "1 条失败", "status": "redaction_failed", "detail": "原文访问已阻断"},
+                {
+                    "label": "审批待办",
+                    "value": 7,
+                    "status": "pending",
+                    "detail": "2 条超过 SLA 并已升级",
+                },
+                {
+                    "label": "证据状态",
+                    "value": "1 条失败",
+                    "status": "redaction_failed",
+                    "detail": "原文访问已阻断",
+                },
             ],
         },
         "runs": [
-            _run("run_20260506_001", "发布 Agent", "生产部署", "高", "healthy", "approval_required", "summary_only"),
-            _run("run_20260506_002", "质检 Agent", "测试执行", "中", "healthy", "conditional_allow", "approved_limited"),
-            _run("run_20260506_003", "迁移 Agent", "结构变更", "高", "degraded", "block", "redaction_failed"),
-            _run("run_20260506_004", "商店 Agent", "发布上架", "低", "unknown", "warn", "summary_only"),
+            _run(
+                "run_20260506_001",
+                "发布 Agent",
+                "生产部署",
+                "高",
+                "healthy",
+                "approval_required",
+                "summary_only",
+            ),
+            _run(
+                "run_20260506_002",
+                "质检 Agent",
+                "测试执行",
+                "中",
+                "healthy",
+                "conditional_allow",
+                "approved_limited",
+            ),
+            _run(
+                "run_20260506_003",
+                "迁移 Agent",
+                "结构变更",
+                "高",
+                "degraded",
+                "block",
+                "redaction_failed",
+            ),
+            _run(
+                "run_20260506_004",
+                "商店 Agent",
+                "发布上架",
+                "低",
+                "unknown",
+                "warn",
+                "summary_only",
+            ),
         ],
         "evidence": [
-            _evidence("ev_001", "run_20260506_001", "部署命令摘要已移除敏感值。", "sha256:7a21...", "summary_only", "audit_ev_001"),
-            _evidence("ev_002", "run_20260506_002", "已获得短时复核窗口的限时授权。", "sha256:91be...", "approved_limited", "audit_ev_002"),
+            _evidence(
+                "ev_001",
+                "run_20260506_001",
+                "部署命令摘要已移除敏感值。",
+                "sha256:7a21...",
+                "summary_only",
+                "audit_ev_001",
+            ),
+            _evidence(
+                "ev_002",
+                "run_20260506_002",
+                "已获得短时复核窗口的限时授权。",
+                "sha256:91be...",
+                "approved_limited",
+                "audit_ev_002",
+            ),
             _evidence(
                 "ev_003",
                 "run_20260506_003",
@@ -2039,28 +2443,156 @@ def _console_data() -> dict[str, Any]:
             ),
         ],
         "approvals": [
-            _approval("ap_001", "发布 Agent", "生产部署需要短期 Grant", "deploy:prod", "2026-05-06 13:20", "pending", "pending"),
-            _approval("ap_002", "质检 Agent", "复核失败的测试证据", "evidence.raw", "2026-05-06 12:40", "escalated", "expired"),
-            _approval("ap_003", "迁移 Agent", "结构迁移被策略阻断", "db.migrate", "2026-05-06 14:00", "approved", "active"),
-            _approval("ap_004", "商店 Agent", "已接受发布风险提示", "store.publish", "2026-05-06 13:10", "revoked", "revoked"),
+            _approval(
+                "ap_001",
+                "发布 Agent",
+                "生产部署需要短期 Grant",
+                "deploy:prod",
+                "2026-05-06 13:20",
+                "pending",
+                "pending",
+            ),
+            _approval(
+                "ap_002",
+                "质检 Agent",
+                "复核失败的测试证据",
+                "evidence.raw",
+                "2026-05-06 12:40",
+                "escalated",
+                "expired",
+            ),
+            _approval(
+                "ap_003",
+                "迁移 Agent",
+                "结构迁移被策略阻断",
+                "db.migrate",
+                "2026-05-06 14:00",
+                "approved",
+                "active",
+            ),
+            _approval(
+                "ap_004",
+                "商店 Agent",
+                "已接受发布风险提示",
+                "store.publish",
+                "2026-05-06 13:10",
+                "revoked",
+                "revoked",
+            ),
         ],
         "policies": [
-            _policy("pol_001", "approval_required", "deploy:prod", "require_online", "runtime-v2.3", "15 分钟", "audit_pol_001"),
-            _policy("pol_002", "block", "db.migrate", "block", "runtime-v2.3", "无", "audit_pol_002"),
-            _policy("pol_003", "conditional_allow", "test:run", "无", "runtime-v2.2", "10 分钟", "audit_pol_003"),
-            _policy("pol_004", "unknown", "store.publish", "警告", "runtime-v2.1", "无", "req_policy_unknown"),
+            _policy(
+                "pol_001",
+                "approval_required",
+                "deploy:prod",
+                "require_online",
+                "runtime-v2.3",
+                "15 分钟",
+                "audit_pol_001",
+            ),
+            _policy(
+                "pol_002",
+                "block",
+                "db.migrate",
+                "block",
+                "runtime-v2.3",
+                "无",
+                "audit_pol_002",
+            ),
+            _policy(
+                "pol_003",
+                "conditional_allow",
+                "test:run",
+                "无",
+                "runtime-v2.2",
+                "10 分钟",
+                "audit_pol_003",
+            ),
+            _policy(
+                "pol_004",
+                "unknown",
+                "store.publish",
+                "警告",
+                "runtime-v2.1",
+                "无",
+                "req_policy_unknown",
+            ),
         ],
         "risks": [
-            _risk("risk_001", "策略中心", "严重", "block", "安全/IAM", "复核拒绝优先级（deny）", "policies"),
-            _risk("risk_002", "审批中心", "高", "escalated", "发布审批人", "升级审批", "approvals"),
-            _risk("risk_003", "证据检索", "高", "redaction_failed", "证据负责人", "仅检查哈希", "evidence"),
-            _risk("risk_004", "Ai_AutoSDLC 运行", "中", "unverified", "SDLC 负责人", "加载验证证明", "sdlc-runs"),
+            _risk(
+                "risk_001",
+                "策略中心",
+                "严重",
+                "block",
+                "安全/IAM",
+                "复核拒绝优先级（deny）",
+                "policies",
+            ),
+            _risk(
+                "risk_002",
+                "审批中心",
+                "高",
+                "escalated",
+                "发布审批人",
+                "升级审批",
+                "approvals",
+            ),
+            _risk(
+                "risk_003",
+                "证据检索",
+                "高",
+                "redaction_failed",
+                "证据负责人",
+                "仅检查哈希",
+                "evidence",
+            ),
+            _risk(
+                "risk_004",
+                "Ai_AutoSDLC 运行",
+                "中",
+                "unverified",
+                "SDLC 负责人",
+                "加载验证证明",
+                "sdlc-runs",
+            ),
         ],
         "quality": [
-            _quality("qs_001", "契约测试", "healthy", "88/88", "AO1/AO2/AO3 契约套件", "AgentOps 后端", "保持基线"),
-            _quality("qs_002", "Browser Gate", "healthy", "已通过", "AO3 浏览器证据", "前端负责人", "持续采集"),
-            _quality("qs_003", "证据完整性", "redaction_failed", "91%", "ev_003 已保留哈希", "证据负责人", "修复脱敏"),
-            _quality("qs_004", "策略可解释性", "unknown", "需证明", "策略要求摘要", "安全/IAM", "刷新 SLO"),
+            _quality(
+                "qs_001",
+                "契约测试",
+                "healthy",
+                "88/88",
+                "AO1/AO2/AO3 契约套件",
+                "AgentOps 后端",
+                "保持基线",
+            ),
+            _quality(
+                "qs_002",
+                "Browser Gate",
+                "healthy",
+                "已通过",
+                "AO3 浏览器证据",
+                "前端负责人",
+                "持续采集",
+            ),
+            _quality(
+                "qs_003",
+                "证据完整性",
+                "redaction_failed",
+                "91%",
+                "ev_003 已保留哈希",
+                "证据负责人",
+                "修复脱敏",
+            ),
+            _quality(
+                "qs_004",
+                "策略可解释性",
+                "unknown",
+                "需证明",
+                "策略要求摘要",
+                "安全/IAM",
+                "刷新 SLO",
+            ),
         ],
         "agentStore": {
             "discoveryGaps": [
@@ -2249,25 +2781,112 @@ def _console_data() -> dict[str, Any]:
             ],
         },
         "connectors": [
-            _connector("conn_agent_store", "Agent Store", "healthy", "2026-05-06 05:20", "无", "req_conn_agent_store"),
-            _connector("conn_git", "Git 仓库", "healthy", "2026-05-06 05:20", "无", "req_conn_git"),
-            _connector("conn_pr", "PR 服务", "healthy", "2026-05-06 05:20", "无", "req_conn_pr"),
-            _connector("conn_ci", "CI 检查", "degraded", "2026-05-06 05:17", "降级为本地检查摘要", "req_conn_ci"),
-            _connector("conn_test", "测试执行", "healthy", "2026-05-06 05:20", "无", "req_conn_test"),
-            _connector("conn_sdlc", "Ai_AutoSDLC", "materialized", "2026-05-06 05:20", "需要 verified_loaded 证明", "req_conn_sdlc"),
-            _connector("conn_evidence", "证据存储", "degraded", "2026-05-06 05:18", "仅展示摘要", "req_conn_evidence"),
-            _connector("conn_policy", "策略服务", "degraded", "2026-05-06 05:19", "高风险需在线校验/阻断（require_online/block）", "req_conn_policy"),
-            _connector("conn_iam", "IAM/安全", "healthy", "2026-05-06 05:20", "无", "req_conn_iam"),
+            _connector(
+                "conn_agent_store",
+                "Agent Store",
+                "healthy",
+                "2026-05-06 05:20",
+                "无",
+                "req_conn_agent_store",
+            ),
+            _connector(
+                "conn_git",
+                "Git 仓库",
+                "healthy",
+                "2026-05-06 05:20",
+                "无",
+                "req_conn_git",
+            ),
+            _connector(
+                "conn_pr", "PR 服务", "healthy", "2026-05-06 05:20", "无", "req_conn_pr"
+            ),
+            _connector(
+                "conn_ci",
+                "CI 检查",
+                "degraded",
+                "2026-05-06 05:17",
+                "降级为本地检查摘要",
+                "req_conn_ci",
+            ),
+            _connector(
+                "conn_test",
+                "测试执行",
+                "healthy",
+                "2026-05-06 05:20",
+                "无",
+                "req_conn_test",
+            ),
+            _connector(
+                "conn_sdlc",
+                "Ai_AutoSDLC",
+                "materialized",
+                "2026-05-06 05:20",
+                "需要 verified_loaded 证明",
+                "req_conn_sdlc",
+            ),
+            _connector(
+                "conn_evidence",
+                "证据存储",
+                "degraded",
+                "2026-05-06 05:18",
+                "仅展示摘要",
+                "req_conn_evidence",
+            ),
+            _connector(
+                "conn_policy",
+                "策略服务",
+                "degraded",
+                "2026-05-06 05:19",
+                "高风险需在线校验/阻断（require_online/block）",
+                "req_conn_policy",
+            ),
+            _connector(
+                "conn_iam",
+                "IAM/安全",
+                "healthy",
+                "2026-05-06 05:20",
+                "无",
+                "req_conn_iam",
+            ),
         ],
         "sdlcRuns": [
-            _sdlc_run("sdlc_001", "ai-sdlc adapter status", "materialized", "dry_run_passed", "AGENTS.md", "2026-05-06 05:20"),
-            _sdlc_run("sdlc_002", "ai-sdlc run --dry-run", "materialized", "dry_run_passed", "CLI 预演", "2026-05-06 05:21"),
-            _sdlc_run("sdlc_003", "governance load probe", "materialized", "dry_run_passed", "待接入治理加载探针", "待采集"),
+            _sdlc_run(
+                "sdlc_001",
+                "ai-sdlc adapter status",
+                "materialized",
+                "dry_run_passed",
+                "AGENTS.md",
+                "2026-05-06 05:20",
+            ),
+            _sdlc_run(
+                "sdlc_002",
+                "ai-sdlc run --dry-run",
+                "materialized",
+                "dry_run_passed",
+                "CLI 预演",
+                "2026-05-06 05:21",
+            ),
+            _sdlc_run(
+                "sdlc_003",
+                "governance load probe",
+                "materialized",
+                "dry_run_passed",
+                "待接入治理加载探针",
+                "待采集",
+            ),
         ],
     }
 
 
-def _run(run_id: str, agent: str, skill: str, risk_level: str, l5_state: str, policy_state: str, evidence_state: str) -> dict[str, str]:
+def _run(
+    run_id: str,
+    agent: str,
+    skill: str,
+    risk_level: str,
+    l5_state: str,
+    policy_state: str,
+    evidence_state: str,
+) -> dict[str, str]:
     return {
         "run_id": run_id,
         "id": run_id,
@@ -2344,7 +2963,15 @@ def _policy(
     }
 
 
-def _risk(risk_id: str, source: str, severity: str, state: str, owner_hint: str, primary_action: str, deep_link: str) -> dict[str, str]:
+def _risk(
+    risk_id: str,
+    source: str,
+    severity: str,
+    state: str,
+    owner_hint: str,
+    primary_action: str,
+    deep_link: str,
+) -> dict[str, str]:
     return {
         "id": risk_id,
         "source": source,
@@ -2356,7 +2983,15 @@ def _risk(risk_id: str, source: str, severity: str, state: str, owner_hint: str,
     }
 
 
-def _quality(signal_id: str, category: str, status: str, score: str, evidence_ref: str, owner_hint: str, primary_action: str) -> dict[str, str]:
+def _quality(
+    signal_id: str,
+    category: str,
+    status: str,
+    score: str,
+    evidence_ref: str,
+    owner_hint: str,
+    primary_action: str,
+) -> dict[str, str]:
     return {
         "id": signal_id,
         "signal_id": signal_id,
@@ -2369,7 +3004,14 @@ def _quality(signal_id: str, category: str, status: str, score: str, evidence_re
     }
 
 
-def _connector(connector_id: str, name: str, status: str, last_seen_at: str, degrade_action: str, request_id: str) -> dict[str, str]:
+def _connector(
+    connector_id: str,
+    name: str,
+    status: str,
+    last_seen_at: str,
+    degrade_action: str,
+    request_id: str,
+) -> dict[str, str]:
     return {
         "id": connector_id,
         "name": name,

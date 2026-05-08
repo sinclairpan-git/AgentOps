@@ -26,16 +26,26 @@ def _assert_unique_ids(items: list[dict[str, str]]) -> None:
     assert len(ids) == len(set(ids))
 
 
-def _assert_operation_center_contract(operation_center: dict[str, list[dict[str, str]]]) -> None:
+def _assert_operation_center_contract(
+    operation_center: dict[str, list[dict[str, str]]],
+) -> None:
     for key in ("notifications", "todos", "searchIndex"):
         _assert_unique_ids(operation_center[key])
 
-    for item in [*operation_center["notifications"], *operation_center["todos"], *operation_center["searchIndex"]]:
+    for item in [
+        *operation_center["notifications"],
+        *operation_center["todos"],
+        *operation_center["searchIndex"],
+    ]:
         assert item["route"] in ROUTE_IDS
 
     visible_text = " ".join(
         str(item.get(field, ""))
-        for item in [*operation_center["notifications"], *operation_center["todos"], *operation_center["searchIndex"]]
+        for item in [
+            *operation_center["notifications"],
+            *operation_center["todos"],
+            *operation_center["searchIndex"],
+        ]
         for field in ("title", "body", "kind", "owner", "due")
     )
     for forbidden in FORBIDDEN_OPERATION_TEXT:
@@ -44,9 +54,13 @@ def _assert_operation_center_contract(operation_center: dict[str, list[dict[str,
 
 def test_ao8_ct_001_console_snapshot_contains_operation_center():
     repository = InMemoryRepository()
-    repository.write_event(base_event("stage_started", agent_id="agent.unknown", agent_version="0.1.0"))
+    repository.write_event(
+        base_event("stage_started", agent_id="agent.unknown", agent_version="0.1.0")
+    )
 
-    operation_center = build_console_snapshot(repository=repository)["consoleData"]["operationCenter"]
+    operation_center = build_console_snapshot(repository=repository)["consoleData"][
+        "operationCenter"
+    ]
 
     assert set(operation_center) == {"notifications", "todos", "searchIndex"}
     assert operation_center["notifications"]
@@ -58,9 +72,13 @@ def test_ao8_ct_001_console_snapshot_contains_operation_center():
 
 def test_ao8_ct_002_agent_store_gap_becomes_todo_and_search_result():
     repository = InMemoryRepository()
-    repository.write_event(base_event("stage_started", agent_id="agent.unknown", agent_version="0.1.0"))
+    repository.write_event(
+        base_event("stage_started", agent_id="agent.unknown", agent_version="0.1.0")
+    )
 
-    operation_center = build_console_snapshot(repository=repository)["consoleData"]["operationCenter"]
+    operation_center = build_console_snapshot(repository=repository)["consoleData"][
+        "operationCenter"
+    ]
 
     assert any(
         item["route"] == "agent-store-audit" and item["owner"] == "Agent 负责人"
@@ -70,12 +88,26 @@ def test_ao8_ct_002_agent_store_gap_becomes_todo_and_search_result():
         item["route"] == "agent-store-audit" and item["due"] == "待排期"
         for item in operation_center["todos"]
     )
-    assert sum(1 for item in operation_center["todos"] if item["id"] == "todo_gap_agent_agent_unknown_0_1_0") == 1
+    assert (
+        sum(
+            1
+            for item in operation_center["todos"]
+            if item["id"] == "todo_gap_agent_agent_unknown_0_1_0"
+        )
+        == 1
+    )
     assert any(
         item["kind"] == "Agent Store 审计" and item["route"] == "agent-store-audit"
         for item in operation_center["searchIndex"]
     )
-    assert sum(1 for item in operation_center["searchIndex"] if item["id"] == "gap_agent_agent_unknown_0_1_0") == 1
+    assert (
+        sum(
+            1
+            for item in operation_center["searchIndex"]
+            if item["id"] == "gap_agent_agent_unknown_0_1_0"
+        )
+        == 1
+    )
     _assert_operation_center_contract(operation_center)
 
 
@@ -97,14 +129,24 @@ def test_ao8_ct_003_approval_and_evidence_items_are_actionable():
     event["signature"] = ""
     repository.write_event(event)
 
-    operation_center = build_console_snapshot(repository=repository)["consoleData"]["operationCenter"]
+    operation_center = build_console_snapshot(repository=repository)["consoleData"][
+        "operationCenter"
+    ]
 
-    assert any(item["title"] == "审批待处理" and item["route"] == "approvals" for item in operation_center["notifications"])
     assert any(
-        item["title"] == "处理审批" and item["status"] == "pending" and item["due"] == "2026-05-06 13:20"
+        item["title"] == "审批待处理" and item["route"] == "approvals"
+        for item in operation_center["notifications"]
+    )
+    assert any(
+        item["title"] == "处理审批"
+        and item["status"] == "pending"
+        and item["due"] == "2026-05-06 13:20"
         for item in operation_center["todos"]
     )
-    assert any(item["kind"] == "审批中心" and item["id"] == "ap_pending" for item in operation_center["searchIndex"])
+    assert any(
+        item["kind"] == "审批中心" and item["id"] == "ap_pending"
+        for item in operation_center["searchIndex"]
+    )
     _assert_operation_center_contract(operation_center)
 
 
@@ -133,16 +175,25 @@ def test_ao8_ct_004_registered_clean_run_keeps_search_without_false_todo():
     ):
         repository.write_event(base_event(event_type, sequence_no=index))
 
-    operation_center = build_console_snapshot(repository=repository)["consoleData"]["operationCenter"]
+    operation_center = build_console_snapshot(repository=repository)["consoleData"][
+        "operationCenter"
+    ]
 
-    assert any(item["id"] == "run_1" and item["route"] == "runs" for item in operation_center["searchIndex"])
-    assert not any(item["route"] == "agent-store-audit" for item in operation_center["todos"])
+    assert any(
+        item["id"] == "run_1" and item["route"] == "runs"
+        for item in operation_center["searchIndex"]
+    )
+    assert not any(
+        item["route"] == "agent-store-audit" for item in operation_center["todos"]
+    )
     _assert_operation_center_contract(operation_center)
 
 
 def test_ao8_ct_005_agent_store_gap_survives_operation_center_caps():
     repository = InMemoryRepository()
-    repository.write_event(base_event("stage_started", agent_id="agent.unknown", agent_version="0.1.0"))
+    repository.write_event(
+        base_event("stage_started", agent_id="agent.unknown", agent_version="0.1.0")
+    )
     for index in range(35):
         repository.store_approval(
             {
@@ -157,10 +208,18 @@ def test_ao8_ct_005_agent_store_gap_survives_operation_center_caps():
             }
         )
 
-    operation_center = build_console_snapshot(repository=repository)["consoleData"]["operationCenter"]
+    operation_center = build_console_snapshot(repository=repository)["consoleData"][
+        "operationCenter"
+    ]
 
     assert len(operation_center["todos"]) == 12
     assert len(operation_center["searchIndex"]) == 30
-    assert any(item["id"] == "todo_gap_agent_agent_unknown_0_1_0" for item in operation_center["todos"])
-    assert any(item["id"] == "gap_agent_agent_unknown_0_1_0" for item in operation_center["searchIndex"])
+    assert any(
+        item["id"] == "todo_gap_agent_agent_unknown_0_1_0"
+        for item in operation_center["todos"]
+    )
+    assert any(
+        item["id"] == "gap_agent_agent_unknown_0_1_0"
+        for item in operation_center["searchIndex"]
+    )
     _assert_operation_center_contract(operation_center)

@@ -34,7 +34,16 @@ REQUIRED_DLQ_KEYS = {
     "audit_id",
     "safety_note",
 }
-REQUIRED_SYNC_KEYS = {"id", "connector_id", "stage", "occurred_at", "summary", "owner", "status", "request_id"}
+REQUIRED_SYNC_KEYS = {
+    "id",
+    "connector_id",
+    "stage",
+    "occurred_at",
+    "summary",
+    "owner",
+    "status",
+    "request_id",
+}
 
 
 def _contains_unsafe_reference(value: object) -> bool:
@@ -52,7 +61,9 @@ def _contains_unsafe_reference(value: object) -> bool:
             "pullRequestBody",
             "pull_request_body",
         }
-        return bool(forbidden & set(value)) or any(_contains_unsafe_reference(item) for item in value.values())
+        return bool(forbidden & set(value)) or any(
+            _contains_unsafe_reference(item) for item in value.values()
+        )
     return False
 
 
@@ -67,9 +78,15 @@ def test_ao14_ct_001_snapshot_contains_connector_workbench_domain():
     assert len(workbench["health"]) == len(console_data["connectors"])
     assert len(workbench["dlq"]) == len(console_data["connectors"])
     assert len(workbench["syncTrail"]) == len(console_data["connectors"])
-    assert {item["connector_id"] for item in workbench["health"]} == {item["id"] for item in console_data["connectors"]}
-    assert {item["connector_id"] for item in workbench["dlq"]} == {item["id"] for item in console_data["connectors"]}
-    assert {item["connector_id"] for item in workbench["syncTrail"]} == {item["id"] for item in console_data["connectors"]}
+    assert {item["connector_id"] for item in workbench["health"]} == {
+        item["id"] for item in console_data["connectors"]
+    }
+    assert {item["connector_id"] for item in workbench["dlq"]} == {
+        item["id"] for item in console_data["connectors"]
+    }
+    assert {item["connector_id"] for item in workbench["syncTrail"]} == {
+        item["id"] for item in console_data["connectors"]
+    }
     guardrails = " ".join(workbench["guardrails"])
     assert "15 分钟" in guardrails
     assert "超过 20 分钟" in guardrails
@@ -87,7 +104,11 @@ def test_ao14_ct_002_health_dlq_and_sync_rows_have_contract_fields():
         assert health["rate_limit_detail"]
         assert health["owner"]
         assert health["request_id"]
-        assert health["primary_action"] in {"保持监控", "补齐治理加载证明", "查看降级影响"}
+        assert health["primary_action"] in {
+            "保持监控",
+            "补齐治理加载证明",
+            "查看降级影响",
+        }
         assert "只读健康摘要" in health["safety_note"]
 
     for dlq in workbench["dlq"]:
@@ -110,7 +131,9 @@ def test_ao14_ct_002_health_dlq_and_sync_rows_have_contract_fields():
 def test_ao14_ct_003_workbench_has_no_raw_access_or_download_reference():
     workbench = build_console_snapshot()["consoleData"]["connectorWorkbench"]
 
-    assert "raw_payload" not in str({key: value for key, value in workbench.items() if key != "guardrails"})
+    assert "raw_payload" not in str(
+        {key: value for key, value in workbench.items() if key != "guardrails"}
+    )
     assert "download_url" not in str(workbench)
     assert "raw_access_url" not in str(workbench)
     assert not _contains_unsafe_reference(workbench)
@@ -134,8 +157,14 @@ def test_ao14_ct_004_materialized_sdlc_connector_cannot_claim_governance_activat
 
 def test_ao14_ct_005_degraded_connectors_lower_evidence_and_enter_manual_replay_boundary():
     workbench = build_console_snapshot()["consoleData"]["connectorWorkbench"]
-    degraded_health = [item for item in workbench["health"] if item["status"] == "degraded"]
-    degraded_dlq = {item["connector_id"]: item for item in workbench["dlq"] if item["replay_state"] == "pending"}
+    degraded_health = [
+        item for item in workbench["health"] if item["status"] == "degraded"
+    ]
+    degraded_dlq = {
+        item["connector_id"]: item
+        for item in workbench["dlq"]
+        if item["replay_state"] == "pending"
+    }
 
     assert degraded_health
     for item in degraded_health:
@@ -150,7 +179,9 @@ def test_ao14_ct_005_degraded_connectors_lower_evidence_and_enter_manual_replay_
 
 
 def test_ao14_ct_006_repository_snapshot_includes_git_pr_ci_test_iam_boundaries():
-    workbench = build_console_snapshot(repository=InMemoryRepository())["consoleData"]["connectorWorkbench"]
+    workbench = build_console_snapshot(repository=InMemoryRepository())["consoleData"][
+        "connectorWorkbench"
+    ]
     guardrails = " ".join(workbench["guardrails"])
     connector_ids = {item["connector_id"] for item in workbench["health"]}
 

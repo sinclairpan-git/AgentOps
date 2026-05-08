@@ -34,7 +34,9 @@ def test_low_risk_policy_unavailable_is_not_known_safe_allow():
 
 def test_grant_requires_exact_scope_match():
     decision = evaluate_policy_check(
-        policy_request(resource_scope={"repo": "AgentOps", "env": "prod", "path": "/secure"}),
+        policy_request(
+            resource_scope={"repo": "AgentOps", "env": "prod", "path": "/secure"}
+        ),
         grant=active_grant(),
     )
 

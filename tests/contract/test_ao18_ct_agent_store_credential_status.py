@@ -38,7 +38,12 @@ def bootstrap_session() -> dict:
 
 def issue_fixture_credentials(repository: InMemoryRepository):
     repository.add_bootstrap_session(bootstrap_session())
-    return issue_credentials(load_fixture("agentops_credential_handoff.v1.json"), repository, now=FIXTURE_NOW, headers=HEADERS)
+    return issue_credentials(
+        load_fixture("agentops_credential_handoff.v1.json"),
+        repository,
+        now=FIXTURE_NOW,
+        headers=HEADERS,
+    )
 
 
 def signature_test_event():
@@ -78,7 +83,9 @@ def contains_key(value, key: str) -> bool:
 
 
 def json_get(server: ThreadingHTTPServer, path: str, *, origin: str | None = None):
-    connection = HTTPConnection(server.server_address[0], server.server_address[1], timeout=5)
+    connection = HTTPConnection(
+        server.server_address[0], server.server_address[1], timeout=5
+    )
     try:
         headers = {"Origin": origin} if origin else {}
         connection.request("GET", path, headers=headers)
@@ -133,7 +140,10 @@ def test_ao18_cct_003b_agent_store_reads_signature_verified_status(repository):
     assert status["bootstrap_status"] == "signature_verified"
     assert status["next_action"] == "display_activation_result"
     assert status["signature_test_event_id"] == "evt_signature_test"
-    assert status["agent_store_allowed_actions"] == ["display_status", "show_next_action"]
+    assert status["agent_store_allowed_actions"] == [
+        "display_status",
+        "show_next_action",
+    ]
 
 
 def test_ao18_cct_003n_unknown_bootstrap_status_is_not_found(repository):
@@ -147,7 +157,11 @@ def test_ao18_cct_003n_unknown_status_schema_is_rejected(repository):
     issue_fixture_credentials(repository)
 
     with pytest.raises(AgentOpsError) as exc:
-        get_credential_status(repository, "boot-inst-fixture", consumer_schema_version="agentops_credential_status.v2")
+        get_credential_status(
+            repository,
+            "boot-inst-fixture",
+            consumer_schema_version="agentops_credential_status.v2",
+        )
 
     assert exc.value.error_code == "CREDENTIAL_STATUS_SCHEMA_UNSUPPORTED"
 
@@ -157,7 +171,14 @@ def test_ao18_cct_003s_status_response_does_not_expose_secret_or_raw_fields(repo
 
     status = get_credential_status(repository, "boot-inst-fixture")
 
-    for forbidden in ("token_value", "private_key", "raw_payload", "download_url", "raw_url", "signature"):
+    for forbidden in (
+        "token_value",
+        "private_key",
+        "raw_payload",
+        "download_url",
+        "raw_url",
+        "signature",
+    ):
         assert not contains_key(status, forbidden)
 
 
@@ -175,7 +196,9 @@ def test_ao18_cct_http_status_route_returns_json_and_cors(seeded_status_server):
 
 
 def test_ao18_cct_http_status_route_returns_not_found(seeded_status_server):
-    response, payload = json_get(seeded_status_server, "/v1/bootstrap/credentials/boot-missing")
+    response, payload = json_get(
+        seeded_status_server, "/v1/bootstrap/credentials/boot-missing"
+    )
 
     assert response.status == 404
     assert payload["error_code"] == "CREDENTIAL_STATUS_NOT_FOUND"

@@ -6,7 +6,10 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from agentops.core.errors import AgentOpsError
-from agentops.models.approvals import APPROVAL_ACTION_TO_STATUS, APPROVAL_TERMINAL_STATUSES
+from agentops.models.approvals import (
+    APPROVAL_ACTION_TO_STATUS,
+    APPROVAL_TERMINAL_STATUSES,
+)
 from agentops.storage.repository import InMemoryRepository
 
 
@@ -21,13 +24,21 @@ def create_approval(
     now: datetime | None = None,
 ) -> dict[str, Any]:
     if policy_decision["decision"] != "approval_required":
-        raise AgentOpsError("APPROVAL_NOT_REQUIRED", "Only approval_required decisions can create approvals.")
+        raise AgentOpsError(
+            "APPROVAL_NOT_REQUIRED",
+            "Only approval_required decisions can create approvals.",
+        )
 
     now = now or datetime.now(UTC)
-    approval_id = policy_decision.get("required_approval_id") or f"approval_{policy_request['run_id']}"
+    approval_id = (
+        policy_decision.get("required_approval_id")
+        or f"approval_{policy_request['run_id']}"
+    )
     approval = {
         "approval_id": approval_id,
-        "policy_check_id": policy_request.get("policy_check_id", f"pcheck_{policy_request['run_id']}"),
+        "policy_check_id": policy_request.get(
+            "policy_check_id", f"pcheck_{policy_request['run_id']}"
+        ),
         "action": policy_request["action"],
         "requester": policy_request["requester"],
         "approver_scope": approver_scope,
@@ -60,9 +71,13 @@ def decide_approval(
     if not approval:
         raise AgentOpsError("APPROVAL_NOT_FOUND", "Approval does not exist.")
     if approval["status"] in APPROVAL_TERMINAL_STATUSES:
-        raise AgentOpsError("APPROVAL_STATE_INVALID", "Terminal approval cannot transition.")
+        raise AgentOpsError(
+            "APPROVAL_STATE_INVALID", "Terminal approval cannot transition."
+        )
     if action not in APPROVAL_ACTION_TO_STATUS:
-        raise AgentOpsError("APPROVAL_ACTION_UNSUPPORTED", "Unsupported approval action.")
+        raise AgentOpsError(
+            "APPROVAL_ACTION_UNSUPPORTED", "Unsupported approval action."
+        )
     if action == "approve" and actor == approval["requester"] and not break_glass:
         raise AgentOpsError(
             "APPROVAL_SELF_APPROVAL_DENIED",

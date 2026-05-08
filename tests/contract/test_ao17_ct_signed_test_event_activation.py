@@ -33,7 +33,12 @@ def bootstrap_session() -> dict:
 
 def issue_fixture_credentials(repository):
     repository.add_bootstrap_session(bootstrap_session())
-    return issue_credentials(load_fixture("agentops_credential_handoff.v1.json"), repository, now=FIXTURE_NOW, headers=HEADERS)
+    return issue_credentials(
+        load_fixture("agentops_credential_handoff.v1.json"),
+        repository,
+        now=FIXTURE_NOW,
+        headers=HEADERS,
+    )
 
 
 def signature_test_event(**overrides):
@@ -79,8 +84,14 @@ def test_ao17_cct_004_signed_test_event_verifies_bootstrap(repository):
     assert result["rejected"] == []
     assert repository.raw_events["evt_signature_test"]["evidence_mode"] == "managed"
     assert repository.get_bootstrap_session("boot-inst-fixture")["status"] == "verified"
-    assert repository.get_bootstrap_session("boot-inst-fixture")["bootstrap_status"] == "signature_verified"
-    assert repository.credentials_by_bootstrap["boot-inst-fixture"]["bootstrap_status"] == "signature_verified"
+    assert (
+        repository.get_bootstrap_session("boot-inst-fixture")["bootstrap_status"]
+        == "signature_verified"
+    )
+    assert (
+        repository.credentials_by_bootstrap["boot-inst-fixture"]["bootstrap_status"]
+        == "signature_verified"
+    )
 
 
 def test_ao17_cct_004_missing_credential_is_rejected(repository):
@@ -90,17 +101,25 @@ def test_ao17_cct_004_missing_credential_is_rejected(repository):
 
     assert result["accepted"] == []
     assert result["rejected"][0]["error_code"] == "SIGNATURE_TEST_CREDENTIAL_NOT_FOUND"
-    assert repository.get_bootstrap_session("boot-inst-fixture")["status"] == "authenticated"
+    assert (
+        repository.get_bootstrap_session("boot-inst-fixture")["status"]
+        == "authenticated"
+    )
 
 
 def test_ao17_cct_004_token_mismatch_is_rejected(repository):
     issue_fixture_credentials(repository)
-    event = signature_test_event(ingestion_token="token-other", payload={"token_id": "token-other"})
+    event = signature_test_event(
+        ingestion_token="token-other", payload={"token_id": "token-other"}
+    )
 
     result = ingest_events_batch([event], repository)
 
     assert result["rejected"][0]["error_code"] == "EVENT_INGESTION_TOKEN_MISMATCH"
-    assert repository.get_bootstrap_session("boot-inst-fixture")["status"] == "credential_issued"
+    assert (
+        repository.get_bootstrap_session("boot-inst-fixture")["status"]
+        == "credential_issued"
+    )
 
 
 def test_ao17_cct_004_device_key_inactive_is_rejected(repository):
@@ -110,7 +129,10 @@ def test_ao17_cct_004_device_key_inactive_is_rejected(repository):
     result = ingest_events_batch([event], repository)
 
     assert result["rejected"][0]["error_code"] == "EVENT_DEVICE_KEY_INACTIVE"
-    assert repository.get_bootstrap_session("boot-inst-fixture")["status"] == "credential_issued"
+    assert (
+        repository.get_bootstrap_session("boot-inst-fixture")["status"]
+        == "credential_issued"
+    )
 
 
 @pytest.mark.parametrize(
@@ -127,7 +149,10 @@ def test_ao17_cct_004_identity_mismatch_is_rejected(repository, field, value):
     result = ingest_events_batch([event], repository)
 
     assert result["rejected"][0]["error_code"] == "EVENT_IDENTITY_MISMATCH"
-    assert repository.get_bootstrap_session("boot-inst-fixture")["status"] == "credential_issued"
+    assert (
+        repository.get_bootstrap_session("boot-inst-fixture")["status"]
+        == "credential_issued"
+    )
 
 
 def test_ao17_cct_004_replayed_idempotency_key_does_not_duplicate(repository):
@@ -142,7 +167,10 @@ def test_ao17_cct_004_replayed_idempotency_key_does_not_duplicate(repository):
     assert first["accepted"] == ["evt_signature_test"]
     assert second["deduplicated"] == ["evt_signature_test_replay"]
     assert len(repository.raw_events) == 1
-    assert repository.get_bootstrap_session("boot-inst-fixture")["bootstrap_status"] == "signature_verified"
+    assert (
+        repository.get_bootstrap_session("boot-inst-fixture")["bootstrap_status"]
+        == "signature_verified"
+    )
 
 
 def test_ao17_cct_004_missing_payload_field_is_invalid(repository):
@@ -153,4 +181,7 @@ def test_ao17_cct_004_missing_payload_field_is_invalid(repository):
     result = ingest_events_batch([event], repository)
 
     assert result["rejected"][0]["error_code"] == "EVENT_PAYLOAD_INVALID"
-    assert repository.get_bootstrap_session("boot-inst-fixture")["status"] == "credential_issued"
+    assert (
+        repository.get_bootstrap_session("boot-inst-fixture")["status"]
+        == "credential_issued"
+    )

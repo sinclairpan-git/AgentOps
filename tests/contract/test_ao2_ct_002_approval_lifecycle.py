@@ -72,7 +72,9 @@ def test_approved_approval_can_issue_bound_grant(repository):
         repository=repository,
     )
 
-    grant = issue_grant(approval["approval_id"], grant_request_from_approval(approved), repository)
+    grant = issue_grant(
+        approval["approval_id"], grant_request_from_approval(approved), repository
+    )
 
     assert grant["status"] == "active"
     assert grant["approval_id"] == approval["approval_id"]
@@ -93,7 +95,9 @@ def test_expired_approval_cannot_issue_grant(repository):
     )
 
     with pytest.raises(AgentOpsError) as exc:
-        issue_grant(expired["approval_id"], grant_request_from_approval(expired), repository)
+        issue_grant(
+            expired["approval_id"], grant_request_from_approval(expired), repository
+        )
 
     assert exc.value.error_code == "GRANT_APPROVAL_NOT_APPROVED"
 
@@ -110,6 +114,10 @@ def test_grant_cannot_expand_approval_scope(repository):
     expanded_scope = {"repo": "AgentOps", "env": "prod", "namespace": "*"}
 
     with pytest.raises(AgentOpsError) as exc:
-        issue_grant(approved["approval_id"], grant_request_from_approval(approved, resource_scope=expanded_scope), repository)
+        issue_grant(
+            approved["approval_id"],
+            grant_request_from_approval(approved, resource_scope=expanded_scope),
+            repository,
+        )
 
     assert exc.value.error_code == "GRANT_SCOPE_ESCALATION_DENIED"

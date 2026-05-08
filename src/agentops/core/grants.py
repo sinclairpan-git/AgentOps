@@ -22,7 +22,9 @@ def issue_capability_grant(
     if not approval:
         raise AgentOpsError("APPROVAL_NOT_FOUND", "Approval does not exist.")
     if approval["status"] != "approved":
-        raise AgentOpsError("GRANT_APPROVAL_NOT_APPROVED", "Only approved approvals can issue grants.")
+        raise AgentOpsError(
+            "GRANT_APPROVAL_NOT_APPROVED", "Only approved approvals can issue grants."
+        )
 
     _validate_approval_binding(approval, grant_request)
 
@@ -57,9 +59,19 @@ def consume_capability_grant(
     if not grant:
         raise AgentOpsError("GRANT_NOT_FOUND", "Capability Grant does not exist.")
     if grant["status"] == "revoked":
-        raise AgentOpsError("GRANT_REVOKED", "Capability Grant is revoked.", denied_scope="grant.status", audit_id=grant["audit_id"])
+        raise AgentOpsError(
+            "GRANT_REVOKED",
+            "Capability Grant is revoked.",
+            denied_scope="grant.status",
+            audit_id=grant["audit_id"],
+        )
     if grant["status"] == "expired" or _parse_time(grant["expires_at"]) <= now:
-        raise AgentOpsError("GRANT_EXPIRED", "Capability Grant is expired.", denied_scope="grant.expires_at", audit_id=grant["audit_id"])
+        raise AgentOpsError(
+            "GRANT_EXPIRED",
+            "Capability Grant is expired.",
+            denied_scope="grant.expires_at",
+            audit_id=grant["audit_id"],
+        )
     if not _request_matches_grant(grant, policy_request):
         raise AgentOpsError(
             "GRANT_SCOPE_MISMATCH",
@@ -71,7 +83,9 @@ def consume_capability_grant(
     consumption = {
         "consumption_id": f"consume_{grant_id}_{policy_request.get('run_id', 'run')}",
         "grant_id": grant_id,
-        "policy_check_id": policy_request.get("policy_check_id", f"pcheck_{policy_request['run_id']}"),
+        "policy_check_id": policy_request.get(
+            "policy_check_id", f"pcheck_{policy_request['run_id']}"
+        ),
         "consumed_at": now.isoformat(),
         "resource_scope": dict(policy_request["resource_scope"]),
         "audit_id": f"audit_consume_{grant_id}",
@@ -94,14 +108,26 @@ def revoke_capability_grant(
     return repository.update_grant(grant)
 
 
-def _validate_approval_binding(approval: dict[str, Any], grant_request: dict[str, Any]) -> None:
+def _validate_approval_binding(
+    approval: dict[str, Any], grant_request: dict[str, Any]
+) -> None:
     for field in GRANT_BINDING_FIELDS:
         if grant_request.get(field) != approval.get(field):
-            error_code = "GRANT_SCOPE_ESCALATION_DENIED" if field == "resource_scope" else "GRANT_APPROVAL_BINDING_MISMATCH"
-            raise AgentOpsError(error_code, "Grant request must match approved policy request.", audit_id=approval["audit_id"])
+            error_code = (
+                "GRANT_SCOPE_ESCALATION_DENIED"
+                if field == "resource_scope"
+                else "GRANT_APPROVAL_BINDING_MISMATCH"
+            )
+            raise AgentOpsError(
+                error_code,
+                "Grant request must match approved policy request.",
+                audit_id=approval["audit_id"],
+            )
 
 
-def _request_matches_grant(grant: dict[str, Any], policy_request: dict[str, Any]) -> bool:
+def _request_matches_grant(
+    grant: dict[str, Any], policy_request: dict[str, Any]
+) -> bool:
     for field in GRANT_BINDING_FIELDS:
         if grant.get(field) != policy_request.get(field):
             return False

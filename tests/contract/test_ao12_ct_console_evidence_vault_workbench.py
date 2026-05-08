@@ -28,13 +28,31 @@ REQUIRED_GRANT_KEYS = {
     "audit_id",
     "consumption_policy",
 }
-REQUIRED_AUDIT_KEYS = {"id", "evidence_id", "stage", "occurred_at", "summary", "owner", "status", "audit_id"}
+REQUIRED_AUDIT_KEYS = {
+    "id",
+    "evidence_id",
+    "stage",
+    "occurred_at",
+    "summary",
+    "owner",
+    "status",
+    "audit_id",
+}
 
 
 def _repository() -> InMemoryRepository:
     repository = InMemoryRepository()
-    repository.write_event(base_event("stage_started", agent_id="agent.vault", agent_version="1.0.0"))
-    repository.write_event(base_event("stage_completed", agent_id="agent.vault", agent_version="1.0.0", sequence_no=2))
+    repository.write_event(
+        base_event("stage_started", agent_id="agent.vault", agent_version="1.0.0")
+    )
+    repository.write_event(
+        base_event(
+            "stage_completed",
+            agent_id="agent.vault",
+            agent_version="1.0.0",
+            sequence_no=2,
+        )
+    )
     return repository
 
 
@@ -44,8 +62,17 @@ def _contains_unsafe_reference(value: object) -> bool:
     if isinstance(value, list | tuple):
         return any(_contains_unsafe_reference(item) for item in value)
     if isinstance(value, dict):
-        forbidden = {"raw_payload", "download_url", "raw_url", "original_url", "raw_access_url", "pullRequestBody"}
-        return bool(forbidden & set(value)) or any(_contains_unsafe_reference(item) for item in value.values())
+        forbidden = {
+            "raw_payload",
+            "download_url",
+            "raw_url",
+            "original_url",
+            "raw_access_url",
+            "pullRequestBody",
+        }
+        return bool(forbidden & set(value)) or any(
+            _contains_unsafe_reference(item) for item in value.values()
+        )
     return False
 
 
@@ -60,21 +87,35 @@ def test_ao12_ct_001_snapshot_contains_evidence_vault_domain():
     assert len(evidence_vault["requests"]) == len(console_data["evidence"])
     assert len(evidence_vault["grants"]) == len(console_data["evidence"])
     assert len(evidence_vault["auditTrail"]) == len(console_data["evidence"])
-    assert {item["evidence_id"] for item in evidence_vault["requests"]} == {item["evidence_id"] for item in console_data["evidence"]}
-    assert {item["evidence_id"] for item in evidence_vault["grants"]} == {item["evidence_id"] for item in console_data["evidence"]}
-    assert {item["evidence_id"] for item in evidence_vault["auditTrail"]} == {item["evidence_id"] for item in console_data["evidence"]}
+    assert {item["evidence_id"] for item in evidence_vault["requests"]} == {
+        item["evidence_id"] for item in console_data["evidence"]
+    }
+    assert {item["evidence_id"] for item in evidence_vault["grants"]} == {
+        item["evidence_id"] for item in console_data["evidence"]
+    }
+    assert {item["evidence_id"] for item in evidence_vault["auditTrail"]} == {
+        item["evidence_id"] for item in console_data["evidence"]
+    }
     assert "默认不展示原文" in " ".join(evidence_vault["guardrails"])
 
 
 def test_ao12_ct_002_requests_grants_and_audits_have_contract_fields():
-    evidence_vault = build_console_snapshot(repository=_repository())["consoleData"]["evidenceVault"]
+    evidence_vault = build_console_snapshot(repository=_repository())["consoleData"][
+        "evidenceVault"
+    ]
 
     for request in evidence_vault["requests"]:
         assert REQUIRED_REQUEST_KEYS == set(request)
         assert request["evidence_id"]
         assert request["run_id"]
         assert request["audit_id"]
-        assert request["primary_action"] in {"申请原文访问", "查看授权记录", "补充申请理由", "仅查看哈希告警", "等待审批"}
+        assert request["primary_action"] in {
+            "申请原文访问",
+            "查看授权记录",
+            "补充申请理由",
+            "仅查看哈希告警",
+            "等待审批",
+        }
         assert "不展示 Evidence Vault 原文" in request["safety_note"]
 
     for grant in evidence_vault["grants"]:
@@ -87,7 +128,9 @@ def test_ao12_ct_002_requests_grants_and_audits_have_contract_fields():
 
 
 def test_ao12_ct_003_vault_is_summary_only_and_has_no_raw_access_reference():
-    evidence_vault = build_console_snapshot(repository=_repository())["consoleData"]["evidenceVault"]
+    evidence_vault = build_console_snapshot(repository=_repository())["consoleData"][
+        "evidenceVault"
+    ]
 
     assert "raw_payload" not in str(evidence_vault)
     assert "download_url" not in str(evidence_vault)
@@ -97,7 +140,9 @@ def test_ao12_ct_003_vault_is_summary_only_and_has_no_raw_access_reference():
 
 def test_ao12_ct_004_denied_and_redaction_failed_have_safe_next_steps():
     evidence_vault = build_console_snapshot()["consoleData"]["evidenceVault"]
-    requests_by_state = {request["status"]: request for request in evidence_vault["requests"]}
+    requests_by_state = {
+        request["status"]: request for request in evidence_vault["requests"]
+    }
     grants_by_status = {grant["status"]: grant for grant in evidence_vault["grants"]}
 
     assert requests_by_state["redaction_failed"]["primary_action"] == "仅查看哈希告警"
@@ -107,7 +152,9 @@ def test_ao12_ct_004_denied_and_redaction_failed_have_safe_next_steps():
 
 
 def test_ao12_ct_005_empty_repository_reports_safe_empty_vault():
-    evidence_vault = build_console_snapshot(repository=InMemoryRepository())["consoleData"]["evidenceVault"]
+    evidence_vault = build_console_snapshot(repository=InMemoryRepository())[
+        "consoleData"
+    ]["evidenceVault"]
 
     assert evidence_vault["requests"] == []
     assert evidence_vault["grants"] == []
@@ -116,7 +163,9 @@ def test_ao12_ct_005_empty_repository_reports_safe_empty_vault():
 
 
 def test_ao12_ct_006_degraded_repository_evidence_keeps_raw_access_pending():
-    evidence_vault = build_console_snapshot(repository=_repository())["consoleData"]["evidenceVault"]
+    evidence_vault = build_console_snapshot(repository=_repository())["consoleData"][
+        "evidenceVault"
+    ]
 
     assert evidence_vault["requests"][0]["status"] == "pending"
     assert evidence_vault["requests"][0]["primary_action"] == "等待审批"

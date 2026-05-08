@@ -14,7 +14,9 @@ def _contains_forbidden(value):
         "patch",
     }
     if isinstance(value, dict):
-        return any(key in forbidden or _contains_forbidden(item) for key, item in value.items())
+        return any(
+            key in forbidden or _contains_forbidden(item) for key, item in value.items()
+        )
     if isinstance(value, list):
         return any(_contains_forbidden(item) for item in value)
     if isinstance(value, str):
@@ -25,7 +27,13 @@ def _contains_forbidden(value):
 def test_ao15_ct_001_snapshot_includes_sdlc_run_workbench_sections():
     workbench = build_console_snapshot()["consoleData"]["sdlcRunWorkbench"]
 
-    assert set(workbench) == {"summary", "reporter", "outbox", "eligibility", "guardrails"}
+    assert set(workbench) == {
+        "summary",
+        "reporter",
+        "outbox",
+        "eligibility",
+        "guardrails",
+    }
     assert workbench["summary"]["proof_state"] == "unverified"
     assert workbench["summary"]["dry_run_state"] == "dry_run_passed"
     assert "不构成 verified_loaded" in workbench["summary"]["safety_note"]

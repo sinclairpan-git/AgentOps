@@ -17,13 +17,17 @@ from tests.contract.conftest import base_event
 
 def _contains_key(value, key: str) -> bool:
     if isinstance(value, dict):
-        return key in value or any(_contains_key(child, key) for child in value.values())
+        return key in value or any(
+            _contains_key(child, key) for child in value.values()
+        )
     if isinstance(value, list):
         return any(_contains_key(child, key) for child in value)
     return False
 
 
-def _json_response(server: ThreadingHTTPServer, path: str, *, origin: str | None = None):
+def _json_response(
+    server: ThreadingHTTPServer, path: str, *, origin: str | None = None
+):
     return _json_request(server, "GET", path, origin=origin)
 
 
@@ -35,7 +39,9 @@ def _json_request(
     origin: str | None = None,
     payload: dict | None = None,
 ):
-    connection = HTTPConnection(server.server_address[0], server.server_address[1], timeout=5)
+    connection = HTTPConnection(
+        server.server_address[0], server.server_address[1], timeout=5
+    )
     try:
         headers = {"Origin": origin} if origin else {}
         body = None
@@ -52,9 +58,13 @@ def _json_request(
 
 
 def _raw_request(server: ThreadingHTTPServer, method: str, path: str, body: bytes):
-    connection = HTTPConnection(server.server_address[0], server.server_address[1], timeout=5)
+    connection = HTTPConnection(
+        server.server_address[0], server.server_address[1], timeout=5
+    )
     try:
-        connection.request(method, path, body=body, headers={"Content-Type": "application/json"})
+        connection.request(
+            method, path, body=body, headers={"Content-Type": "application/json"}
+        )
         response = connection.getresponse()
         response_body = response.read().decode("utf-8")
         payload = json.loads(response_body) if response_body else {}
@@ -142,7 +152,12 @@ def test_ao4_ct_002_health_snapshot_and_not_found_are_json(http_server):
     not_found_response, not_found = _json_response(http_server, "/missing")
 
     assert health_response.status == 200
-    assert health == {"service": "agentops-api", "status": "healthy", "version": __version__, "snapshot_provider": "ready"}
+    assert health == {
+        "service": "agentops-api",
+        "status": "healthy",
+        "version": __version__,
+        "snapshot_provider": "ready",
+    }
     assert snapshot_response.status == 200
     assert snapshot["schema_version"] == "agentops.console.snapshot.v1"
     assert not_found_response.status == 404
@@ -150,16 +165,23 @@ def test_ao4_ct_002_health_snapshot_and_not_found_are_json(http_server):
 
 
 def test_ao4_ct_003_json_responses_include_cors_headers(http_server):
-    response, _ = _json_response(http_server, "/v1/console/snapshot", origin="http://127.0.0.1:5174")
+    response, _ = _json_response(
+        http_server, "/v1/console/snapshot", origin="http://127.0.0.1:5174"
+    )
 
     assert response.getheader("Access-Control-Allow-Origin") == "http://127.0.0.1:5174"
     assert response.getheader("Access-Control-Allow-Methods") == "GET, POST, OPTIONS"
-    assert response.getheader("Access-Control-Allow-Headers") == "Content-Type, Idempotency-Key"
+    assert (
+        response.getheader("Access-Control-Allow-Headers")
+        == "Content-Type, Idempotency-Key"
+    )
     assert response.getheader("Access-Control-Allow-Origin") != "*"
 
 
 def test_ao4_ct_003_disallowed_origin_is_forbidden(http_server):
-    response, payload = _json_response(http_server, "/v1/console/snapshot", origin="https://example.com")
+    response, payload = _json_response(
+        http_server, "/v1/console/snapshot", origin="https://example.com"
+    )
 
     assert response.status == 403
     assert payload["error_code"] == "ORIGIN_FORBIDDEN"
@@ -175,8 +197,13 @@ def test_ao4_ct_005_adapter_truth_keeps_pending_proof_unverified():
     snapshot = build_console_snapshot()
 
     for sdlc_run in snapshot["consoleData"]["sdlcRuns"]:
-        proof_text = f"{sdlc_run.get('proof_source', '')} {sdlc_run.get('captured_at', '')}"
-        pending_proof = any(marker in proof_text for marker in ("AGENTS.md", "CLI 预演", "待采集", "待接入"))
+        proof_text = (
+            f"{sdlc_run.get('proof_source', '')} {sdlc_run.get('captured_at', '')}"
+        )
+        pending_proof = any(
+            marker in proof_text
+            for marker in ("AGENTS.md", "CLI 预演", "待采集", "待接入")
+        )
         if pending_proof:
             assert sdlc_run["verified_loaded"] == "unverified"
 
@@ -198,7 +225,9 @@ def test_ao5_ct_001_repository_snapshot_reflects_ingested_l5_events():
     ):
         repository.write_event(base_event(event_type, sequence_no=index))
 
-    snapshot = build_console_snapshot(generated_at="2026-05-06T01:00:00Z", repository=repository)
+    snapshot = build_console_snapshot(
+        generated_at="2026-05-06T01:00:00Z", repository=repository
+    )
 
     assert snapshot["source_detail"]["mode"] == "repository_backed"
     assert snapshot["consoleData"]["summary"]["metrics"][0]["value"] == 1
@@ -214,7 +243,10 @@ def test_ao5_ct_001_repository_snapshot_reflects_ingested_l5_events():
             "evidence_state": "summary_only",
         }
     ]
-    assert snapshot["consoleData"]["evidence"][0]["summary"] == "已接收 8 条签名事件，核心证据链完整。"
+    assert (
+        snapshot["consoleData"]["evidence"][0]["summary"]
+        == "已接收 8 条签名事件，核心证据链完整。"
+    )
     assert not _contains_key(snapshot, "raw_payload")
 
 
@@ -252,7 +284,9 @@ def test_ao5_ct_003_event_post_rejects_invalid_envelope_and_keeps_snapshot_safe(
     invalid_event = base_event("stage_started")
     invalid_event.pop("signature")
     try:
-        response, payload = _json_request(server, "POST", "/v1/events", payload={"events": [invalid_event]})
+        response, payload = _json_request(
+            server, "POST", "/v1/events", payload={"events": [invalid_event]}
+        )
         snapshot_response, snapshot = _json_response(server, "/v1/console/snapshot")
     finally:
         server.shutdown()
@@ -277,8 +311,15 @@ def test_ao5_ct_004_event_post_deduplicates_idempotency_keys():
     thread.start()
     replay = base_event("stage_started", event_id="evt_stage_started_replay")
     try:
-        first_response, first_payload = _json_request(server, "POST", "/v1/events", payload={"events": [base_event("stage_started")]})
-        second_response, second_payload = _json_request(server, "POST", "/v1/events", payload={"events": [replay]})
+        first_response, first_payload = _json_request(
+            server,
+            "POST",
+            "/v1/events",
+            payload={"events": [base_event("stage_started")]},
+        )
+        second_response, second_payload = _json_request(
+            server, "POST", "/v1/events", payload={"events": [replay]}
+        )
         _, snapshot = _json_response(server, "/v1/console/snapshot")
     finally:
         server.shutdown()
@@ -317,7 +358,10 @@ def test_ao5_ct_005_event_post_mixed_batch_only_snapshots_accepted_events():
     assert payload["accepted"] == ["evt_stage_started"]
     assert payload["rejected"][0]["error_code"] == "EVENT_PAYLOAD_INVALID"
     assert snapshot["consoleData"]["summary"]["metrics"][0]["value"] == 1
-    assert snapshot["consoleData"]["evidence"][0]["summary"] == "已接收 1 条事件，但仍缺少：产物生成事件、门禁结果事件、生成快照事件、L5 判定输入、阶段完成事件、验证结果事件、违规扫描事件。"
+    assert (
+        snapshot["consoleData"]["evidence"][0]["summary"]
+        == "已接收 1 条事件，但仍缺少：产物生成事件、门禁结果事件、生成快照事件、L5 判定输入、阶段完成事件、验证结果事件、违规扫描事件。"
+    )
 
 
 def test_ao5_ct_006_event_post_request_errors_are_json_and_cors_is_enforced():
@@ -326,8 +370,12 @@ def test_ao5_ct_006_event_post_request_errors_are_json_and_cors_is_enforced():
     thread = Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
-        invalid_json_response, invalid_json = _raw_request(server, "POST", "/v1/events", b"{")
-        missing_events_response, missing_events = _json_request(server, "POST", "/v1/events", payload={})
+        invalid_json_response, invalid_json = _raw_request(
+            server, "POST", "/v1/events", b"{"
+        )
+        missing_events_response, missing_events = _json_request(
+            server, "POST", "/v1/events", payload={}
+        )
         allowed_response, _ = _json_request(
             server,
             "POST",
@@ -352,7 +400,10 @@ def test_ao5_ct_006_event_post_request_errors_are_json_and_cors_is_enforced():
     assert missing_events_response.status == 400
     assert missing_events["error_code"] == "EVENTS_REQUIRED"
     assert allowed_response.status == 202
-    assert allowed_response.getheader("Access-Control-Allow-Origin") == "http://127.0.0.1:5173"
+    assert (
+        allowed_response.getheader("Access-Control-Allow-Origin")
+        == "http://127.0.0.1:5173"
+    )
     assert forbidden_response.status == 403
     assert forbidden["error_code"] == "ORIGIN_FORBIDDEN"
 
@@ -363,7 +414,9 @@ def test_ao5_ct_006_event_post_non_object_items_are_contract_safe_json():
     thread = Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
-        response, payload = _json_request(server, "POST", "/v1/events", payload={"events": [42]})
+        response, payload = _json_request(
+            server, "POST", "/v1/events", payload={"events": [42]}
+        )
         _, snapshot = _json_response(server, "/v1/console/snapshot")
     finally:
         server.shutdown()
@@ -390,7 +443,10 @@ def test_ao5_ct_007_repository_backed_adapter_truth_stays_unverified():
     snapshot = build_console_snapshot(repository=repository)
 
     assert snapshot["consoleData"]["summary"]["adapter"]["status"] == "materialized"
-    assert all(sdlc_run["verified_loaded"] == "unverified" for sdlc_run in snapshot["consoleData"]["sdlcRuns"])
+    assert all(
+        sdlc_run["verified_loaded"] == "unverified"
+        for sdlc_run in snapshot["consoleData"]["sdlcRuns"]
+    )
 
 
 def test_ao5_ct_008_api_assembly_truth_tracks_http_ingestion_route():
@@ -404,7 +460,12 @@ def test_ao5_ct_008_api_assembly_truth_tracks_http_ingestion_route():
 
 def test_ao5_ct_009_repository_snapshot_tolerates_malformed_non_l5_event_shape():
     repository = InMemoryRepository()
-    event = base_event("stage_started", event_id="evt_custom_bad_shape", idempotency_key="custom_signal:bad_shape", sequence_no="abc")
+    event = base_event(
+        "stage_started",
+        event_id="evt_custom_bad_shape",
+        idempotency_key="custom_signal:bad_shape",
+        sequence_no="abc",
+    )
     event["event_type"] = "custom_signal"
     event["payload"] = "not-an-object"
 
@@ -491,7 +552,9 @@ def test_ao5_ct_012_http_routes_ignore_query_string():
             "/v1/events?source=console",
             payload={"events": [base_event("stage_started")]},
         )
-        snapshot_response, snapshot = _json_response(server, "/v1/console/snapshot?source=console")
+        snapshot_response, snapshot = _json_response(
+            server, "/v1/console/snapshot?source=console"
+        )
     finally:
         server.shutdown()
         server.server_close()
@@ -537,7 +600,12 @@ def test_ao5_ct_014_events_without_run_id_keep_event_identity():
             server,
             "POST",
             "/v1/events",
-            payload={"events": [_standalone_event("evt_custom_a", sequence_no=1), _standalone_event("evt_custom_b", sequence_no=2)]},
+            payload={
+                "events": [
+                    _standalone_event("evt_custom_a", sequence_no=1),
+                    _standalone_event("evt_custom_b", sequence_no=2),
+                ]
+            },
         )
         _, snapshot = _json_response(server, "/v1/console/snapshot")
     finally:

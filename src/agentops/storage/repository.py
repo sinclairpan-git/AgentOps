@@ -25,8 +25,12 @@ class InMemoryRepository:
     imported_events: dict[str, dict[str, Any]] = field(default_factory=dict)
     bootstrap_sessions: dict[str, dict[str, Any]] = field(default_factory=dict)
     credentials_by_bootstrap: dict[str, dict[str, Any]] = field(default_factory=dict)
-    credential_identities_by_bootstrap: dict[str, dict[str, Any]] = field(default_factory=dict)
-    credential_issue_idempotency: dict[str, dict[str, Any]] = field(default_factory=dict)
+    credential_identities_by_bootstrap: dict[str, dict[str, Any]] = field(
+        default_factory=dict
+    )
+    credential_issue_idempotency: dict[str, dict[str, Any]] = field(
+        default_factory=dict
+    )
     used_bootstrap_nonces: set[str] = field(default_factory=set)
     approvals: dict[str, dict[str, Any]] = field(default_factory=dict)
     approval_decisions: dict[str, dict[str, Any]] = field(default_factory=dict)
@@ -125,17 +129,26 @@ class InMemoryRepository:
                     session["device_key_id"] = credentials["device_key_id"]
                     self.bootstrap_sessions[bootstrap_id] = session
                 if handoff_identity is not None:
-                    self.credential_identities_by_bootstrap[bootstrap_id] = dict(handoff_identity)
+                    self.credential_identities_by_bootstrap[bootstrap_id] = dict(
+                        handoff_identity
+                    )
                 if idempotency_key is not None and handoff_identity is not None:
-                    self.credential_issue_idempotency[idempotency_key] = dict(handoff_identity)
+                    self.credential_issue_idempotency[idempotency_key] = dict(
+                        handoff_identity
+                    )
             return dict(self.credentials_by_bootstrap[bootstrap_id])
 
-    def revoke_credentials(self, bootstrap_id: str, revocation: dict[str, Any]) -> dict[str, Any]:
+    def revoke_credentials(
+        self, bootstrap_id: str, revocation: dict[str, Any]
+    ) -> dict[str, Any]:
         with self._lock:
             credentials = self.credentials_by_bootstrap.get(bootstrap_id)
             session = self.bootstrap_sessions.get(bootstrap_id)
             if not credentials or not session:
-                raise AgentOpsError("CREDENTIAL_REVOCATION_NOT_FOUND", "Credential status does not exist for this bootstrap.")
+                raise AgentOpsError(
+                    "CREDENTIAL_REVOCATION_NOT_FOUND",
+                    "Credential status does not exist for this bootstrap.",
+                )
 
             revoked_credentials = {
                 **credentials,
@@ -162,12 +175,17 @@ class InMemoryRepository:
             self.bootstrap_sessions[bootstrap_id] = revoked_session
             return dict(revoked_credentials)
 
-    def mark_credentials_reissued(self, bootstrap_id: str, reissue: dict[str, Any]) -> dict[str, Any]:
+    def mark_credentials_reissued(
+        self, bootstrap_id: str, reissue: dict[str, Any]
+    ) -> dict[str, Any]:
         with self._lock:
             credentials = self.credentials_by_bootstrap.get(bootstrap_id)
             session = self.bootstrap_sessions.get(bootstrap_id)
             if not credentials or not session:
-                raise AgentOpsError("CREDENTIAL_REISSUE_NOT_FOUND", "Source credential status does not exist for this bootstrap.")
+                raise AgentOpsError(
+                    "CREDENTIAL_REISSUE_NOT_FOUND",
+                    "Source credential status does not exist for this bootstrap.",
+                )
             reissue_fields = {
                 "revocation_resolution": "reissued",
                 "reissue_id": reissue["reissue_id"],
@@ -178,9 +196,14 @@ class InMemoryRepository:
                 "reissued_credential_id": reissue["reissued_credential_id"],
                 "reissued_token_id": reissue["reissued_token_id"],
                 "reissued_device_key_id": reissue["reissued_device_key_id"],
-                "reissued_credential_snapshot": deepcopy(reissue["reissued_credential_snapshot"]),
+                "reissued_credential_snapshot": deepcopy(
+                    reissue["reissued_credential_snapshot"]
+                ),
             }
-            self.credentials_by_bootstrap[bootstrap_id] = {**credentials, **reissue_fields}
+            self.credentials_by_bootstrap[bootstrap_id] = {
+                **credentials,
+                **reissue_fields,
+            }
             self.bootstrap_sessions[bootstrap_id] = {**session, **reissue_fields}
             return dict(self.credentials_by_bootstrap[bootstrap_id])
 
@@ -193,7 +216,10 @@ class InMemoryRepository:
         with self._lock:
             matched_known_credential = False
             for credentials in self.credentials_by_bootstrap.values():
-                token_matches = ingestion_token not in (None, "") and ingestion_token == credentials.get("token_id")
+                token_matches = ingestion_token not in (
+                    None,
+                    "",
+                ) and ingestion_token == credentials.get("token_id")
                 identity_matches = (
                     installation_id not in (None, "")
                     and device_id not in (None, "")
@@ -203,15 +229,29 @@ class InMemoryRepository:
                 if not token_matches and not identity_matches:
                     continue
                 if credentials.get("status") == "revoked":
-                    if identity_matches and not token_matches and self._replacement_chain_token_matches(credentials, ingestion_token):
+                    if (
+                        identity_matches
+                        and not token_matches
+                        and self._replacement_chain_token_matches(
+                            credentials, ingestion_token
+                        )
+                    ):
                         continue
-                    raise AgentOpsError("EVENT_CREDENTIAL_REVOKED", "enterprise_managed event uses a revoked credential.")
+                    raise AgentOpsError(
+                        "EVENT_CREDENTIAL_REVOKED",
+                        "enterprise_managed event uses a revoked credential.",
+                    )
                 matched_known_credential = True
             if matched_known_credential:
                 return
 
-    def _replacement_chain_token_matches(self, credentials: dict[str, Any], ingestion_token: str | None) -> bool:
-        if ingestion_token in (None, "") or credentials.get("revocation_resolution") != "reissued":
+    def _replacement_chain_token_matches(
+        self, credentials: dict[str, Any], ingestion_token: str | None
+    ) -> bool:
+        if (
+            ingestion_token in (None, "")
+            or credentials.get("revocation_resolution") != "reissued"
+        ):
             return False
         seen_bootstrap_ids: set[str] = set()
         next_bootstrap_id = str(credentials.get("reissued_bootstrap_id") or "")
@@ -221,13 +261,17 @@ class InMemoryRepository:
             if not replacement:
                 return False
             if replacement.get("status") != "revoked":
-                return replacement.get("status") == "active" and ingestion_token == replacement.get("token_id")
+                return replacement.get(
+                    "status"
+                ) == "active" and ingestion_token == replacement.get("token_id")
             if replacement.get("revocation_resolution") != "reissued":
                 return False
             next_bootstrap_id = str(replacement.get("reissued_bootstrap_id") or "")
         return False
 
-    def record_credential_issue_idempotency(self, idempotency_key: str, handoff_identity: dict[str, Any]) -> None:
+    def record_credential_issue_idempotency(
+        self, idempotency_key: str, handoff_identity: dict[str, Any]
+    ) -> None:
         with self._lock:
             self.credential_issue_idempotency[idempotency_key] = dict(handoff_identity)
 
@@ -241,25 +285,64 @@ class InMemoryRepository:
         with self._lock:
             credentials = self.credentials_by_bootstrap.get(bootstrap_id)
             if not credentials:
-                raise AgentOpsError("SIGNATURE_TEST_CREDENTIAL_NOT_FOUND", "No credential has been issued for this bootstrap.")
+                raise AgentOpsError(
+                    "SIGNATURE_TEST_CREDENTIAL_NOT_FOUND",
+                    "No credential has been issued for this bootstrap.",
+                )
             if credentials.get("status") == "revoked":
-                raise AgentOpsError("EVENT_CREDENTIAL_REVOKED", "signature_test_event uses a revoked credential.")
-            if credentials.get("status") != "active" or event.get("credential_status") != "active":
-                raise AgentOpsError("EVENT_CREDENTIAL_INACTIVE", "signature_test_event requires an active credential.")
+                raise AgentOpsError(
+                    "EVENT_CREDENTIAL_REVOKED",
+                    "signature_test_event uses a revoked credential.",
+                )
+            if (
+                credentials.get("status") != "active"
+                or event.get("credential_status") != "active"
+            ):
+                raise AgentOpsError(
+                    "EVENT_CREDENTIAL_INACTIVE",
+                    "signature_test_event requires an active credential.",
+                )
             if event.get("device_key_status") != "active":
-                raise AgentOpsError("EVENT_DEVICE_KEY_INACTIVE", "signature_test_event requires an active device key.")
-            if event.get("ingestion_token") != credentials.get("token_id") or payload.get("token_id") != credentials.get("token_id"):
-                raise AgentOpsError("EVENT_INGESTION_TOKEN_MISMATCH", "signature_test_event token does not match issued credential.")
+                raise AgentOpsError(
+                    "EVENT_DEVICE_KEY_INACTIVE",
+                    "signature_test_event requires an active device key.",
+                )
+            if event.get("ingestion_token") != credentials.get(
+                "token_id"
+            ) or payload.get("token_id") != credentials.get("token_id"):
+                raise AgentOpsError(
+                    "EVENT_INGESTION_TOKEN_MISMATCH",
+                    "signature_test_event token does not match issued credential.",
+                )
             if payload.get("credential_id") != credentials.get("credential_id"):
-                raise AgentOpsError("EVENT_CREDENTIAL_MISMATCH", "signature_test_event credential_id does not match issued credential.")
+                raise AgentOpsError(
+                    "EVENT_CREDENTIAL_MISMATCH",
+                    "signature_test_event credential_id does not match issued credential.",
+                )
             if payload.get("device_key_id") != credentials.get("device_key_id"):
-                raise AgentOpsError("EVENT_DEVICE_KEY_MISMATCH", "signature_test_event device_key_id does not match issued credential.")
-            if event.get("installation_id") != credentials.get("installation_id") or payload.get("installation_id") != credentials.get("installation_id"):
-                raise AgentOpsError("EVENT_IDENTITY_MISMATCH", "signature_test_event installation_id does not match issued credential.")
-            if event.get("device_id") != credentials.get("device_id") or payload.get("device_id") != credentials.get("device_id"):
-                raise AgentOpsError("EVENT_IDENTITY_MISMATCH", "signature_test_event device_id does not match issued credential.")
+                raise AgentOpsError(
+                    "EVENT_DEVICE_KEY_MISMATCH",
+                    "signature_test_event device_key_id does not match issued credential.",
+                )
+            if event.get("installation_id") != credentials.get(
+                "installation_id"
+            ) or payload.get("installation_id") != credentials.get("installation_id"):
+                raise AgentOpsError(
+                    "EVENT_IDENTITY_MISMATCH",
+                    "signature_test_event installation_id does not match issued credential.",
+                )
+            if event.get("device_id") != credentials.get("device_id") or payload.get(
+                "device_id"
+            ) != credentials.get("device_id"):
+                raise AgentOpsError(
+                    "EVENT_IDENTITY_MISMATCH",
+                    "signature_test_event device_id does not match issued credential.",
+                )
             if payload.get("next_action") != "send_signature_test_event":
-                raise AgentOpsError("EVENT_PAYLOAD_INVALID", "signature_test_event next_action is invalid.")
+                raise AgentOpsError(
+                    "EVENT_PAYLOAD_INVALID",
+                    "signature_test_event next_action is invalid.",
+                )
             return str(bootstrap_id)
 
     def mark_signature_test_verified(self, bootstrap_id: str, event_id: str) -> None:
@@ -347,7 +430,11 @@ class InMemoryRepository:
         with self._lock:
             agent_key = f"{agent_id}@{version}"
             self.agent_store_agents[f"{agent_id}@{version}"] = deepcopy(record)
-            stale_skill_keys = [key for key in self.agent_store_skills if key.startswith(f"{agent_key}:")]
+            stale_skill_keys = [
+                key
+                for key in self.agent_store_skills
+                if key.startswith(f"{agent_key}:")
+            ]
             for key in stale_skill_keys:
                 self.agent_store_skills.pop(key)
             for skill in skills:
@@ -365,7 +452,9 @@ class InMemoryRepository:
                         }
             return deepcopy(record)
 
-    def get_agent_store_metadata(self, agent_id: str, version: str) -> dict[str, Any] | None:
+    def get_agent_store_metadata(
+        self, agent_id: str, version: str
+    ) -> dict[str, Any] | None:
         with self._lock:
             record = self.agent_store_agents.get(f"{agent_id}@{version}")
             return deepcopy(record) if record else None
@@ -376,4 +465,6 @@ class InMemoryRepository:
 
     def agent_store_metadata_records(self) -> tuple[dict[str, Any], ...]:
         with self._lock:
-            return tuple(deepcopy(record) for record in self.agent_store_agents.values())
+            return tuple(
+                deepcopy(record) for record in self.agent_store_agents.values()
+            )

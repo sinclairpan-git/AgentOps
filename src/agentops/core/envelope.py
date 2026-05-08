@@ -128,7 +128,11 @@ ENTERPRISE_REQUIRED_FIELDS = {
     "device_key_status",
 }
 
-STANDALONE_REQUIRED_FIELDS = {"local_subject", "local_workspace_hash", "local_report_uri"}
+STANDALONE_REQUIRED_FIELDS = {
+    "local_subject",
+    "local_workspace_hash",
+    "local_report_uri",
+}
 CUSTOM_SINK_REQUIRED_FIELDS = {"sink_id", "sink_capability_id", "external_subject"}
 
 
@@ -136,22 +140,31 @@ def validate_event_envelope(event: dict[str, Any]) -> None:
     _require_fields(event, BASE_REQUIRED_FIELDS, "EVENT_SCHEMA_INVALID")
 
     if event["schema_version"] != "event-envelope.v1":
-        raise AgentOpsError("EVENT_SCHEMA_UNSUPPORTED", "Unsupported event envelope schema.")
+        raise AgentOpsError(
+            "EVENT_SCHEMA_UNSUPPORTED", "Unsupported event envelope schema."
+        )
 
     integration_mode = event["integration_mode"]
     if integration_mode == "unknown":
-        raise AgentOpsError("INTEGRATION_MODE_UNSUPPORTED", "Unknown integration_mode is not accepted.")
+        raise AgentOpsError(
+            "INTEGRATION_MODE_UNSUPPORTED", "Unknown integration_mode is not accepted."
+        )
 
     if integration_mode == "enterprise_managed":
         _validate_enterprise_event(event)
     elif integration_mode == "standalone":
         _require_fields(event, STANDALONE_REQUIRED_FIELDS, "EVENT_SCHEMA_INVALID")
         if event["enterprise_state"] != "not_detected":
-            raise AgentOpsError("EVENT_SCHEMA_INVALID", "standalone events must use enterprise_state=not_detected.")
+            raise AgentOpsError(
+                "EVENT_SCHEMA_INVALID",
+                "standalone events must use enterprise_state=not_detected.",
+            )
     elif integration_mode == "custom_sink":
         _require_fields(event, CUSTOM_SINK_REQUIRED_FIELDS, "EVENT_SCHEMA_INVALID")
     else:
-        raise AgentOpsError("INTEGRATION_MODE_UNSUPPORTED", "Unsupported integration_mode.")
+        raise AgentOpsError(
+            "INTEGRATION_MODE_UNSUPPORTED", "Unsupported integration_mode."
+        )
 
     _validate_l5_payload(event)
     _validate_signature_test_payload(event)
@@ -166,17 +179,31 @@ def evidence_mode_for(event: dict[str, Any]) -> str:
 def _validate_enterprise_event(event: dict[str, Any]) -> None:
     missing_signature = not event.get("signature")
     if missing_signature:
-        raise AgentOpsError("EVENT_SIGNATURE_REQUIRED", "enterprise_managed events require signature.")
+        raise AgentOpsError(
+            "EVENT_SIGNATURE_REQUIRED", "enterprise_managed events require signature."
+        )
 
     _require_fields(event, ENTERPRISE_REQUIRED_FIELDS, "EVENT_SCHEMA_INVALID")
     if event.get("identity_confidence") != "verified":
-        raise AgentOpsError("EVENT_IDENTITY_NOT_VERIFIED", "enterprise_managed events require verified identity.")
+        raise AgentOpsError(
+            "EVENT_IDENTITY_NOT_VERIFIED",
+            "enterprise_managed events require verified identity.",
+        )
     if event.get("source_trust_level") != "verified":
-        raise AgentOpsError("EVENT_SOURCE_NOT_VERIFIED", "enterprise_managed events require verified source trust.")
+        raise AgentOpsError(
+            "EVENT_SOURCE_NOT_VERIFIED",
+            "enterprise_managed events require verified source trust.",
+        )
     if event.get("credential_status") != "active":
-        raise AgentOpsError("EVENT_CREDENTIAL_INACTIVE", "enterprise_managed events require active credential.")
+        raise AgentOpsError(
+            "EVENT_CREDENTIAL_INACTIVE",
+            "enterprise_managed events require active credential.",
+        )
     if event.get("device_key_status") != "active":
-        raise AgentOpsError("EVENT_DEVICE_KEY_INACTIVE", "enterprise_managed events require active device key.")
+        raise AgentOpsError(
+            "EVENT_DEVICE_KEY_INACTIVE",
+            "enterprise_managed events require active device key.",
+        )
 
 
 def _validate_l5_payload(event: dict[str, Any]) -> None:
@@ -186,7 +213,9 @@ def _validate_l5_payload(event: dict[str, Any]) -> None:
 
     payload = event.get("payload")
     if not isinstance(payload, dict):
-        raise AgentOpsError("EVENT_PAYLOAD_INVALID", "L5 core event payload must be an object.")
+        raise AgentOpsError(
+            "EVENT_PAYLOAD_INVALID", "L5 core event payload must be an object."
+        )
     _require_fields(payload, required, "EVENT_PAYLOAD_INVALID")
 
 
@@ -196,11 +225,19 @@ def _validate_signature_test_payload(event: dict[str, Any]) -> None:
 
     payload = event.get("payload")
     if not isinstance(payload, dict):
-        raise AgentOpsError("EVENT_PAYLOAD_INVALID", "signature_test_event payload must be an object.")
-    _require_fields(payload, SIGNATURE_TEST_PAYLOAD_REQUIRED_FIELDS, "EVENT_PAYLOAD_INVALID")
+        raise AgentOpsError(
+            "EVENT_PAYLOAD_INVALID", "signature_test_event payload must be an object."
+        )
+    _require_fields(
+        payload, SIGNATURE_TEST_PAYLOAD_REQUIRED_FIELDS, "EVENT_PAYLOAD_INVALID"
+    )
 
 
 def _require_fields(data: dict[str, Any], fields: set[str], error_code: str) -> None:
-    missing = sorted(field for field in fields if field not in data or data[field] in (None, ""))
+    missing = sorted(
+        field for field in fields if field not in data or data[field] in (None, "")
+    )
     if missing:
-        raise AgentOpsError(error_code, f"Missing required fields: {', '.join(missing)}.")
+        raise AgentOpsError(
+            error_code, f"Missing required fields: {', '.join(missing)}."
+        )

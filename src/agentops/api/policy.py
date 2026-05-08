@@ -21,7 +21,9 @@ def evaluate_policy_decision(
     policy_version: str = "policy.v1",
 ) -> dict[str, Any]:
     if action in HIGH_RISK_ACTIONS and not resource_scope:
-        raise AgentOpsError("POLICY_SCOPE_REQUIRED", "High-risk actions require resource_scope.")
+        raise AgentOpsError(
+            "POLICY_SCOPE_REQUIRED", "High-risk actions require resource_scope."
+        )
 
     if action in HIGH_RISK_ACTIONS and not service_available:
         decision = "block"

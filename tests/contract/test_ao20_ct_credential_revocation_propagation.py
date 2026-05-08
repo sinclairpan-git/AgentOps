@@ -7,7 +7,11 @@ from threading import Thread
 
 import pytest
 
-from agentops.api.credentials import get_credential_status, issue_credentials, revoke_credentials
+from agentops.api.credentials import (
+    get_credential_status,
+    issue_credentials,
+    revoke_credentials,
+)
 from agentops.api.ingestion import ingest_events_batch
 from agentops.api.server import create_http_handler
 from agentops.core.errors import AgentOpsError
@@ -103,8 +107,12 @@ def enterprise_event_after_revocation():
     )
 
 
-def json_post(server: ThreadingHTTPServer, path: str, payload: dict, *, origin: str | None = None):
-    connection = HTTPConnection(server.server_address[0], server.server_address[1], timeout=5)
+def json_post(
+    server: ThreadingHTTPServer, path: str, payload: dict, *, origin: str | None = None
+):
+    connection = HTTPConnection(
+        server.server_address[0], server.server_address[1], timeout=5
+    )
     try:
         body = json.dumps(payload).encode("utf-8")
         headers = {"Content-Type": "application/json"}
@@ -160,7 +168,10 @@ def test_ao20_ct_002_revoked_signature_test_event_is_rejected(repository):
 
     assert result["accepted"] == []
     assert result["rejected"][0]["error_code"] == "EVENT_CREDENTIAL_REVOKED"
-    assert repository.get_bootstrap_session("boot-inst-fixture")["bootstrap_status"] == "revoked"
+    assert (
+        repository.get_bootstrap_session("boot-inst-fixture")["bootstrap_status"]
+        == "revoked"
+    )
 
 
 def test_ao20_ct_003_revoked_known_enterprise_event_is_rejected(repository):
@@ -174,7 +185,9 @@ def test_ao20_ct_003_revoked_known_enterprise_event_is_rejected(repository):
     assert "evt_after_revoke" not in repository.raw_events
 
 
-def test_ao20_ct_003b_revoked_duplicate_identity_is_rejected_after_active_match(repository):
+def test_ao20_ct_003b_revoked_duplicate_identity_is_rejected_after_active_match(
+    repository,
+):
     repository.add_bootstrap_session(
         {
             **bootstrap_session(),
@@ -209,7 +222,10 @@ def test_ao20_ct_004_unknown_revocation_schema_is_rejected(repository):
     issue_fixture_credentials(repository)
 
     with pytest.raises(AgentOpsError) as exc:
-        revoke_credentials(revocation_request(schema_version="agentops_credential_revocation.v2"), repository)
+        revoke_credentials(
+            revocation_request(schema_version="agentops_credential_revocation.v2"),
+            repository,
+        )
 
     assert exc.value.error_code == "CREDENTIAL_REVOCATION_SCHEMA_UNSUPPORTED"
 

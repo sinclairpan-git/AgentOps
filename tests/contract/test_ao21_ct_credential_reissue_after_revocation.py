@@ -11,7 +11,12 @@ from time import sleep
 import pytest
 
 import agentops.api.credentials as credentials_api
-from agentops.api.credentials import get_credential_status, issue_credentials, reissue_credentials, revoke_credentials
+from agentops.api.credentials import (
+    get_credential_status,
+    issue_credentials,
+    reissue_credentials,
+    revoke_credentials,
+)
 from agentops.api.ingestion import ingest_events_batch
 from agentops.api.server import create_http_handler
 from agentops.core.errors import AgentOpsError
@@ -150,11 +155,21 @@ def enterprise_event_for_reissue(**overrides):
     )
 
 
-def json_post(server: ThreadingHTTPServer, path: str, payload: dict, headers: dict[str, str] | None = None):
-    connection = HTTPConnection(server.server_address[0], server.server_address[1], timeout=5)
+def json_post(
+    server: ThreadingHTTPServer,
+    path: str,
+    payload: dict,
+    headers: dict[str, str] | None = None,
+):
+    connection = HTTPConnection(
+        server.server_address[0], server.server_address[1], timeout=5
+    )
     try:
         body = json.dumps(payload).encode("utf-8")
-        request_headers = {"Content-Type": "application/json", "Origin": "http://127.0.0.1:5174"}
+        request_headers = {
+            "Content-Type": "application/json",
+            "Origin": "http://127.0.0.1:5174",
+        }
         request_headers.update(headers or {})
         connection.request("POST", path, body=body, headers=request_headers)
         response = connection.getresponse()
@@ -171,7 +186,9 @@ def revoked_repository(repository):
     return repository
 
 
-def test_ao21_ct_001_reissue_revoked_credential_returns_new_agentops_credential(revoked_repository):
+def test_ao21_ct_001_reissue_revoked_credential_returns_new_agentops_credential(
+    revoked_repository,
+):
     response = reissue_credentials(
         reissue_request(),
         revoked_repository,
@@ -187,14 +204,21 @@ def test_ao21_ct_001_reissue_revoked_credential_returns_new_agentops_credential(
     assert response["token_id"] == "token-fixture-r1"
     assert response["next_action"] == "send_signature_test_event"
     assert response["verified_loaded"] == "not_asserted"
-    assert get_credential_status(revoked_repository, "boot-inst-fixture-r1")["credential_id"] == "cred-fixture-r1"
+    assert (
+        get_credential_status(revoked_repository, "boot-inst-fixture-r1")[
+            "credential_id"
+        ]
+        == "cred-fixture-r1"
+    )
     source_status = get_credential_status(revoked_repository, "boot-inst-fixture")
     assert source_status["credential_status"] == "revoked"
     assert source_status["revocation_resolution"] == "reissued"
     assert source_status["reissued_bootstrap_id"] == "boot-inst-fixture-r1"
 
 
-def test_ao21_ct_001b_reissue_uses_new_bootstrap_for_replacement_ids(revoked_repository):
+def test_ao21_ct_001b_reissue_uses_new_bootstrap_for_replacement_ids(
+    revoked_repository,
+):
     response = reissue_credentials(
         reissue_request(
             new_bootstrap_id="boot-reissue-fixture-alt",
@@ -246,7 +270,9 @@ def test_ao21_ct_001c_reissue_source_allows_only_one_replacement(revoked_reposit
     assert revoked_repository.get_bootstrap_session("boot-inst-fixture-r2") is None
 
 
-def test_ao21_ct_001d_reissue_source_guard_is_atomic_under_parallel_requests(revoked_repository, monkeypatch):
+def test_ao21_ct_001d_reissue_source_guard_is_atomic_under_parallel_requests(
+    revoked_repository, monkeypatch
+):
     original_issue_credentials = credentials_api.issue_credentials
     first_issue_entered = Event()
     release_first_issue = Event()
@@ -265,7 +291,9 @@ def test_ao21_ct_001d_reissue_source_guard_is_atomic_under_parallel_requests(rev
     handoff["device_proof"]["nonce"] = "nonce-device-fixture-r2"
     handoff["device_proof"]["key_id"] = "device-key-fixture-r2"
     handoff["device_proof"]["signature"] = "sig-device-fixture-r2"
-    monkeypatch.setattr(credentials_api, "issue_credentials", blocking_issue_credentials)
+    monkeypatch.setattr(
+        credentials_api, "issue_credentials", blocking_issue_credentials
+    )
 
     with ThreadPoolExecutor(max_workers=2) as executor:
         first_future = executor.submit(
@@ -299,7 +327,9 @@ def test_ao21_ct_001d_reissue_source_guard_is_atomic_under_parallel_requests(rev
     assert revoked_repository.get_bootstrap_session("boot-inst-fixture-r2") is None
 
 
-def test_ao21_ct_002_reissued_credential_passes_signature_test_but_old_token_stays_revoked(revoked_repository):
+def test_ao21_ct_002_reissued_credential_passes_signature_test_but_old_token_stays_revoked(
+    revoked_repository,
+):
     reissue_credentials(
         reissue_request(),
         revoked_repository,
@@ -307,7 +337,9 @@ def test_ao21_ct_002_reissued_credential_passes_signature_test_but_old_token_sta
         headers={"Idempotency-Key": "idem-reissue-fixture"},
     )
 
-    accepted = ingest_events_batch([signature_test_event_for_reissue()], revoked_repository)
+    accepted = ingest_events_batch(
+        [signature_test_event_for_reissue()], revoked_repository
+    )
     old_token_event = signature_test_event_for_reissue(
         event_id="evt_signature_test_old_token",
         idempotency_key="signature-test:old-token",
@@ -317,33 +349,55 @@ def test_ao21_ct_002_reissued_credential_passes_signature_test_but_old_token_sta
     rejected = ingest_events_batch([old_token_event], revoked_repository)
 
     assert accepted["accepted"] == ["evt_signature_test_reissue"]
-    assert get_credential_status(revoked_repository, "boot-inst-fixture-r1")["bootstrap_status"] == "signature_verified"
+    assert (
+        get_credential_status(revoked_repository, "boot-inst-fixture-r1")[
+            "bootstrap_status"
+        ]
+        == "signature_verified"
+    )
     assert rejected["accepted"] == []
     assert rejected["rejected"][0]["error_code"] == "EVENT_CREDENTIAL_REVOKED"
 
 
 def test_ao21_ct_003_reissue_requires_new_nonce_and_new_bootstrap(revoked_repository):
-    request = reissue_request(new_bootstrap_id="boot-inst-fixture", credential_handoff=load_fixture("agentops_credential_handoff.v1.json"))
+    request = reissue_request(
+        new_bootstrap_id="boot-inst-fixture",
+        credential_handoff=load_fixture("agentops_credential_handoff.v1.json"),
+    )
 
     with pytest.raises(AgentOpsError) as exc:
-        reissue_credentials(request, revoked_repository, now=REISSUE_NOW, headers={"Idempotency-Key": "idem-reissue-fixture"})
+        reissue_credentials(
+            request,
+            revoked_repository,
+            now=REISSUE_NOW,
+            headers={"Idempotency-Key": "idem-reissue-fixture"},
+        )
 
     assert exc.value.error_code == "CREDENTIAL_REISSUE_TARGET_INVALID"
 
 
-def test_ao21_ct_003b_reissue_rejects_reused_nonce_without_orphan_session(revoked_repository):
+def test_ao21_ct_003b_reissue_rejects_reused_nonce_without_orphan_session(
+    revoked_repository,
+):
     handoff = reissue_handoff()
     handoff["installation_assertion"]["nonce"] = "nonce-fixture"
     request = reissue_request(credential_handoff=handoff)
 
     with pytest.raises(AgentOpsError) as exc:
-        reissue_credentials(request, revoked_repository, now=REISSUE_NOW, headers={"Idempotency-Key": "idem-reissue-fixture"})
+        reissue_credentials(
+            request,
+            revoked_repository,
+            now=REISSUE_NOW,
+            headers={"Idempotency-Key": "idem-reissue-fixture"},
+        )
 
     assert exc.value.error_code == "BOOTSTRAP_REPLAY_DETECTED"
     assert revoked_repository.get_bootstrap_session("boot-inst-fixture-r1") is None
 
 
-def test_ao21_ct_003c_reissue_bad_handoff_parse_error_rolls_back_session(revoked_repository):
+def test_ao21_ct_003c_reissue_bad_handoff_parse_error_rolls_back_session(
+    revoked_repository,
+):
     malformed_handoff = reissue_handoff(expires_at="not-a-timestamp")
 
     with pytest.raises(AgentOpsError) as exc:
@@ -363,7 +417,12 @@ def test_ao21_ct_003c_reissue_bad_handoff_parse_error_rolls_back_session(revoked
 
     assert exc.value.error_code == "CREDENTIAL_REISSUE_HANDOFF_INVALID"
     assert retry["credential_id"] == "cred-fixture-r1"
-    assert revoked_repository.get_bootstrap_session("boot-inst-fixture-r1")["bootstrap_status"] == "credential_issued"
+    assert (
+        revoked_repository.get_bootstrap_session("boot-inst-fixture-r1")[
+            "bootstrap_status"
+        ]
+        == "credential_issued"
+    )
 
 
 def test_ao21_ct_003d_reissue_naive_handoff_time_rolls_back_session(revoked_repository):
@@ -386,14 +445,24 @@ def test_ao21_ct_003d_reissue_naive_handoff_time_rolls_back_session(revoked_repo
 
     assert exc.value.error_code == "CREDENTIAL_REISSUE_HANDOFF_INVALID"
     assert retry["credential_id"] == "cred-fixture-r1"
-    assert revoked_repository.get_bootstrap_session("boot-inst-fixture-r1")["bootstrap_status"] == "credential_issued"
+    assert (
+        revoked_repository.get_bootstrap_session("boot-inst-fixture-r1")[
+            "bootstrap_status"
+        ]
+        == "credential_issued"
+    )
 
 
 def test_ao21_ct_004_reissue_rejects_non_revoked_source(repository):
     issue_fixture_credentials(repository)
 
     with pytest.raises(AgentOpsError) as exc:
-        reissue_credentials(reissue_request(), repository, now=REISSUE_NOW, headers={"Idempotency-Key": "idem-reissue-fixture"})
+        reissue_credentials(
+            reissue_request(),
+            repository,
+            now=REISSUE_NOW,
+            headers={"Idempotency-Key": "idem-reissue-fixture"},
+        )
 
     assert exc.value.error_code == "CREDENTIAL_REISSUE_SOURCE_NOT_REVOKED"
 
@@ -401,15 +470,32 @@ def test_ao21_ct_004_reissue_rejects_non_revoked_source(repository):
 def test_ao21_ct_005_reissue_retry_returns_same_result(revoked_repository):
     request = reissue_request()
 
-    first = reissue_credentials(request, revoked_repository, now=REISSUE_NOW, headers={"Idempotency-Key": "idem-reissue-fixture"})
-    second = reissue_credentials(request, revoked_repository, now=REISSUE_NOW, headers={"Idempotency-Key": "idem-reissue-fixture"})
+    first = reissue_credentials(
+        request,
+        revoked_repository,
+        now=REISSUE_NOW,
+        headers={"Idempotency-Key": "idem-reissue-fixture"},
+    )
+    second = reissue_credentials(
+        request,
+        revoked_repository,
+        now=REISSUE_NOW,
+        headers={"Idempotency-Key": "idem-reissue-fixture"},
+    )
 
     assert first == second
 
 
-def test_ao21_ct_005b_reissue_retry_stays_stable_after_replacement_revoked(revoked_repository):
+def test_ao21_ct_005b_reissue_retry_stays_stable_after_replacement_revoked(
+    revoked_repository,
+):
     request = reissue_request()
-    first = reissue_credentials(request, revoked_repository, now=REISSUE_NOW, headers={"Idempotency-Key": "idem-reissue-fixture"})
+    first = reissue_credentials(
+        request,
+        revoked_repository,
+        now=REISSUE_NOW,
+        headers={"Idempotency-Key": "idem-reissue-fixture"},
+    )
     revoke_credentials(
         revocation_request(
             bootstrap_id="boot-inst-fixture-r1",
@@ -419,8 +505,15 @@ def test_ao21_ct_005b_reissue_retry_stays_stable_after_replacement_revoked(revok
         now=REISSUE_NOW + timedelta(minutes=2),
     )
 
-    retry = reissue_credentials(request, revoked_repository, now=REISSUE_NOW, headers={"Idempotency-Key": "idem-reissue-fixture"})
-    replacement_status = get_credential_status(revoked_repository, "boot-inst-fixture-r1")
+    retry = reissue_credentials(
+        request,
+        revoked_repository,
+        now=REISSUE_NOW,
+        headers={"Idempotency-Key": "idem-reissue-fixture"},
+    )
+    replacement_status = get_credential_status(
+        revoked_repository, "boot-inst-fixture-r1"
+    )
 
     assert retry == first
     assert retry["credential_status"] == "active"
@@ -436,14 +529,20 @@ def test_ao21_ct_006_http_reissue_route_returns_json_and_cors(revoked_repository
             expires_at=(http_now + timedelta(minutes=30)).isoformat(),
         )
     )
-    server = ThreadingHTTPServer(("127.0.0.1", 0), create_http_handler(revoked_repository))
+    server = ThreadingHTTPServer(
+        ("127.0.0.1", 0), create_http_handler(revoked_repository)
+    )
     thread = Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
         response, payload = json_post(
             server,
             "/v1/bootstrap/credentials/boot-inst-fixture/reissue",
-            {key: value for key, value in http_request.items() if key != "source_bootstrap_id"},
+            {
+                key: value
+                for key, value in http_request.items()
+                if key != "source_bootstrap_id"
+            },
             headers={"Idempotency-Key": "idem-reissue-fixture"},
         )
     finally:

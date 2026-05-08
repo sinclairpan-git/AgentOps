@@ -20,5 +20,7 @@ def request_raw_access(repository: InMemoryRepository, **kwargs: Any) -> dict[st
     return create_raw_access_request(repository=repository, **kwargs)
 
 
-def approve_raw_access(request_id: str, repository: InMemoryRepository, **kwargs: Any) -> dict[str, Any]:
+def approve_raw_access(
+    request_id: str, repository: InMemoryRepository, **kwargs: Any
+) -> dict[str, Any]:
     return approve_raw_access_request(request_id, repository, **kwargs)

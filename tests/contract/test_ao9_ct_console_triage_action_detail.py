@@ -25,7 +25,9 @@ REQUIRED_DETAIL_KEYS = {
 
 def test_ao9_ct_001_snapshot_contains_action_workbench_without_raw_payload():
     repository = InMemoryRepository()
-    repository.write_event(base_event("stage_started", agent_id="agent.unknown", agent_version="0.1.0"))
+    repository.write_event(
+        base_event("stage_started", agent_id="agent.unknown", agent_version="0.1.0")
+    )
 
     console_data = build_console_snapshot(repository=repository)["consoleData"]
     action_workbench = console_data["actionWorkbench"]
@@ -49,10 +51,14 @@ def test_ao9_ct_002_operation_center_action_ids_resolve_to_details():
             "audit_id": "audit_ap_pending",
         }
     )
-    repository.write_event(base_event("stage_started", agent_id="agent.unknown", agent_version="0.1.0"))
+    repository.write_event(
+        base_event("stage_started", agent_id="agent.unknown", agent_version="0.1.0")
+    )
 
     console_data = build_console_snapshot(repository=repository)["consoleData"]
-    details_by_id = {item["id"]: item for item in console_data["actionWorkbench"]["details"]}
+    details_by_id = {
+        item["id"]: item for item in console_data["actionWorkbench"]["details"]
+    }
 
     for collection_name in ("notifications", "todos", "searchIndex"):
         for item in console_data["operationCenter"][collection_name]:
@@ -64,7 +70,9 @@ def test_ao9_ct_002_operation_center_action_ids_resolve_to_details():
 
 def test_ao9_ct_003_agent_store_gap_detail_survives_caps():
     repository = InMemoryRepository()
-    repository.write_event(base_event("stage_started", agent_id="agent.unknown", agent_version="0.1.0"))
+    repository.write_event(
+        base_event("stage_started", agent_id="agent.unknown", agent_version="0.1.0")
+    )
     for index in range(35):
         repository.store_approval(
             {
@@ -95,7 +103,9 @@ def test_ao9_ct_003_agent_store_gap_detail_survives_caps():
 
 def test_ao9_ct_003b_gap_detail_survives_action_workbench_cap():
     repository = InMemoryRepository()
-    repository.write_event(base_event("stage_started", agent_id="agent.unknown", agent_version="0.1.0"))
+    repository.write_event(
+        base_event("stage_started", agent_id="agent.unknown", agent_version="0.1.0")
+    )
     for index in range(45):
         repository.store_approval(
             {
@@ -123,9 +133,13 @@ def test_ao9_ct_003b_gap_detail_survives_action_workbench_cap():
 
 def test_ao9_ct_004_action_detail_shape_and_read_only_safety_note():
     repository = InMemoryRepository()
-    repository.write_event(base_event("stage_started", agent_id="agent.unknown", agent_version="0.1.0"))
+    repository.write_event(
+        base_event("stage_started", agent_id="agent.unknown", agent_version="0.1.0")
+    )
 
-    details = build_console_snapshot(repository=repository)["consoleData"]["actionWorkbench"]["details"]
+    details = build_console_snapshot(repository=repository)["consoleData"][
+        "actionWorkbench"
+    ]["details"]
 
     for detail in details:
         assert REQUIRED_DETAIL_KEYS <= set(detail)
@@ -200,6 +214,8 @@ def test_ao9_ct_006_clean_registered_run_does_not_create_gap_detail():
     ):
         repository.write_event(base_event(event_type, sequence_no=index))
 
-    details = build_console_snapshot(repository=repository)["consoleData"]["actionWorkbench"]["details"]
+    details = build_console_snapshot(repository=repository)["consoleData"][
+        "actionWorkbench"
+    ]["details"]
 
     assert not any(item["id"].startswith("action_gap_") for item in details)

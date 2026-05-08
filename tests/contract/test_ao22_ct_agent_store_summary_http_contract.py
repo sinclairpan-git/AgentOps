@@ -24,7 +24,9 @@ L5_EVENT_TYPES = [
 
 
 def json_get(server: ThreadingHTTPServer, path: str, *, origin: str | None = None):
-    connection = HTTPConnection(server.server_address[0], server.server_address[1], timeout=5)
+    connection = HTTPConnection(
+        server.server_address[0], server.server_address[1], timeout=5
+    )
     try:
         headers = {"Origin": origin} if origin else {}
         connection.request("GET", path, headers=headers)
@@ -36,7 +38,9 @@ def json_get(server: ThreadingHTTPServer, path: str, *, origin: str | None = Non
         connection.close()
 
 
-def write_l5_run(repository: InMemoryRepository, *, include_adapter_state: bool = True) -> None:
+def write_l5_run(
+    repository: InMemoryRepository, *, include_adapter_state: bool = True
+) -> None:
     sync_agent_store_metadata(
         repository,
         {
@@ -54,9 +58,7 @@ def write_l5_run(repository: InMemoryRepository, *, include_adapter_state: bool 
         )
         if event_type == "stage_started" and not include_adapter_state:
             event["payload"].pop("adapter_state", None)
-        repository.write_event(
-            event
-        )
+        repository.write_event(event)
 
 
 def start_server(repository: InMemoryRepository) -> ThreadingHTTPServer:
@@ -110,7 +112,9 @@ def test_ao22_ct_002_http_store_summary_does_not_claim_l5_for_incomplete_run():
     repository.write_event(base_event("stage_started"))
     server = start_server(repository)
     try:
-        response, summary = json_get(server, "/v1/store-summary/agent.ai-sdlc?version=1.0.0&run_id=run_1")
+        response, summary = json_get(
+            server, "/v1/store-summary/agent.ai-sdlc?version=1.0.0&run_id=run_1"
+        )
     finally:
         server.shutdown()
 
@@ -126,7 +130,9 @@ def test_ao22_ct_002a_http_store_summary_does_not_infer_verified_loaded_when_ada
     write_l5_run(repository, include_adapter_state=False)
     server = start_server(repository)
     try:
-        response, summary = json_get(server, "/v1/store-summary/agent.ai-sdlc?version=1.0.0&run_id=run_1")
+        response, summary = json_get(
+            server, "/v1/store-summary/agent.ai-sdlc?version=1.0.0&run_id=run_1"
+        )
     finally:
         server.shutdown()
 
@@ -142,7 +148,9 @@ def test_ao22_ct_003_http_store_summary_requires_version_and_run_id():
     write_l5_run(repository)
     server = start_server(repository)
     try:
-        response, payload = json_get(server, "/v1/store-summary/agent.ai-sdlc?version=1.0.0")
+        response, payload = json_get(
+            server, "/v1/store-summary/agent.ai-sdlc?version=1.0.0"
+        )
     finally:
         server.shutdown()
 
@@ -155,7 +163,9 @@ def test_ao22_ct_003a_http_store_summary_rejects_extra_path_segments():
     write_l5_run(repository)
     server = start_server(repository)
     try:
-        response, payload = json_get(server, "/v1/store-summary/agent.ai-sdlc/extra?version=1.0.0&run_id=run_1")
+        response, payload = json_get(
+            server, "/v1/store-summary/agent.ai-sdlc/extra?version=1.0.0&run_id=run_1"
+        )
     finally:
         server.shutdown()
 
@@ -184,7 +194,9 @@ def test_ao22_ct_005_http_store_summary_rejects_run_target_mismatch():
     write_l5_run(repository)
     server = start_server(repository)
     try:
-        response, payload = json_get(server, "/v1/store-summary/agent.other?version=1.0.0&run_id=run_1")
+        response, payload = json_get(
+            server, "/v1/store-summary/agent.other?version=1.0.0&run_id=run_1"
+        )
     finally:
         server.shutdown()
 
@@ -197,7 +209,9 @@ def test_ao22_ct_006_http_store_summary_declares_display_only_consumer_boundary(
     write_l5_run(repository)
     server = start_server(repository)
     try:
-        _, summary = json_get(server, "/v1/store-summary/agent.ai-sdlc?version=1.0.0&run_id=run_1")
+        _, summary = json_get(
+            server, "/v1/store-summary/agent.ai-sdlc?version=1.0.0&run_id=run_1"
+        )
     finally:
         server.shutdown()
 
@@ -239,7 +253,9 @@ def test_ao22_ct_007_http_store_summary_excludes_raw_payload_and_secrets():
     repository.write_event(event)
     server = start_server(repository)
     try:
-        response, summary = json_get(server, "/v1/store-summary/agent.ai-sdlc?version=1.0.0&run_id=run_1")
+        response, summary = json_get(
+            server, "/v1/store-summary/agent.ai-sdlc?version=1.0.0&run_id=run_1"
+        )
     finally:
         server.shutdown()
 

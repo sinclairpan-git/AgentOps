@@ -32,7 +32,17 @@ STAGE2_PAGE_STATES = {
         "unknown",
         "permission_denied",
     ],
-    "Policy Center": ["healthy", "block", "approval_required", "warn", "conditional_allow", "allow", "degraded", "unknown", "permission_denied"],
+    "Policy Center": [
+        "healthy",
+        "block",
+        "approval_required",
+        "warn",
+        "conditional_allow",
+        "allow",
+        "degraded",
+        "unknown",
+        "permission_denied",
+    ],
     "Evidence Explorer": [
         "healthy",
         "summary_only",
@@ -44,15 +54,25 @@ STAGE2_PAGE_STATES = {
         "unknown",
         "permission_denied",
     ],
-    "Risk Triage": ["healthy", "policy_block", "approval_overdue", "evidence_failed", "quality_drop", "degraded", "unknown", "permission_denied"],
+    "Risk Triage": [
+        "healthy",
+        "policy_block",
+        "approval_overdue",
+        "evidence_failed",
+        "quality_drop",
+        "degraded",
+        "unknown",
+        "permission_denied",
+    ],
 }
-STAGE2_STATES = sorted({state for states in STAGE2_PAGE_STATES.values() for state in states})
+STAGE2_STATES = sorted(
+    {state for states in STAGE2_PAGE_STATES.values() for state in states}
+)
 
 
 def build_admin_view_models() -> dict[str, list[dict]]:
     return {
-        page: [_state_view_model(page, state) for state in STATES]
-        for page in PAGES
+        page: [_state_view_model(page, state) for state in STATES] for page in PAGES
     }
 
 
@@ -63,7 +83,11 @@ def _state_view_model(page: str, state: str) -> dict:
         "state": state,
         "display_name": state.replace("_", " ").title(),
         "plain_language": _plain_language(state),
-        "severity": "critical" if state == "failed" else "warning" if state == "degraded" else "info",
+        "severity": "critical"
+        if state == "failed"
+        else "warning"
+        if state == "degraded"
+        else "info",
         "primary_action": "申请权限" if permission_denied else "查看详情",
         "secondary_action": "返回摘要" if permission_denied else "通知 Owner",
         "owner_hint": "AgentOps Owner",
@@ -103,21 +127,30 @@ def build_slo_snapshot(
         "status": status,
         "degrade_action": _slo_degrade_action(service, status),
         "review_required": status == "degraded",
-        "owner": "AgentOps Owner" if service != "policy_check" else "AgentOps + Security/IAM",
+        "owner": "AgentOps Owner"
+        if service != "policy_check"
+        else "AgentOps + Security/IAM",
         "request_id": f"req_slo_{service}",
         "captured_at": captured_at or datetime.now(UTC).isoformat(),
     }
 
 
-def build_stage2_admin_view_models(slo_snapshots: dict[str, dict] | None = None) -> dict[str, list[dict]]:
+def build_stage2_admin_view_models(
+    slo_snapshots: dict[str, dict] | None = None,
+) -> dict[str, list[dict]]:
     slo_snapshots = slo_snapshots or {}
     return {
-        page: [_stage2_state_view_model(page, state, slo_snapshots) for state in STAGE2_PAGE_STATES[page]]
+        page: [
+            _stage2_state_view_model(page, state, slo_snapshots)
+            for state in STAGE2_PAGE_STATES[page]
+        ]
         for page in STAGE2_PAGES
     }
 
 
-def _stage2_state_view_model(page: str, state: str, slo_snapshots: dict[str, dict]) -> dict:
+def _stage2_state_view_model(
+    page: str, state: str, slo_snapshots: dict[str, dict]
+) -> dict:
     service = _page_service(page)
     snapshot = slo_snapshots.get(service) or build_slo_snapshot(service)
     effective_state = snapshot["status"] if state == "healthy" else state
@@ -127,7 +160,11 @@ def _stage2_state_view_model(page: str, state: str, slo_snapshots: dict[str, dic
         "state": effective_state,
         "display_name": effective_state.replace("_", " ").title(),
         "plain_language": _stage2_plain_language(page, effective_state),
-        "severity": "critical" if effective_state == "degraded" else "warning" if effective_state == "unknown" else "info",
+        "severity": "critical"
+        if effective_state == "degraded"
+        else "warning"
+        if effective_state == "unknown"
+        else "info",
         "primary_action": _stage2_primary_action(page, effective_state),
         "secondary_action": "返回摘要",
         "owner_hint": snapshot["owner"],

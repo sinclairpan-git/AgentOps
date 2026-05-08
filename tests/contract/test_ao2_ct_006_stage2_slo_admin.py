@@ -1,4 +1,8 @@
-from agentops.api.view_models import STAGE2_PAGES, build_slo_snapshot, build_stage2_admin_view_models
+from agentops.api.view_models import (
+    STAGE2_PAGES,
+    build_slo_snapshot,
+    build_stage2_admin_view_models,
+)
 
 
 def test_missing_slo_data_is_unknown_not_healthy():
@@ -20,9 +24,15 @@ def test_policy_check_degraded_when_over_threshold():
 def test_stage2_admin_models_are_actionable_and_safe():
     models = build_stage2_admin_view_models(
         {
-            "policy_check": build_slo_snapshot("policy_check", p95_ms=900, error_rate=0.02),
-            "approval_service": build_slo_snapshot("approval_service", p95_ms=100, error_rate=0),
-            "evidence_query": build_slo_snapshot("evidence_query", p95_ms=100, error_rate=0),
+            "policy_check": build_slo_snapshot(
+                "policy_check", p95_ms=900, error_rate=0.02
+            ),
+            "approval_service": build_slo_snapshot(
+                "approval_service", p95_ms=100, error_rate=0
+            ),
+            "evidence_query": build_slo_snapshot(
+                "evidence_query", p95_ms=100, error_rate=0
+            ),
         }
     )
 
@@ -43,7 +53,12 @@ def test_stage2_admin_models_are_actionable_and_safe():
         "expired",
         "redaction_failed",
     }
-    assert {state["state"] for state in models["Risk Triage"]} >= {"policy_block", "approval_overdue", "evidence_failed", "quality_drop"}
+    assert {state["state"] for state in models["Risk Triage"]} >= {
+        "policy_block",
+        "approval_overdue",
+        "evidence_failed",
+        "quality_drop",
+    }
     for states in models.values():
         for state in states:
             assert state["display_name"]
