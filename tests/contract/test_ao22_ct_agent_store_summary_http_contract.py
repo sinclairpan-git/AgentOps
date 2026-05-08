@@ -131,6 +131,19 @@ def test_ao22_ct_003_http_store_summary_requires_version_and_run_id():
     assert payload["error_code"] == "STORE_SUMMARY_QUERY_REQUIRED"
 
 
+def test_ao22_ct_003a_http_store_summary_rejects_extra_path_segments():
+    repository = InMemoryRepository()
+    write_l5_run(repository)
+    server = start_server(repository)
+    try:
+        response, payload = json_get(server, "/v1/store-summary/agent.ai-sdlc/extra?version=1.0.0&run_id=run_1")
+    finally:
+        server.shutdown()
+
+    assert response.status == 404
+    assert payload["error_code"] == "NOT_FOUND"
+
+
 def test_ao22_ct_004_http_store_summary_rejects_unsupported_schema():
     repository = InMemoryRepository()
     write_l5_run(repository)

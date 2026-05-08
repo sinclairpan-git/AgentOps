@@ -63,11 +63,17 @@ def create_http_handler(repository: InMemoryRepository | None = None) -> type[Ba
             store_summary_prefix = "/v1/store-summary/"
             if request_path.startswith(store_summary_prefix):
                 agent_id = request_path.removeprefix(store_summary_prefix).strip("/")
+                if not agent_id or "/" in agent_id:
+                    self._send_json(
+                        HTTPStatus.NOT_FOUND,
+                        {"error_code": "NOT_FOUND", "message": "未找到请求的 AgentOps API 路径。"},
+                    )
+                    return
                 query = self._request_query()
                 version = self._query_value(query, "version")
                 run_id = self._query_value(query, "run_id")
                 schema_version = self._query_value(query, "schema_version") or "1.0"
-                if not agent_id or not version or not run_id:
+                if not version or not run_id:
                     self._send_json(
                         HTTPStatus.BAD_REQUEST,
                         {

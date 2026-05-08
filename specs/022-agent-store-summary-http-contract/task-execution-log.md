@@ -57,6 +57,7 @@
 - 安全边界：summary 不得包含 raw payload、raw evidence、ingestion token、credential token 或 device key。
 - 状态边界：summary 只表达 AgentOps 计算结果，不把 display-only 结果提升为 `verified_loaded`、active 或 L5。
 - HTTP 边界：缺少 `version/run_id` 返回 `STORE_SUMMARY_QUERY_REQUIRED`；unsupported schema 和 run target mismatch 均以 contract error 返回。
+- PR #22 Codex review 反馈 1：`/v1/store-summary/{agent_id}` route 接受额外 path segment，会把客户端 URL 错误误报为 run mismatch。已收紧为单 segment path 参数，并补 `test_ao22_ct_003a_http_store_summary_rejects_extra_path_segments`。
 
 ## 任务/计划同步状态
 

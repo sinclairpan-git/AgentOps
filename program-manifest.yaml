@@ -88,13 +88,13 @@ specs:
   depends_on:
   - 021-credential-reissue-after-revocation
 truth_snapshot:
-  generated_at: '2026-05-08T05:10:09Z'
+  generated_at: '2026-05-08T05:20:55Z'
   generated_by: ai-sdlc program truth sync
   generator_version: program_truth_snapshot_v1
-  repo_revision: 210278b
+  repo_revision: cb8f001
   authoring_hash: 7eed661a060cab971a396436dddd82e8bc36276aeb1f145583d447e12cd4098f
   source_hashes: {}
-  snapshot_hash: 81ce00eb21a6d3f0ef7b6e45e0f689416da7caa87329546e5d2192d92d54928c
+  snapshot_hash: 809994baf12b4fd501efcf1a9d0b8eccf1ace063456a3c8955669d553c0d6084
   computed_capabilities: []
   source_inventory:
     state: complete
