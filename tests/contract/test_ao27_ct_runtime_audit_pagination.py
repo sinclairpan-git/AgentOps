@@ -310,7 +310,52 @@ def test_ao27_ct_008_cursor_base64_validation_is_strict(tmp_path: Path):
     assert payload["error_code"] == "AUDIT_CURSOR_INVALID"
 
 
-def test_ao27_ct_009_broad_filter_cursor_terminates_despite_read_audits(
+def test_ao27_ct_009_non_ascii_cursor_signature_is_rejected_and_audited(
+    tmp_path: Path,
+):
+    audit_path = tmp_path / "audit.jsonl"
+    audit_log = _audit_log(audit_path)
+    cursor_payload = {
+        "payload": {
+            "end": 5,
+            "filters": {"action": "credential.revoke"},
+            "offset": 2,
+            "v": 1,
+        },
+        "sig": "é",
+    }
+    cursor = (
+        base64.urlsafe_b64encode(
+            json.dumps(
+                cursor_payload,
+                ensure_ascii=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            ).encode("utf-8")
+        )
+        .decode("ascii")
+        .rstrip("=")
+    )
+    server = _start_server(InMemoryRepository(), audit_log=audit_log)
+    try:
+        response, payload = _json_request(
+            server,
+            "GET",
+            f"/v1/audit/runtime?action=credential.revoke&cursor={cursor}",
+            headers=_auth_headers(),
+        )
+    finally:
+        server.shutdown()
+
+    records = JsonlAuditLog(audit_path).records()
+    assert response.status == 400
+    assert payload["error_code"] == "AUDIT_CURSOR_INVALID"
+    assert records[-1].action == "runtime.audit.read"
+    assert records[-1].outcome == "rejected"
+    assert records[-1].error_code == "AUDIT_CURSOR_INVALID"
+
+
+def test_ao27_ct_010_broad_filter_cursor_terminates_despite_read_audits(
     tmp_path: Path,
 ):
     audit_log = _audit_log(tmp_path / "audit.jsonl")
@@ -346,7 +391,7 @@ def test_ao27_ct_009_broad_filter_cursor_terminates_despite_read_audits(
     ]
 
 
-def test_ao27_ct_010_cursor_survives_handler_recreation_with_stable_secret(
+def test_ao27_ct_011_cursor_survives_handler_recreation_with_stable_secret(
     tmp_path: Path,
 ):
     audit_log = _audit_log(tmp_path / "audit.jsonl")
@@ -389,7 +434,7 @@ def test_ao27_ct_010_cursor_survives_handler_recreation_with_stable_secret(
     ]
 
 
-def test_ao27_ct_011_missing_cursor_secret_fails_closed(tmp_path: Path):
+def test_ao27_ct_012_missing_cursor_secret_fails_closed(tmp_path: Path):
     audit_path = tmp_path / "audit.jsonl"
     audit_log = _audit_log(audit_path)
     server = ThreadingHTTPServer(

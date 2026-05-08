@@ -593,14 +593,21 @@ def create_http_handler(
                     "AUDIT_CURSOR_INVALID",
                     "Runtime audit query cursor is invalid.",
                 )
+            try:
+                signature_bytes = signature.encode("ascii")
+            except UnicodeEncodeError as exc:
+                raise AgentOpsError(
+                    "AUDIT_CURSOR_INVALID",
+                    "Runtime audit query cursor is invalid.",
+                ) from exc
             signing_secret = self._audit_query_signing_secret()
             serialized_payload = self._audit_query_cursor_payload_bytes(payload)
             expected_signature = hmac.new(
                 signing_secret,
                 serialized_payload,
                 hashlib.sha256,
-            ).hexdigest()
-            if not hmac.compare_digest(signature, expected_signature):
+            ).hexdigest().encode("ascii")
+            if not hmac.compare_digest(signature_bytes, expected_signature):
                 raise AgentOpsError(
                     "AUDIT_CURSOR_INVALID",
                     "Runtime audit query cursor is invalid.",
