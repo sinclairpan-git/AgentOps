@@ -120,7 +120,8 @@ def _audit_log(path: Path) -> JsonlAuditLog:
 
 
 def test_ao26_ct_001_operator_can_query_filtered_runtime_audit(tmp_path: Path):
-    audit_log = _audit_log(tmp_path / "audit.jsonl")
+    audit_path = tmp_path / "audit.jsonl"
+    audit_log = _audit_log(audit_path)
     server = _start_server(InMemoryRepository(), audit_log=audit_log)
     try:
         response, payload = _json_request(
@@ -139,6 +140,10 @@ def test_ao26_ct_001_operator_can_query_filtered_runtime_audit(tmp_path: Path):
     assert payload["filters"] == {"action": "credential.revoke"}
     assert payload["records"][0]["audit_id"] == "audit_runtime_1"
     assert set(payload["records"][0]) == ALLOWED_AUDIT_FIELDS
+    records = JsonlAuditLog(audit_path).records()
+    assert records[-1].action == "runtime.audit.read"
+    assert records[-1].outcome == "accepted"
+    assert records[-1].resource == "/v1/audit/runtime"
 
 
 def test_ao26_ct_002_viewer_is_denied_runtime_audit_scope(tmp_path: Path):
@@ -189,7 +194,8 @@ def test_ao26_ct_003_request_and_outcome_filters_can_return_no_matches(
 
 
 def test_ao26_ct_004_invalid_limit_is_rejected_without_path_leak(tmp_path: Path):
-    audit_log = _audit_log(tmp_path / "secret-audit-path.jsonl")
+    audit_path = tmp_path / "secret-audit-path.jsonl"
+    audit_log = _audit_log(audit_path)
     server = _start_server(InMemoryRepository(), audit_log=audit_log)
     try:
         response, payload = _json_request(
@@ -205,6 +211,10 @@ def test_ao26_ct_004_invalid_limit_is_rejected_without_path_leak(tmp_path: Path)
     assert response.status == 400
     assert payload["error_code"] == "AUDIT_LIMIT_INVALID"
     assert "secret-audit-path" not in serialized
+    records = JsonlAuditLog(audit_path).records()
+    assert records[-1].action == "runtime.audit.read"
+    assert records[-1].outcome == "rejected"
+    assert records[-1].error_code == "AUDIT_LIMIT_INVALID"
 
 
 def test_ao26_ct_005_missing_audit_log_is_reported_without_path_leak():

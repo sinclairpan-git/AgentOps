@@ -7,6 +7,7 @@
 
 - 新增 `runtime.audit.read` scope，默认授予 `agentops-admin` 与 `agentops-operator`，不授予 `agentops-viewer`。
 - 新增只读 `GET /v1/audit/runtime` route，读取 024/025 durable audit records。
+- 成功或非法参数的 runtime audit query 访问会写入 `runtime.audit.read` durable audit record。
 - 支持 `audit_id`、`request_id`、`action`、`outcome` filters。
 - 支持 bounded `limit`：默认 50，最大 200，非法 limit 返回 `AUDIT_LIMIT_INVALID`。
 - route manifest 新增 `runtime_audit_query` 声明。

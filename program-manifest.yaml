@@ -100,13 +100,13 @@ specs:
   path: specs/026-runtime-audit-query
   depends_on: []
 truth_snapshot:
-  generated_at: '2026-05-08T08:50:32Z'
+  generated_at: '2026-05-08T09:00:57Z'
   generated_by: ai-sdlc program truth sync
   generator_version: program_truth_snapshot_v1
-  repo_revision: a32fe49
+  repo_revision: b45ff84
   authoring_hash: c418f45c85c10d0715cbf00734a4f6d3efa875781614ee904ed306e542c4b469
   source_hashes: {}
-  snapshot_hash: 557ad9f4d3a66265aaa6e335fd6c22eadcbcaf3c6b1e90a59eb1dd4c720fd407
+  snapshot_hash: f2ae41006f6c04fcb9b76aa208b769bda54161230ca1bfa5de0a703af625de30
   computed_capabilities: []
   source_inventory:
     state: complete
@@ -114,8 +114,8 @@ truth_snapshot:
     mapped_sources: 130
     unmapped_sources: 0
     missing_sources: 2
-    phase_signal_count: 125
-    deferred_signal_count: 183
+    phase_signal_count: 126
+    deferred_signal_count: 184
     non_goal_signal_count: 42
     layer_totals:
       spec: 26
@@ -1288,8 +1288,8 @@ truth_snapshot:
       mapped: true
       exists: true
       mapping_ref: 026-runtime-audit-query
-      phase_signal_count: 0
-      deferred_signal_count: 3
+      phase_signal_count: 1
+      deferred_signal_count: 4
       non_goal_signal_count: 2
     - path: specs/026-runtime-audit-query/development-summary.md
       source_type: development_summary

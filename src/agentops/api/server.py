@@ -118,6 +118,12 @@ def create_http_handler(
                 try:
                     response = self._runtime_audit_query_response(query)
                 except AgentOpsError as exc:
+                    self._append_audit_record(
+                        action="runtime.audit.read",
+                        outcome="rejected",
+                        resource=request_path,
+                        error_code=exc.error_code,
+                    )
                     self._send_json(
                         HTTPStatus.BAD_REQUEST,
                         {
@@ -127,6 +133,11 @@ def create_http_handler(
                         },
                     )
                     return
+                self._append_audit_record(
+                    action="runtime.audit.read",
+                    outcome="accepted",
+                    resource=request_path,
+                )
                 self._send_json(HTTPStatus.OK, response)
                 return
 

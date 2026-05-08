@@ -118,5 +118,16 @@
 - 已完成 git 提交：否（须与本批唯一一次 commit 对齐）
 - 提交哈希：待本批提交后生成
 - 当前批次 branch disposition 状态：待提交、推送并创建 PR。
+
+### Review Fix 2026-05-08-001 | Codex P2 runtime audit query access audit
+
+#### RF-001 | audit runtime audit query access
+
+- 改动范围：`src/agentops/api/server.py`、`tests/contract/test_ao26_ct_runtime_audit_query.py`、`development-summary.md`
+- 改动内容：`GET /v1/audit/runtime` 成功查询写入 `runtime.audit.read` / `accepted` durable audit record；非法 limit 查询写入 `runtime.audit.read` / `rejected`，并保留 `AUDIT_LIMIT_INVALID`。
+- 新增/调整的测试：operator 成功查询断言追加 accepted audit record；非法 limit 查询断言追加 rejected audit record 且不泄露本地 audit path。
+- 执行的命令：`uv run pytest tests/contract/test_ao26_ct_runtime_audit_query.py -q`、`uv run pytest tests/contract/test_ao23_ct_production_runtime_boundary.py tests/contract/test_ao24_ct_durable_audit_log.py tests/contract/test_ao25_ct_production_audit_coverage.py tests/contract/test_ao26_ct_runtime_audit_query.py -q`、`uv run ruff check src tests`、`uv run ai-sdlc verify constraints`、`uv run ai-sdlc program truth sync --execute --yes`
+- 测试结果：通过，AO26 7 个测试通过；AO23-AO26 回归 28 个测试通过、1 个既有环境相关测试跳过；ruff 通过；constraints 无 BLOCKER；truth sync 已写入 manifest。
+- 是否符合任务目标：是；回应 Codex review 对 production-protected audit read route 的可审计性要求。
 - 当前批次 worktree disposition 状态：当前 worktree 继续承载 026 收口。
 - 是否继续下一批：否，本批进入 PR 收口。
