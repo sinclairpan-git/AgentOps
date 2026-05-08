@@ -212,7 +212,39 @@ def test_ao28_ct_003_broad_export_manifest_excludes_export_audits(
     assert records[-1].action == "runtime.audit.export"
 
 
-def test_ao28_ct_004_viewer_is_denied_and_audited(tmp_path: Path):
+def test_ao28_ct_004_explicit_export_action_filter_includes_export_audits(
+    tmp_path: Path,
+):
+    audit_path = tmp_path / "audit.jsonl"
+    audit_log = _audit_log(audit_path)
+    server = _start_server(InMemoryRepository(), audit_log=audit_log)
+    try:
+        seed_response, _ = _json_request(
+            server,
+            "GET",
+            "/v1/audit/runtime/export-manifest?action=credential.revoke&limit=2",
+            headers=_auth_headers(),
+        )
+        response, payload = _json_request(
+            server,
+            "GET",
+            "/v1/audit/runtime/export-manifest?action=runtime.audit.export&limit=10",
+            headers=_auth_headers(),
+        )
+    finally:
+        server.shutdown()
+
+    records = JsonlAuditLog(audit_path).records()
+    assert seed_response.status == 200
+    assert response.status == 200
+    assert payload["filters"] == {"action": "runtime.audit.export"}
+    assert payload["record_count"] == 1
+    assert payload["record_audit_ids"] == ["audit_ao28"]
+    assert records[-2].action == "runtime.audit.export"
+    assert records[-1].action == "runtime.audit.export"
+
+
+def test_ao28_ct_005_viewer_is_denied_and_audited(tmp_path: Path):
     audit_path = tmp_path / "audit.jsonl"
     audit_log = _audit_log(audit_path)
     server = _start_server(InMemoryRepository(), audit_log=audit_log)
@@ -235,7 +267,7 @@ def test_ao28_ct_004_viewer_is_denied_and_audited(tmp_path: Path):
     assert records[-1].denied_scope == "runtime.audit.read"
 
 
-def test_ao28_ct_005_invalid_limit_is_rejected_and_audited(tmp_path: Path):
+def test_ao28_ct_006_invalid_limit_is_rejected_and_audited(tmp_path: Path):
     audit_path = tmp_path / "secret-audit-path.jsonl"
     audit_log = _audit_log(audit_path)
     server = _start_server(InMemoryRepository(), audit_log=audit_log)

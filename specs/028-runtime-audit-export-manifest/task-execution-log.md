@@ -138,3 +138,19 @@
 - **提交哈希**：见当前 Git HEAD。
 - 当前批次 worktree disposition 状态：当前 worktree 继续承载 PR #29 收口。
 - 是否继续下一批：否，本批继续 PR 收口。
+
+### Review Fix 2026-05-08-002 | Codex explicit action filter preservation
+
+#### RF-002 | preserve runtime.audit.export filter semantics
+
+- **验证画像**：code-change
+- **改动范围**：`src/agentops/api/server.py`, `tests/contract/test_ao28_ct_runtime_audit_export_manifest.py`, `specs/028-runtime-audit-export-manifest/spec.md`, `specs/028-runtime-audit-export-manifest/development-summary.md`, `specs/028-runtime-audit-export-manifest/task-execution-log.md`, `program-manifest.yaml`
+- 改动内容：export manifest 仅在未提供 `action` filter 时排除 `runtime.audit.export` records；显式 `action=runtime.audit.export` 请求保留过滤语义并返回已存在的 export audit metadata。
+- 新增/调整的测试：新增显式 `action=runtime.audit.export` manifest 合同测试，验证先前 export audit evidence 能被显式 action filter 纳入 manifest。
+- 执行的命令：`uv run pytest tests/contract/test_ao28_ct_runtime_audit_export_manifest.py -q`、`uv run pytest tests/contract/test_ao23_ct_production_runtime_boundary.py tests/contract/test_ao24_ct_durable_audit_log.py tests/contract/test_ao25_ct_production_audit_coverage.py tests/contract/test_ao26_ct_runtime_audit_query.py tests/contract/test_ao27_ct_runtime_audit_pagination.py tests/contract/test_ao28_ct_runtime_audit_export_manifest.py -q`、`uv run ruff check src tests`、`uv run ai-sdlc verify constraints`
+- 测试结果：通过，AO28 6 个测试通过；AO23-AO28 回归 47 个测试通过、1 个既有环境相关测试跳过；ruff 通过；constraints 无 BLOCKER。
+- 是否符合任务目标：是；回应 Codex review 对显式 action filter fidelity 的要求，同时保留 broad manifest deterministic digest。
+- **已完成 git 提交**：是，提交后以当前 Git HEAD 作为本次 review fix 提交。
+- **提交哈希**：见当前 Git HEAD。
+- 当前批次 worktree disposition 状态：当前 worktree 继续承载 PR #29 收口。
+- 是否继续下一批：否，本批继续 PR 收口。

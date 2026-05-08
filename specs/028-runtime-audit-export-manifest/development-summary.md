@@ -10,7 +10,7 @@
 - export manifest 复用 `audit_id`、`request_id`、`action`、`outcome` filters 和 bounded `limit` semantics。
 - 响应返回 `manifest_id`、`digest_algorithm`、`content_digest`、`record_count`、`record_audit_ids`、`export_available=false`、`download_url=""`。
 - `content_digest` 基于 allowed audit metadata 的 canonical JSON SHA-256 计算；同一 log/filter/limit 输入稳定。
-- manifest digest 输入排除 `runtime.audit.export` 记录，避免 manifest 请求自身追加的 audit evidence 改写后续 broad export manifest。
+- 无 `action` filter 的 broad manifest digest 输入排除 `runtime.audit.export` 记录，避免 manifest 请求自身追加的 audit evidence 改写后续 broad export manifest；显式 `action=runtime.audit.export` filter 仍保留该 action 的审计元数据。
 
 ## 安全边界
 
@@ -20,8 +20,8 @@
 
 ## 验证
 
-- `uv run pytest tests/contract/test_ao28_ct_runtime_audit_export_manifest.py -q`：通过，5 个测试通过。
-- `uv run pytest tests/contract/test_ao23_ct_production_runtime_boundary.py tests/contract/test_ao24_ct_durable_audit_log.py tests/contract/test_ao25_ct_production_audit_coverage.py tests/contract/test_ao26_ct_runtime_audit_query.py tests/contract/test_ao27_ct_runtime_audit_pagination.py tests/contract/test_ao28_ct_runtime_audit_export_manifest.py -q`：通过，46 个测试通过，1 个既有环境相关检查跳过。
+- `uv run pytest tests/contract/test_ao28_ct_runtime_audit_export_manifest.py -q`：通过，6 个测试通过。
+- `uv run pytest tests/contract/test_ao23_ct_production_runtime_boundary.py tests/contract/test_ao24_ct_durable_audit_log.py tests/contract/test_ao25_ct_production_audit_coverage.py tests/contract/test_ao26_ct_runtime_audit_query.py tests/contract/test_ao27_ct_runtime_audit_pagination.py tests/contract/test_ao28_ct_runtime_audit_export_manifest.py -q`：通过，47 个测试通过，1 个既有环境相关检查跳过。
 - `uv run ruff check src tests`：通过。
 - `uv run ai-sdlc verify constraints`：通过，无 BLOCKER。
 

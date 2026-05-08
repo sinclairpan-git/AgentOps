@@ -41,7 +41,7 @@
 - **FR-002**：该 route 必须要求 `runtime.audit.read` scope，并在拒绝时写入 `runtime.audit.export/denied` durable audit record。
 - **FR-003**：该 route 必须复用 runtime audit query 的 `audit_id`、`request_id`、`action`、`outcome` filters 和 `limit` 语义。
 - **FR-004**：响应必须包含 `schema_version`、`manifest_id`、`digest_algorithm`、`content_digest`、`record_count`、`limit`、`filters`、`record_audit_ids`、`export_available`、`download_url`。
-- **FR-005**：`content_digest` 必须基于 allowed audit metadata 的 canonical JSON 计算，且同一 log/filter/limit 输入稳定。
+- **FR-005**：`content_digest` 必须基于 allowed audit metadata 的 canonical JSON 计算，且同一 log/filter/limit 输入稳定；无 `action` filter 的 broad manifest 必须排除 manifest 请求自身追加的 `runtime.audit.export` records，显式 `action=runtime.audit.export` filter 必须保留该 action 的过滤语义。
 - **FR-006**：响应不得包含 raw audit file path、request bodies、raw payload、tokens、device keys、credential secrets、credential material 或可下载文件 URL。
 - **FR-007**：accepted 和 rejected export manifest 请求都必须写入 durable audit evidence，action 分别为 `runtime.audit.export`，outcome 为 `accepted` 或 `rejected`。
 - **FR-008**：本阶段不得引入数据库、迁移框架、SIEM connector、通知管道、tenant ABAC、写回能力或原文导出。
