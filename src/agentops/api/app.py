@@ -12,6 +12,7 @@ def create_app() -> dict[str, str]:
         "credentials": "POST /v1/bootstrap/credentials",
         "credential_status": "GET /v1/bootstrap/credentials/{bootstrap_id}",
         "credential_revoke": "POST /v1/bootstrap/credentials/{bootstrap_id}/revoke",
+        "credential_reissue": "POST /v1/bootstrap/credentials/{bootstrap_id}/reissue",
         "evidence": "/v1/runs/{run_id}/evidence-summary",
         "policy": "/v1/policy/decision",
         "store_summary": "/v1/store-summary/{agent_id}",

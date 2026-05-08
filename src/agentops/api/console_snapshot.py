@@ -1653,6 +1653,7 @@ def _credential_handoff_workbench(repository: InMemoryRepository) -> dict[str, A
     issued_count = sum(1 for row in rows if row["bootstrap_status"] == "credential_issued")
     verified_count = sum(1 for row in rows if row["bootstrap_status"] == "signature_verified")
     revoked_count = sum(1 for row in rows if row["bootstrap_status"] == "revoked" or row["credential_status"] == "revoked")
+    reissued_count = sum(1 for row in rows if row["revocation_resolution"] == "reissued")
     return {
         "summary": {
             "id": "credential_handoff_summary",
@@ -1661,11 +1662,12 @@ def _credential_handoff_workbench(repository: InMemoryRepository) -> dict[str, A
             "credential_issued": issued_count,
             "signature_verified": verified_count,
             "revoked": revoked_count,
+            "reissued": reissued_count,
             "agentops_fact_owner": "agentops",
             "agent_store_boundary": "display_only_no_active_inference",
             "verified_loaded": "not_asserted",
             "l5_status": "not_asserted",
-            "primary_action": "处理撤销并重新签发" if revoked_count else "等待签名测试事件" if issued_count and not verified_count else "展示 AgentOps 回显结果",
+            "primary_action": "展示重新签发结果" if reissued_count else "处理撤销并重新签发" if revoked_count else "等待签名测试事件" if issued_count and not verified_count else "展示 AgentOps 回显结果",
             "safety_note": "凭证联调只展示 AgentOps 事实回显，不把 credential 或签名测试事件提升为 verified_loaded 或 L5。",
         },
         "sessions": rows,
@@ -1674,6 +1676,7 @@ def _credential_handoff_workbench(repository: InMemoryRepository) -> dict[str, A
             "Agent Store 不得本地推导 active，不得签发 ReporterCredential、IngestionToken 或 DeviceKey。",
             "signature_verified 只表示签名测试事件通过，不构成 verified_loaded 或 L5。",
             "revoked 必须阻断后续签名测试和企业事件接入，只允许展示重新签发建议。",
+            "reissued 只能表示 AgentOps 已签发替代 credential，旧 token 仍必须被拒绝。",
             "控制台不展示 token 值、私钥、原始载荷、下载链接、PR 原文或外部 URL。",
         ],
     }
@@ -1721,6 +1724,12 @@ def _credential_handoff_row(repository: InMemoryRepository, record: dict[str, An
         "revoked_at": str(status.get("revoked_at") or "未撤销"),
         "revocation_reason": str(status.get("revocation_reason") or "未撤销"),
         "revocation_scope": str(status.get("revocation_scope") or "未撤销"),
+        "revocation_resolution": str(status.get("revocation_resolution") or "未重新签发"),
+        "reissue_id": str(status.get("reissue_id") or "未重新签发"),
+        "reissued_at": str(status.get("reissued_at") or "未重新签发"),
+        "reissued_by": str(status.get("reissued_by") or "未重新签发"),
+        "reissued_bootstrap_id": str(status.get("reissued_bootstrap_id") or "未重新签发"),
+        "reissued_credential_id": str(status.get("reissued_credential_id") or "未重新签发"),
         "agentops_fact_owner": str(status["agentops_fact_owner"]),
         "agent_store_consumer_boundary": str(status["agent_store_consumer_boundary"]),
         "allowed_actions": "display_status,show_next_action",

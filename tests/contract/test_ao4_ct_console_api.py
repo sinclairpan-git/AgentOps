@@ -154,7 +154,7 @@ def test_ao4_ct_003_json_responses_include_cors_headers(http_server):
 
     assert response.getheader("Access-Control-Allow-Origin") == "http://127.0.0.1:5174"
     assert response.getheader("Access-Control-Allow-Methods") == "GET, POST, OPTIONS"
-    assert response.getheader("Access-Control-Allow-Headers") == "Content-Type"
+    assert response.getheader("Access-Control-Allow-Headers") == "Content-Type, Idempotency-Key"
     assert response.getheader("Access-Control-Allow-Origin") != "*"
 
 

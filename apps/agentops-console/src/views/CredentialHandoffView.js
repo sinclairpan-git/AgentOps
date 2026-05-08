@@ -77,7 +77,7 @@ export const CredentialHandoffView = {
         <ent-card>
           <p class="eyebrow">已撤销</p>
           <h4>{{ workbench.summary.revoked || 0 }}</h4>
-          <p class="muted">撤销后只能展示重新签发建议。</p>
+          <p class="muted">已重新签发 {{ workbench.summary.reissued || 0 }} 条。</p>
         </ent-card>
       </section>
 
@@ -114,6 +114,10 @@ export const CredentialHandoffView = {
             <span>撤销时间：{{ item.revoked_at }}</span>
             <span>撤销原因：{{ item.revocation_reason }}</span>
             <span>撤销范围：{{ item.revocation_scope }}</span>
+            <span>重新签发状态：{{ item.revocation_resolution }}</span>
+            <span>reissue_id：{{ item.reissue_id }}</span>
+            <span>新启动会话：{{ item.reissued_bootstrap_id }}</span>
+            <span>新凭证：{{ item.reissued_credential_id }}</span>
             <span>允许动作：{{ item.allowed_actions }}</span>
             <span>禁止动作：{{ item.forbidden_actions }}</span>
           </div>

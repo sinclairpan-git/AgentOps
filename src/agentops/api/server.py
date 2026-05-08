@@ -11,7 +11,7 @@ from urllib.parse import urlsplit
 
 from agentops import __version__
 from agentops.api.console_snapshot import build_console_snapshot
-from agentops.api.credentials import get_credential_status, revoke_credentials
+from agentops.api.credentials import get_credential_status, reissue_credentials, revoke_credentials
 from agentops.api.ingestion import ingest_events_batch
 from agentops.core.errors import AgentOpsError
 from agentops.storage.repository import InMemoryRepository
@@ -85,7 +85,26 @@ def create_http_handler(repository: InMemoryRepository | None = None) -> type[Ba
                 return
 
             request_path = self._request_path()
-            revoke_prefix = "/v1/bootstrap/credentials/"
+            credential_prefix = "/v1/bootstrap/credentials/"
+            reissue_suffix = "/reissue"
+            if request_path.startswith(credential_prefix) and request_path.endswith(reissue_suffix):
+                bootstrap_id = request_path.removeprefix(credential_prefix).removesuffix(reissue_suffix).strip("/")
+                payload = self._read_json()
+                if payload is None:
+                    self._send_json(
+                        HTTPStatus.BAD_REQUEST,
+                        {"error_code": "REQUEST_JSON_INVALID", "message": "请求体必须是 JSON。"},
+                    )
+                    return
+                try:
+                    response = reissue_credentials({**payload, "source_bootstrap_id": bootstrap_id}, live_repository, headers=dict(self.headers))
+                    self._send_json(HTTPStatus.OK, response)
+                except AgentOpsError as exc:
+                    status = HTTPStatus.NOT_FOUND if exc.error_code == "CREDENTIAL_REISSUE_NOT_FOUND" else HTTPStatus.BAD_REQUEST
+                    self._send_json(status, {"error_code": exc.error_code, "message": exc.message, "retryable": exc.retryable})
+                return
+
+            revoke_prefix = credential_prefix
             revoke_suffix = "/revoke"
             if request_path.startswith(revoke_prefix) and request_path.endswith(revoke_suffix):
                 bootstrap_id = request_path.removeprefix(revoke_prefix).removesuffix(revoke_suffix).strip("/")
@@ -156,7 +175,7 @@ def create_http_handler(repository: InMemoryRepository | None = None) -> type[Ba
             if origin in ALLOWED_ORIGINS:
                 self.send_header("Access-Control-Allow-Origin", origin)
             self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type, Idempotency-Key")
             self.send_header("Cache-Control", "no-store")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()

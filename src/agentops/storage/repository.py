@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -71,6 +73,11 @@ class InMemoryRepository:
         with self._lock:
             self.bootstrap_sessions[session["bootstrap_id"]] = dict(session)
 
+    def remove_unissued_bootstrap_session(self, bootstrap_id: str) -> None:
+        with self._lock:
+            if bootstrap_id not in self.credentials_by_bootstrap:
+                self.bootstrap_sessions.pop(bootstrap_id, None)
+
     def get_bootstrap_session(self, bootstrap_id: str) -> dict[str, Any] | None:
         with self._lock:
             session = self.bootstrap_sessions.get(bootstrap_id)
@@ -80,6 +87,11 @@ class InMemoryRepository:
         with self._lock:
             credentials = self.credentials_by_bootstrap.get(bootstrap_id)
             return dict(credentials) if credentials else None
+
+    @contextmanager
+    def credential_reissue_transaction(self) -> Iterator[None]:
+        with self._lock:
+            yield
 
     def credential_bootstrap_records(self) -> tuple[dict[str, Any], ...]:
         with self._lock:
@@ -150,6 +162,28 @@ class InMemoryRepository:
             self.bootstrap_sessions[bootstrap_id] = revoked_session
             return dict(revoked_credentials)
 
+    def mark_credentials_reissued(self, bootstrap_id: str, reissue: dict[str, Any]) -> dict[str, Any]:
+        with self._lock:
+            credentials = self.credentials_by_bootstrap.get(bootstrap_id)
+            session = self.bootstrap_sessions.get(bootstrap_id)
+            if not credentials or not session:
+                raise AgentOpsError("CREDENTIAL_REISSUE_NOT_FOUND", "Source credential status does not exist for this bootstrap.")
+            reissue_fields = {
+                "revocation_resolution": "reissued",
+                "reissue_id": reissue["reissue_id"],
+                "reissued_at": reissue["reissued_at"],
+                "reissued_by": reissue["reissued_by"],
+                "reissue_reason": reissue["reissue_reason"],
+                "reissued_bootstrap_id": reissue["reissued_bootstrap_id"],
+                "reissued_credential_id": reissue["reissued_credential_id"],
+                "reissued_token_id": reissue["reissued_token_id"],
+                "reissued_device_key_id": reissue["reissued_device_key_id"],
+                "reissued_credential_snapshot": deepcopy(reissue["reissued_credential_snapshot"]),
+            }
+            self.credentials_by_bootstrap[bootstrap_id] = {**credentials, **reissue_fields}
+            self.bootstrap_sessions[bootstrap_id] = {**session, **reissue_fields}
+            return dict(self.credentials_by_bootstrap[bootstrap_id])
+
     def validate_known_revocation_state(self, event: dict[str, Any]) -> None:
         if event.get("integration_mode") != "enterprise_managed":
             return
@@ -169,10 +203,29 @@ class InMemoryRepository:
                 if not token_matches and not identity_matches:
                     continue
                 if credentials.get("status") == "revoked":
+                    if identity_matches and not token_matches and self._replacement_chain_token_matches(credentials, ingestion_token):
+                        continue
                     raise AgentOpsError("EVENT_CREDENTIAL_REVOKED", "enterprise_managed event uses a revoked credential.")
                 matched_known_credential = True
             if matched_known_credential:
                 return
+
+    def _replacement_chain_token_matches(self, credentials: dict[str, Any], ingestion_token: str | None) -> bool:
+        if ingestion_token in (None, "") or credentials.get("revocation_resolution") != "reissued":
+            return False
+        seen_bootstrap_ids: set[str] = set()
+        next_bootstrap_id = str(credentials.get("reissued_bootstrap_id") or "")
+        while next_bootstrap_id and next_bootstrap_id not in seen_bootstrap_ids:
+            seen_bootstrap_ids.add(next_bootstrap_id)
+            replacement = self.credentials_by_bootstrap.get(next_bootstrap_id)
+            if not replacement:
+                return False
+            if replacement.get("status") != "revoked":
+                return replacement.get("status") == "active" and ingestion_token == replacement.get("token_id")
+            if replacement.get("revocation_resolution") != "reissued":
+                return False
+            next_bootstrap_id = str(replacement.get("reissued_bootstrap_id") or "")
+        return False
 
     def record_credential_issue_idempotency(self, idempotency_key: str, handoff_identity: dict[str, Any]) -> None:
         with self._lock:

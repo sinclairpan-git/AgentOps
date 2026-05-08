@@ -1278,11 +1278,13 @@ export function credentialHandoffIsSafe(consoleData) {
   const issued = sessions.filter((item) => item.bootstrap_status === "credential_issued").length;
   const verified = sessions.filter((item) => item.bootstrap_status === "signature_verified").length;
   const revoked = sessions.filter((item) => item.bootstrap_status === "revoked" || item.credential_status === "revoked").length;
+  const reissued = sessions.filter((item) => item.revocation_resolution === "reissued").length;
   if (
     summary.bootstrap_count !== sessions.length ||
     summary.credential_issued !== issued ||
     summary.signature_verified !== verified ||
-    summary.revoked !== revoked
+    summary.revoked !== revoked ||
+    summary.reissued !== reissued
   ) {
     return false;
   }
@@ -1290,7 +1292,8 @@ export function credentialHandoffIsSafe(consoleData) {
   if (
     !/不得本地推导 active/.test(guardrailsText) ||
     !/不构成 verified_loaded 或 L5/.test(guardrailsText) ||
-    !/revoked 必须阻断后续签名测试和企业事件接入/.test(guardrailsText)
+    !/revoked 必须阻断后续签名测试和企业事件接入/.test(guardrailsText) ||
+    !/旧 token 仍必须被拒绝/.test(guardrailsText)
   ) {
     return false;
   }
@@ -1319,12 +1322,29 @@ function revocationFieldsMatchStatus(item) {
       item.revocation_reason &&
       item.revocation_reason !== "未撤销" &&
       item.revocation_scope &&
-      item.revocation_scope !== "未撤销";
+      item.revocation_scope !== "未撤销" &&
+      reissueFieldsMatchResolution(item);
   }
   return item.revocation_id === "未撤销" &&
     item.revoked_at === "未撤销" &&
     item.revocation_reason === "未撤销" &&
-    item.revocation_scope === "未撤销";
+    item.revocation_scope === "未撤销" &&
+    reissueFieldsMatchResolution(item);
+}
+
+function reissueFieldsMatchResolution(item) {
+  const fields = [
+    item.reissue_id,
+    item.reissued_at,
+    item.reissued_by,
+    item.reissued_bootstrap_id,
+    item.reissued_credential_id
+  ];
+  if (item.revocation_resolution === "reissued") {
+    return fields.every((value) => value && value !== "未重新签发");
+  }
+  return item.revocation_resolution === "未重新签发" &&
+    fields.every((value) => value === "未重新签发");
 }
 
 export function actionDetailsAreComplete(consoleData) {

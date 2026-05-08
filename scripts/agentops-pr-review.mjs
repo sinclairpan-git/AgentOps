@@ -932,6 +932,121 @@ function checkCredentialRevocationPropagation() {
   }
 }
 
+function checkCredentialReissueAfterRevocation() {
+  const credentialsApi = "src/agentops/api/credentials.py";
+  const repository = "src/agentops/storage/repository.py";
+  const server = "src/agentops/api/server.py";
+  const validator = "apps/agentops-console/src/data/agentOpsApiClient.js";
+  const view = "apps/agentops-console/src/views/CredentialHandoffView.js";
+  const contractTest = "tests/contract/test_ao21_ct_credential_reissue_after_revocation.py";
+  const spec = "specs/021-credential-reissue-after-revocation/spec.md";
+  const openapi = "specs/001-agentops-trusted-loop/contracts/agentops-api.openapi.yaml";
+  for (const path of [credentialsApi, repository, server, validator, view, contractTest, spec, openapi]) {
+    requireFile(path, "P1", "缺少 credential reissue after revocation 契约", `${path} 是 AgentOps 021 凭证撤销后重新签发的必要证据。`);
+  }
+  if (fileExists(credentialsApi)) {
+    const text = readText(credentialsApi);
+    for (const needle of [
+      "agentops_credential_reissue.v1",
+      "reissue_credentials",
+      "CREDENTIAL_REISSUE_SOURCE_NOT_REVOKED",
+      "CREDENTIAL_REISSUE_SOURCE_ALREADY_REISSUED",
+      "CREDENTIAL_REISSUE_HANDOFF_INVALID",
+      "CREDENTIAL_REISSUE_TARGET_INVALID",
+      "CREDENTIAL_REISSUE_HANDOFF_MISMATCH",
+      "send_signature_test_event",
+      "display_only_no_active_inference",
+      "not_asserted"
+    ]) {
+      if (!text.includes(needle)) {
+        addFinding("P1", credentialsApi, "reissue_credentials", "凭证重新签发 API 契约不完整", `credentials API 必须包含 ${needle}。`);
+      }
+    }
+  }
+  if (fileExists(repository)) {
+    const text = readText(repository);
+    for (const needle of [
+      "def mark_credentials_reissued",
+      "def remove_unissued_bootstrap_session",
+      "def _replacement_chain_token_matches",
+      "revocation_resolution",
+      "reissued_bootstrap_id",
+      "seen_bootstrap_ids",
+      "EVENT_CREDENTIAL_REVOKED"
+    ]) {
+      if (!text.includes(needle)) {
+        addFinding("P1", repository, "mark_credentials_reissued", "仓储 reissue 状态传播不完整", `repository 必须包含 ${needle}，否则旧凭证可能绕过撤销或留下半成品 session。`);
+      }
+    }
+  }
+  if (fileExists(server)) {
+    const text = readText(server);
+    for (const needle of ["/reissue", "reissue_credentials", "Idempotency-Key"]) {
+      if (!text.includes(needle)) {
+        addFinding("P1", server, "do_POST", "HTTP 重新签发路由缺失", `server.py 必须包含 ${needle}。`);
+      }
+    }
+  }
+  if (fileExists(validator)) {
+    const text = readText(validator);
+    for (const needle of [
+      "reissueFieldsMatchResolution",
+      "summary.reissued",
+      "revocation_resolution",
+      "reissued_bootstrap_id",
+      "旧 token 仍必须被拒绝"
+    ]) {
+      if (!text.includes(needle)) {
+        addFinding("P1", validator, "credentialHandoffIsSafe", "前端 reissue validator 不完整", `validator 必须包含 ${needle}，否则 reissued 行可能被篡改展示。`);
+      }
+    }
+  }
+  if (fileExists(view)) {
+    const text = readText(view);
+    for (const needle of ["已重新签发", "重新签发状态", "新启动会话", "新凭证"]) {
+      if (!text.includes(needle)) {
+        addFinding("P2", view, "凭证联调", "重新签发中文界面信号不足", `页面必须展示“${needle}”，让运维人员明确替代 credential 边界。`);
+      }
+    }
+  }
+  if (fileExists(contractTest)) {
+    const text = readText(contractTest);
+    for (const needle of [
+      "test_ao21_ct_001_reissue_revoked_credential_returns_new_agentops_credential",
+      "test_ao21_ct_001b_reissue_uses_new_bootstrap_for_replacement_ids",
+      "test_ao21_ct_001c_reissue_source_allows_only_one_replacement",
+      "test_ao21_ct_002_reissued_credential_passes_signature_test_but_old_token_stays_revoked",
+      "test_ao21_ct_003_reissue_requires_new_nonce_and_new_bootstrap",
+      "test_ao21_ct_003b_reissue_rejects_reused_nonce_without_orphan_session",
+      "test_ao21_ct_003c_reissue_bad_handoff_parse_error_rolls_back_session",
+      "test_ao21_ct_004_reissue_rejects_non_revoked_source",
+      "test_ao21_ct_005_reissue_retry_returns_same_result",
+      "test_ao21_ct_006_http_reissue_route_returns_json_and_cors",
+      "test_ao21_ct_007_reissued_identity_requires_replacement_token",
+      "test_ao21_ct_008_revocation_check_follows_replacement_chain",
+      "BOOTSTRAP_REPLAY_DETECTED",
+      "EVENT_CREDENTIAL_REVOKED"
+    ]) {
+      if (!text.includes(needle)) {
+        addFinding("P1", contractTest, "test_ao21", "AO21 重新签发契约测试覆盖不足", `AO21 测试必须覆盖 ${needle}。`);
+      }
+    }
+  }
+  if (fileExists(openapi)) {
+    const text = readText(openapi);
+    for (const needle of [
+      "/v1/bootstrap/credentials/{bootstrap_id}/reissue",
+      "CredentialReissueRequest",
+      "CredentialReissueResponse",
+      "agentops_credential_reissue.v1"
+    ]) {
+      if (!text.includes(needle)) {
+        addFinding("P1", openapi, "CredentialReissue", "OpenAPI 未声明重新签发契约", `OpenAPI 必须包含 ${needle}。`);
+      }
+    }
+  }
+}
+
 function stripSafeNegations(value) {
   return value
     .replace(/不自动批准/g, "")
@@ -1093,6 +1208,7 @@ async function main() {
   checkAgentStoreCredentialStatusQuery();
   checkConsoleCredentialHandoffWorkbench();
   checkCredentialRevocationPropagation();
+  checkCredentialReissueAfterRevocation();
   checkUnsafeLifecycleText(paths);
   checkWorkflowItself(paths);
 
