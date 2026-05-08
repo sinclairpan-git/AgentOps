@@ -39,6 +39,11 @@ AUDIT_QUERY_DEFAULT_LIMIT = 50
 AUDIT_QUERY_MAX_LIMIT = 200
 AUDIT_QUERY_CURSOR_VERSION = 1
 AUDIT_QUERY_CURSOR_SECRET_ENV = "AGENTOPS_AUDIT_CURSOR_SECRET"
+AUDIT_EXPORT_FILTER_NAMES = ("audit_id", "request_id", "action", "outcome")
+AUDIT_EXPORT_SELF_ACTIONS = {
+    "runtime.audit.export",
+    "runtime.audit.export.bundle",
+}
 
 
 def create_http_handler(
@@ -326,6 +331,72 @@ def create_http_handler(
                 return
 
             request_path = self._request_path()
+            if request_path == "/v1/audit/runtime/export-bundle":
+                auth_error = self._require_scope("runtime.audit.export")
+                if auth_error:
+                    self._send_auth_error(
+                        auth_error,
+                        action="runtime.audit.export.bundle",
+                        resource=request_path,
+                    )
+                    return
+                if audit_log is None:
+                    self._send_json(
+                        HTTPStatus.SERVICE_UNAVAILABLE,
+                        {
+                            "error_code": "AUDIT_LOG_UNAVAILABLE",
+                            "message": "Runtime audit log is not configured.",
+                            "retryable": True,
+                        },
+                    )
+                    return
+                payload = self._read_json()
+                if payload is None:
+                    self._append_audit_record(
+                        action="runtime.audit.export.bundle",
+                        outcome="rejected",
+                        resource=request_path,
+                        error_code="REQUEST_JSON_INVALID",
+                    )
+                    self._send_json(
+                        HTTPStatus.BAD_REQUEST,
+                        {
+                            "error_code": "REQUEST_JSON_INVALID",
+                            "message": "请求体必须是 JSON。",
+                        },
+                    )
+                    return
+                try:
+                    response = self._runtime_audit_export_bundle_response(payload)
+                except AgentOpsError as exc:
+                    self._append_audit_record(
+                        action="runtime.audit.export.bundle",
+                        outcome="rejected",
+                        resource=request_path,
+                        error_code=exc.error_code,
+                    )
+                    status = (
+                        HTTPStatus.CONFLICT
+                        if exc.error_code == "AUDIT_EXPORT_MANIFEST_MISMATCH"
+                        else HTTPStatus.BAD_REQUEST
+                    )
+                    self._send_json(
+                        status,
+                        {
+                            "error_code": exc.error_code,
+                            "message": exc.message,
+                            "retryable": exc.retryable,
+                        },
+                    )
+                    return
+                self._append_audit_record(
+                    action="runtime.audit.export.bundle",
+                    outcome="accepted",
+                    resource=request_path,
+                )
+                self._send_json(HTTPStatus.OK, response)
+                return
+
             credential_prefix = "/v1/bootstrap/credentials/"
             reissue_suffix = "/reissue"
             if request_path.startswith(credential_prefix) and request_path.endswith(
@@ -592,25 +663,19 @@ def create_http_handler(
         def _runtime_audit_export_manifest_response(
             self, query: dict[str, list[str]]
         ) -> dict[str, Any]:
+            export_records = self._runtime_audit_export_records(query)
+            return self._runtime_audit_export_manifest_from_records(
+                query,
+                export_records,
+            )
+
+        def _runtime_audit_export_manifest_from_records(
+            self,
+            query: dict[str, list[str]],
+            export_records: list[dict[str, Any]],
+        ) -> dict[str, Any]:
             limit = self._audit_query_limit(query)
-            filters = {
-                name: self._query_value(query, name)
-                for name in ("audit_id", "request_id", "action", "outcome")
-                if self._query_value(query, name)
-            }
-            export_records = []
-            for record in audit_log.records() if audit_log is not None else []:
-                record_payload = record.to_dict()
-                if any(record_payload.get(name) != value for name, value in filters.items()):
-                    continue
-                if (
-                    "action" not in filters
-                    and record_payload.get("action") == "runtime.audit.export"
-                ):
-                    continue
-                export_records.append(record_payload)
-                if len(export_records) >= limit:
-                    break
+            filters = self._runtime_audit_export_filters(query)
             content_digest = hashlib.sha256(
                 json.dumps(
                     export_records,
@@ -619,9 +684,21 @@ def create_http_handler(
                     sort_keys=True,
                 ).encode("utf-8")
             ).hexdigest()
+            manifest_binding_digest = hashlib.sha256(
+                json.dumps(
+                    {
+                        "content_digest": content_digest,
+                        "filters": filters,
+                        "limit": limit,
+                    },
+                    ensure_ascii=False,
+                    separators=(",", ":"),
+                    sort_keys=True,
+                ).encode("utf-8")
+            ).hexdigest()
             return {
                 "schema_version": "agentops.runtime_audit.export_manifest.v1",
-                "manifest_id": f"audit_export_{content_digest[:16]}",
+                "manifest_id": f"audit_export_{manifest_binding_digest[:16]}",
                 "digest_algorithm": "sha256",
                 "content_digest": content_digest,
                 "record_count": len(export_records),
@@ -633,6 +710,144 @@ def create_http_handler(
                 "export_available": False,
                 "download_url": "",
             }
+
+        def _runtime_audit_export_bundle_response(
+            self, payload: dict[str, Any]
+        ) -> dict[str, Any]:
+            query = self._audit_export_query_from_payload(payload)
+            manifest_id = self._audit_export_required_string(payload, "manifest_id")
+            content_digest = self._audit_export_required_string(
+                payload,
+                "content_digest",
+            )
+            export_records = self._runtime_audit_export_records(query)
+            manifest = self._runtime_audit_export_manifest_from_records(
+                query,
+                export_records,
+            )
+            if (
+                manifest["manifest_id"] != manifest_id
+                or manifest["content_digest"] != content_digest
+            ):
+                raise AgentOpsError(
+                    "AUDIT_EXPORT_MANIFEST_MISMATCH",
+                    "Runtime audit export manifest does not match current metadata.",
+                )
+
+            bundle_digest_input = {
+                "manifest_digest": manifest["content_digest"],
+                "manifest_id": manifest["manifest_id"],
+                "records": export_records,
+            }
+            bundle_digest = hashlib.sha256(
+                json.dumps(
+                    bundle_digest_input,
+                    ensure_ascii=False,
+                    separators=(",", ":"),
+                    sort_keys=True,
+                ).encode("utf-8")
+            ).hexdigest()
+            return {
+                "schema_version": "agentops.runtime_audit.export_bundle.v1",
+                "bundle_id": f"audit_bundle_{bundle_digest[:16]}",
+                "bundle_format": "application/vnd.agentops.runtime-audit.metadata+json",
+                "digest_algorithm": "sha256",
+                "bundle_digest": bundle_digest,
+                "manifest_id": manifest["manifest_id"],
+                "manifest_digest": manifest["content_digest"],
+                "record_count": len(export_records),
+                "limit": manifest["limit"],
+                "filters": manifest["filters"],
+                "records": export_records,
+                "download_url": "",
+            }
+
+        def _runtime_audit_export_records(
+            self, query: dict[str, list[str]]
+        ) -> list[dict[str, Any]]:
+            limit = self._audit_query_limit(query)
+            filters = self._runtime_audit_export_filters(query)
+            export_records: list[dict[str, Any]] = []
+            for record in audit_log.records() if audit_log is not None else []:
+                record_payload = self._audit_export_record_payload(record)
+                if any(record_payload.get(name) != value for name, value in filters.items()):
+                    continue
+                if (
+                    "action" not in filters
+                    and record_payload.get("action") in AUDIT_EXPORT_SELF_ACTIONS
+                ):
+                    continue
+                export_records.append(record_payload)
+                if len(export_records) >= limit:
+                    break
+            return export_records
+
+        def _runtime_audit_export_filters(
+            self, query: dict[str, list[str]]
+        ) -> dict[str, str]:
+            return {
+                name: self._query_value(query, name)
+                for name in AUDIT_EXPORT_FILTER_NAMES
+                if self._query_value(query, name)
+            }
+
+        def _audit_export_record_payload(self, record: AuditRecord) -> dict[str, Any]:
+            record_payload = record.to_dict()
+            resource = record_payload.get("resource")
+            record_payload["resource"] = (
+                urlsplit(resource).path if isinstance(resource, str) else ""
+            )
+            return record_payload
+
+        def _audit_export_query_from_payload(
+            self, payload: dict[str, Any]
+        ) -> dict[str, list[str]]:
+            query: dict[str, list[str]] = {}
+            filters = payload.get("filters", {})
+            if not isinstance(filters, dict):
+                raise AgentOpsError(
+                    "AUDIT_EXPORT_FILTERS_INVALID",
+                    "Runtime audit export filters are invalid.",
+                )
+            unknown_filters = set(filters) - set(AUDIT_EXPORT_FILTER_NAMES)
+            if unknown_filters:
+                raise AgentOpsError(
+                    "AUDIT_EXPORT_FILTERS_INVALID",
+                    "Runtime audit export filters are invalid.",
+                )
+            for name in AUDIT_EXPORT_FILTER_NAMES:
+                value = filters.get(name)
+                if value is None or value == "":
+                    continue
+                if not isinstance(value, str):
+                    raise AgentOpsError(
+                        "AUDIT_EXPORT_FILTERS_INVALID",
+                        "Runtime audit export filters are invalid.",
+                    )
+                normalized = value.strip()
+                if normalized:
+                    query[name] = [normalized]
+
+            limit = payload.get("limit")
+            if limit is not None and limit != "":
+                if isinstance(limit, bool) or not isinstance(limit, int | str):
+                    raise AgentOpsError(
+                        "AUDIT_LIMIT_INVALID",
+                        "Runtime audit query limit must be a positive integer.",
+                    )
+                query["limit"] = [str(limit).strip()]
+            return query
+
+        def _audit_export_required_string(
+            self, payload: dict[str, Any], name: str
+        ) -> str:
+            value = payload.get(name)
+            if not isinstance(value, str) or not value.strip():
+                raise AgentOpsError(
+                    "AUDIT_EXPORT_MANIFEST_REQUIRED",
+                    "Runtime audit export manifest id and digest are required.",
+                )
+            return value.strip()
 
         def _audit_query_limit(self, query: dict[str, list[str]]) -> int:
             raw_limit = self._query_value(query, "limit")
