@@ -157,6 +157,52 @@ def create_http_handler(
                 self._send_json(HTTPStatus.OK, response)
                 return
 
+            if request_path == "/v1/audit/runtime/export-manifest":
+                auth_error = self._require_scope("runtime.audit.read")
+                if auth_error:
+                    self._send_auth_error(
+                        auth_error,
+                        action="runtime.audit.export",
+                        resource=request_path,
+                    )
+                    return
+                if audit_log is None:
+                    self._send_json(
+                        HTTPStatus.SERVICE_UNAVAILABLE,
+                        {
+                            "error_code": "AUDIT_LOG_UNAVAILABLE",
+                            "message": "Runtime audit log is not configured.",
+                            "retryable": True,
+                        },
+                    )
+                    return
+                query = self._request_query()
+                try:
+                    response = self._runtime_audit_export_manifest_response(query)
+                except AgentOpsError as exc:
+                    self._append_audit_record(
+                        action="runtime.audit.export",
+                        outcome="rejected",
+                        resource=request_path,
+                        error_code=exc.error_code,
+                    )
+                    self._send_json(
+                        HTTPStatus.BAD_REQUEST,
+                        {
+                            "error_code": exc.error_code,
+                            "message": exc.message,
+                            "retryable": exc.retryable,
+                        },
+                    )
+                    return
+                self._append_audit_record(
+                    action="runtime.audit.export",
+                    outcome="accepted",
+                    resource=request_path,
+                )
+                self._send_json(HTTPStatus.OK, response)
+                return
+
             store_summary_prefix = "/v1/store-summary/"
             if request_path.startswith(store_summary_prefix):
                 auth_error = self._require_scope("store.summary.read")
@@ -541,6 +587,51 @@ def create_http_handler(
                     "next_cursor": next_cursor,
                     "has_more": has_more,
                 },
+            }
+
+        def _runtime_audit_export_manifest_response(
+            self, query: dict[str, list[str]]
+        ) -> dict[str, Any]:
+            limit = self._audit_query_limit(query)
+            filters = {
+                name: self._query_value(query, name)
+                for name in ("audit_id", "request_id", "action", "outcome")
+                if self._query_value(query, name)
+            }
+            export_records = []
+            for record in audit_log.records() if audit_log is not None else []:
+                record_payload = record.to_dict()
+                if any(record_payload.get(name) != value for name, value in filters.items()):
+                    continue
+                if (
+                    "action" not in filters
+                    and record_payload.get("action") == "runtime.audit.export"
+                ):
+                    continue
+                export_records.append(record_payload)
+                if len(export_records) >= limit:
+                    break
+            content_digest = hashlib.sha256(
+                json.dumps(
+                    export_records,
+                    ensure_ascii=False,
+                    separators=(",", ":"),
+                    sort_keys=True,
+                ).encode("utf-8")
+            ).hexdigest()
+            return {
+                "schema_version": "agentops.runtime_audit.export_manifest.v1",
+                "manifest_id": f"audit_export_{content_digest[:16]}",
+                "digest_algorithm": "sha256",
+                "content_digest": content_digest,
+                "record_count": len(export_records),
+                "limit": limit,
+                "filters": filters,
+                "record_audit_ids": [
+                    str(record.get("audit_id") or "") for record in export_records
+                ],
+                "export_available": False,
+                "download_url": "",
             }
 
         def _audit_query_limit(self, query: dict[str, list[str]]) -> int:
