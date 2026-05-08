@@ -109,13 +109,13 @@ specs:
   path: specs/029-runtime-audit-export-bundle
   depends_on: []
 truth_snapshot:
-  generated_at: '2026-05-08T12:51:14Z'
+  generated_at: '2026-05-08T13:01:09Z'
   generated_by: ai-sdlc program truth sync
   generator_version: program_truth_snapshot_v1
-  repo_revision: '6858156'
+  repo_revision: 0ed4f45
   authoring_hash: ba91e85682d60a6074b3e580241c65677c45bc72767e6d8378d7cbe779e4949e
   source_hashes: {}
-  snapshot_hash: c417e0e0eb13d4df169103e6cd0b30ef45bba5b1427abe9d181c3cd9348c7d16
+  snapshot_hash: 8f9d2e9a87d05873b00f9a9b7db27b84720cb52a796dae99eaea64abaec4a477
   computed_capabilities: []
   source_inventory:
     state: complete

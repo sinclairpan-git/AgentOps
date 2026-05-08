@@ -127,6 +127,31 @@ def _audit_log(path: Path) -> JsonlAuditLog:
     return audit_log
 
 
+class _DriftingReadAuditLog(JsonlAuditLog):
+    def __init__(self, path: Path) -> None:
+        super().__init__(path)
+        self.records_calls = 0
+
+    def records(self) -> list[AuditRecord]:
+        self.records_calls += 1
+        records = super().records()
+        if self.records_calls <= 1:
+            return records
+        return [
+            *records,
+            AuditRecord(
+                audit_id="audit_runtime_3",
+                request_id="req_runtime_3",
+                action="credential.revoke",
+                outcome="accepted",
+                principal="operator@example.com",
+                roles=("agentops-operator",),
+                scopes=("runtime.audit.read", "runtime.audit.export"),
+                resource="/v1/bootstrap/credentials/boot-3/revoke",
+            ),
+        ]
+
+
 def _manifest_request(
     server: ThreadingHTTPServer,
     *,
@@ -313,7 +338,74 @@ def test_ao29_ct_005_invalid_filters_are_rejected_and_audited(tmp_path: Path):
     assert records[-1].error_code == "AUDIT_EXPORT_FILTERS_INVALID"
 
 
-def test_ao29_ct_006_route_manifest_declares_runtime_audit_export_bundle():
+def test_ao29_ct_006_falsey_non_object_filters_are_rejected(tmp_path: Path):
+    audit_path = tmp_path / "audit.jsonl"
+    audit_log = _audit_log(audit_path)
+    server = _start_server(InMemoryRepository(), audit_log=audit_log)
+    try:
+        response, payload = _json_request(
+            server,
+            "POST",
+            "/v1/audit/runtime/export-bundle",
+            headers=_auth_headers(),
+            payload={
+                "manifest_id": "audit_export_fake",
+                "content_digest": "0" * 64,
+                "filters": "",
+                "limit": 2,
+            },
+        )
+    finally:
+        server.shutdown()
+
+    records = JsonlAuditLog(audit_path).records()
+    assert response.status == 400
+    assert payload["error_code"] == "AUDIT_EXPORT_FILTERS_INVALID"
+    assert records[-1].action == "runtime.audit.export.bundle"
+    assert records[-1].outcome == "rejected"
+    assert records[-1].error_code == "AUDIT_EXPORT_FILTERS_INVALID"
+
+
+def test_ao29_ct_007_bundle_uses_one_audit_snapshot_for_manifest_gate(
+    tmp_path: Path,
+):
+    audit_path = tmp_path / "audit.jsonl"
+    audit_log = _audit_log(audit_path)
+    manifest_server = _start_server(InMemoryRepository(), audit_log=audit_log)
+    try:
+        manifest = _manifest_request(manifest_server)
+    finally:
+        manifest_server.shutdown()
+
+    drifting_audit_log = _DriftingReadAuditLog(audit_path)
+    bundle_server = _start_server(InMemoryRepository(), audit_log=drifting_audit_log)
+    try:
+        response, payload = _json_request(
+            bundle_server,
+            "POST",
+            "/v1/audit/runtime/export-bundle",
+            headers=_auth_headers(),
+            payload={
+                "manifest_id": manifest["manifest_id"],
+                "content_digest": manifest["content_digest"],
+                "filters": {"action": "credential.revoke"},
+                "limit": 2,
+            },
+        )
+    finally:
+        bundle_server.shutdown()
+
+    assert response.status == 200
+    assert payload["manifest_digest"] == manifest["content_digest"]
+    assert payload["record_count"] == 2
+    assert [record["audit_id"] for record in payload["records"]] == [
+        "audit_runtime_1",
+        "audit_runtime_2",
+    ]
+    assert drifting_audit_log.records_calls == 1
+
+
+def test_ao29_ct_008_route_manifest_declares_runtime_audit_export_bundle():
     manifest = create_app()
 
     assert manifest["runtime_audit_export_bundle"] == (

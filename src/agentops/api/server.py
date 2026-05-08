@@ -663,9 +663,19 @@ def create_http_handler(
         def _runtime_audit_export_manifest_response(
             self, query: dict[str, list[str]]
         ) -> dict[str, Any]:
+            export_records = self._runtime_audit_export_records(query)
+            return self._runtime_audit_export_manifest_from_records(
+                query,
+                export_records,
+            )
+
+        def _runtime_audit_export_manifest_from_records(
+            self,
+            query: dict[str, list[str]],
+            export_records: list[dict[str, Any]],
+        ) -> dict[str, Any]:
             limit = self._audit_query_limit(query)
             filters = self._runtime_audit_export_filters(query)
-            export_records = self._runtime_audit_export_records(query)
             content_digest = hashlib.sha256(
                 json.dumps(
                     export_records,
@@ -698,7 +708,11 @@ def create_http_handler(
                 payload,
                 "content_digest",
             )
-            manifest = self._runtime_audit_export_manifest_response(query)
+            export_records = self._runtime_audit_export_records(query)
+            manifest = self._runtime_audit_export_manifest_from_records(
+                query,
+                export_records,
+            )
             if (
                 manifest["manifest_id"] != manifest_id
                 or manifest["content_digest"] != content_digest
@@ -708,7 +722,6 @@ def create_http_handler(
                     "Runtime audit export manifest does not match current metadata.",
                 )
 
-            export_records = self._runtime_audit_export_records(query)
             bundle_digest_input = {
                 "manifest_digest": manifest["content_digest"],
                 "manifest_id": manifest["manifest_id"],
@@ -778,7 +791,7 @@ def create_http_handler(
             self, payload: dict[str, Any]
         ) -> dict[str, list[str]]:
             query: dict[str, list[str]] = {}
-            filters = payload.get("filters") or {}
+            filters = payload.get("filters", {})
             if not isinstance(filters, dict):
                 raise AgentOpsError(
                     "AUDIT_EXPORT_FILTERS_INVALID",

@@ -123,3 +123,19 @@
 - 当前批次 branch disposition 状态：当前分支 `feature/029-runtime-audit-export-bundle-docs` 待 PR 收口。
 - 当前批次 worktree disposition 状态：当前 worktree 继续承载 029 PR 收口。
 - 是否继续下一批：否，本批进入 PR 收口。
+
+### Review Fix 2026-05-08-001 | Codex export bundle payload and snapshot hardening
+
+#### RF-001 | reject falsey non-object filters and reuse bundle snapshot
+
+- **验证画像**：code-change
+- **改动范围**：`src/agentops/api/server.py`, `tests/contract/test_ao29_ct_runtime_audit_export_bundle.py`, `specs/029-runtime-audit-export-bundle/development-summary.md`, `specs/029-runtime-audit-export-bundle/task-execution-log.md`, `program-manifest.yaml`
+- 改动内容：`filters` payload 只在字段缺失时默认 `{}`，显式传入 `""`、`[]` 等非 object 值时返回 `AUDIT_EXPORT_FILTERS_INVALID`；export bundle request 使用同一份 audit records snapshot 完成 manifest gate 和 response records/bundle digest 构造。
+- 新增/调整的测试：新增 falsey non-object filters rejected 测试；新增 drifting audit log 测试，验证 bundle request 只读取一次 records snapshot。
+- 执行的命令：`uv run pytest tests/contract/test_ao29_ct_runtime_audit_export_bundle.py -q`、`uv run pytest tests/contract/test_ao23_ct_production_runtime_boundary.py tests/contract/test_ao24_ct_durable_audit_log.py tests/contract/test_ao25_ct_production_audit_coverage.py tests/contract/test_ao26_ct_runtime_audit_query.py tests/contract/test_ao27_ct_runtime_audit_pagination.py tests/contract/test_ao28_ct_runtime_audit_export_manifest.py tests/contract/test_ao29_ct_runtime_audit_export_bundle.py -q`、`uv run ruff check src tests`、`uv run ai-sdlc verify constraints`
+- 测试结果：AO29 8 个测试通过；AO23-AO29 回归 56 个测试通过、1 个既有环境相关测试跳过；ruff 通过；constraints 无 BLOCKER。
+- 是否符合任务目标：是；回应 Codex review 对 export bundle payload validation 与 manifest-to-bundle snapshot binding 的要求。
+- **已完成 git 提交**：是，提交后以当前 Git HEAD 作为本次 review fix 提交。
+- **提交哈希**：见当前 Git HEAD。
+- 当前批次 worktree disposition 状态：当前 worktree 继续承载 PR #30 收口。
+- 是否继续下一批：否，本批继续 PR 收口。
