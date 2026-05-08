@@ -76,9 +76,9 @@ export const ApprovalCenterView = {
       <term-glossary :terms="glossaryTerms" />
       <section class="summary-band evidence-vault-band">
         <div>
-          <p class="eyebrow">人工审批与授权票工作台</p>
+          <p class="eyebrow">人工审批与 Grant 工作台</p>
           <h4>审批队列</h4>
-          <p class="muted">把高风险动作审批、补充材料、限时授权票和审计回显放在同一个只读工作台。</p>
+          <p class="muted">Grant 在本页解释为“授权票”：高风险动作审批、补充材料、限时授权票和审计回显放在同一个只读工作台。</p>
         </div>
         <dl class="evidence-vault-metrics">
           <div><dt>待处理</dt><dd>{{ approvalWorkbench.queues.filter((item) => item.status === 'pending').length }}</dd></div>
@@ -111,8 +111,8 @@ export const ApprovalCenterView = {
       </section>
       <section class="ent-card">
         <div class="section-title">
-          <h4>授权票影响</h4>
-          <span class="muted">绑定策略版本、资源范围和授权时限</span>
+          <h4>Grant 影响</h4>
+          <span class="muted">Grant 即授权票，绑定策略版本、资源范围和授权时限</span>
         </div>
         <data-table
           :columns="grantColumns"

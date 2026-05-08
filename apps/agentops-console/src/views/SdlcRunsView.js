@@ -146,8 +146,8 @@ export const SdlcRunsView = {
       </section>
       <section class="ent-card">
         <div class="section-title">
-          <h4>上报器与凭证</h4>
-          <span class="muted">“可用”必须有机器证明</span>
+          <h4>Reporter 与凭证</h4>
+          <span class="muted">Reporter 即上报器；“可用”必须有机器证明</span>
         </div>
         <data-table
           :columns="reporterColumns"
@@ -166,8 +166,8 @@ export const SdlcRunsView = {
       </section>
       <section class="ent-card">
         <div class="section-title">
-          <h4>事件投递</h4>
-          <span class="muted">本页只展示，不执行重放</span>
+          <h4>Outbox 投递</h4>
+          <span class="muted">Outbox 即事件投递箱；本页只展示，不执行 Outbox Replay</span>
         </div>
         <data-table
           :columns="outboxColumns"

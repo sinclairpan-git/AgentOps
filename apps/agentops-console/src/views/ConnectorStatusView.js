@@ -89,7 +89,7 @@ export const ConnectorStatusView = {
         <div>
           <p class="eyebrow">连接器健康工作台</p>
           <h4>新鲜度、限流与证据影响</h4>
-          <p class="muted">“已生成配置/未验证”只能证明配置或预演存在，不构成“已验证加载”的治理激活证明。</p>
+          <p class="muted">“已生成配置/未验证”只能证明配置或预演存在，不构成 verified_loaded（已验证加载）的治理激活证明。</p>
         </div>
         <dl class="evidence-vault-metrics connector-metrics">
           <div><dt>连接器</dt><dd>{{ connectorWorkbench.health.length }}</dd></div>
@@ -129,8 +129,8 @@ export const ConnectorStatusView = {
       </section>
       <section class="ent-card">
         <div class="section-title">
-          <h4>异常队列与事件重放</h4>
-          <span class="muted">只读展示，不在本页执行回放</span>
+          <h4>DLQ 与 Outbox Replay</h4>
+          <span class="muted">DLQ 即异常队列，Outbox Replay 即事件重放；本页只读展示，不执行回放</span>
         </div>
         <data-table
           :columns="dlqColumns"

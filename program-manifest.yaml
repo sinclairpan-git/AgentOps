@@ -113,13 +113,13 @@ specs:
   path: specs/030-frontend-adversarial-remediation
   depends_on: []
 truth_snapshot:
-  generated_at: '2026-05-08T15:56:53Z'
+  generated_at: '2026-05-08T17:14:57Z'
   generated_by: ai-sdlc program truth sync
   generator_version: program_truth_snapshot_v1
-  repo_revision: 173a456
+  repo_revision: af1f50c
   authoring_hash: b3dfde5b557219af4d4f6db485119a4685d6f1aca371b0bbe9c2f1d035fa06f3
   source_hashes: {}
-  snapshot_hash: 52bc0a4b83fcbf889026faae9270c40036904d929390fa7411e638459fb0b4f8
+  snapshot_hash: 01f376b9f4268a3ec5f66d20026e50ca75bb186514d725c88f970b32fd599906
   computed_capabilities: []
   source_inventory:
     state: complete

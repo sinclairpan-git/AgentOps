@@ -78,7 +78,7 @@ export const CredentialHandoffView = {
     <div class="view-stack">
       <section class="page-heading">
         <div><p class="eyebrow">跨项目联调</p><h3>凭证联调</h3></div>
-        <p class="heading-copy">展示 Agent Store 交接到 AgentOps 后的只读状态回显；本页不签发、不激活、不得本地推导“可用”，也不推导“已验证加载”。</p>
+        <p class="heading-copy">展示 Agent Store 交接到 AgentOps 后的只读状态回显；本页不签发、不激活、不得本地推导 active（可用），也不推导“已验证加载”。</p>
       </section>
       <term-glossary :terms="glossaryTerms" />
 
