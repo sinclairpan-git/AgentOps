@@ -684,9 +684,21 @@ def create_http_handler(
                     sort_keys=True,
                 ).encode("utf-8")
             ).hexdigest()
+            manifest_binding_digest = hashlib.sha256(
+                json.dumps(
+                    {
+                        "content_digest": content_digest,
+                        "filters": filters,
+                        "limit": limit,
+                    },
+                    ensure_ascii=False,
+                    separators=(",", ":"),
+                    sort_keys=True,
+                ).encode("utf-8")
+            ).hexdigest()
             return {
                 "schema_version": "agentops.runtime_audit.export_manifest.v1",
-                "manifest_id": f"audit_export_{content_digest[:16]}",
+                "manifest_id": f"audit_export_{manifest_binding_digest[:16]}",
                 "digest_algorithm": "sha256",
                 "content_digest": content_digest,
                 "record_count": len(export_records),

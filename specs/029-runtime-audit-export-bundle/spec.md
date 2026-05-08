@@ -40,7 +40,7 @@
 
 - **FR-001**：系统必须新增 `POST /v1/audit/runtime/export-bundle`。
 - **FR-002**：该 route 必须要求专用 `runtime.audit.export` scope；`agentops-admin` 和 `agentops-operator` 默认具备该 scope，viewer 不具备。
-- **FR-003**：请求体必须包含 `manifest_id`、`content_digest`、`filters` 和 `limit`，并用当前 filtered audit metadata 重新计算 manifest；不匹配必须拒绝。
+- **FR-003**：请求体必须包含 `manifest_id`、`content_digest`、`filters` 和 `limit`，并用当前 filtered audit metadata 重新计算 manifest；`manifest_id` 必须绑定 `content_digest`、`filters` 和 `limit`，任一不匹配都必须拒绝。
 - **FR-004**：响应必须包含 `schema_version`、`bundle_id`、`bundle_format`、`digest_algorithm`、`bundle_digest`、`manifest_id`、`manifest_digest`、`record_count`、`limit`、`filters`、`records`、`download_url`。
 - **FR-005**：`records` 必须只包含 allowed audit metadata schema，且 `resource` 不得包含 query string 或敏感 marker。
 - **FR-006**：`bundle_digest` 必须基于 manifest id、manifest digest 和 records 的 canonical JSON SHA-256 计算，且同一 log/filter/limit/manifest 输入稳定。

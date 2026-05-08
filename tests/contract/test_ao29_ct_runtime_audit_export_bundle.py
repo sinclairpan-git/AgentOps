@@ -307,7 +307,38 @@ def test_ao29_ct_004_manifest_mismatch_is_rejected_without_records(tmp_path: Pat
     assert records[-1].error_code == "AUDIT_EXPORT_MANIFEST_MISMATCH"
 
 
-def test_ao29_ct_005_invalid_filters_are_rejected_and_audited(tmp_path: Path):
+def test_ao29_ct_005_manifest_query_mismatch_is_rejected_without_records(
+    tmp_path: Path,
+):
+    audit_path = tmp_path / "audit.jsonl"
+    audit_log = _audit_log(audit_path)
+    server = _start_server(InMemoryRepository(), audit_log=audit_log)
+    try:
+        manifest = _manifest_request(server)
+        response, payload = _json_request(
+            server,
+            "POST",
+            "/v1/audit/runtime/export-bundle",
+            headers=_auth_headers(),
+            payload={
+                "manifest_id": manifest["manifest_id"],
+                "content_digest": manifest["content_digest"],
+                "filters": {"action": "credential.revoke"},
+            },
+        )
+    finally:
+        server.shutdown()
+
+    records = JsonlAuditLog(audit_path).records()
+    assert response.status == 409
+    assert payload["error_code"] == "AUDIT_EXPORT_MANIFEST_MISMATCH"
+    assert "records" not in payload
+    assert records[-1].action == "runtime.audit.export.bundle"
+    assert records[-1].outcome == "rejected"
+    assert records[-1].error_code == "AUDIT_EXPORT_MANIFEST_MISMATCH"
+
+
+def test_ao29_ct_006_invalid_filters_are_rejected_and_audited(tmp_path: Path):
     audit_path = tmp_path / "secret-audit-path.jsonl"
     audit_log = _audit_log(audit_path)
     server = _start_server(InMemoryRepository(), audit_log=audit_log)
@@ -338,7 +369,7 @@ def test_ao29_ct_005_invalid_filters_are_rejected_and_audited(tmp_path: Path):
     assert records[-1].error_code == "AUDIT_EXPORT_FILTERS_INVALID"
 
 
-def test_ao29_ct_006_falsey_non_object_filters_are_rejected(tmp_path: Path):
+def test_ao29_ct_007_falsey_non_object_filters_are_rejected(tmp_path: Path):
     audit_path = tmp_path / "audit.jsonl"
     audit_log = _audit_log(audit_path)
     server = _start_server(InMemoryRepository(), audit_log=audit_log)
@@ -366,7 +397,7 @@ def test_ao29_ct_006_falsey_non_object_filters_are_rejected(tmp_path: Path):
     assert records[-1].error_code == "AUDIT_EXPORT_FILTERS_INVALID"
 
 
-def test_ao29_ct_007_bundle_uses_one_audit_snapshot_for_manifest_gate(
+def test_ao29_ct_008_bundle_uses_one_audit_snapshot_for_manifest_gate(
     tmp_path: Path,
 ):
     audit_path = tmp_path / "audit.jsonl"
@@ -405,7 +436,7 @@ def test_ao29_ct_007_bundle_uses_one_audit_snapshot_for_manifest_gate(
     assert drifting_audit_log.records_calls == 1
 
 
-def test_ao29_ct_008_route_manifest_declares_runtime_audit_export_bundle():
+def test_ao29_ct_009_route_manifest_declares_runtime_audit_export_bundle():
     manifest = create_app()
 
     assert manifest["runtime_audit_export_bundle"] == (
