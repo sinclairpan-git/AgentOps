@@ -24,7 +24,12 @@ def test_policy_requirement_summary_has_actionable_store_cli_fields():
     assert summary["plain_language"]
     assert summary["primary_action"]
     assert summary["secondary_action"]
-    assert set(summary["deep_links"]) == {"approval_url", "policy_url", "evidence_url", "return_url"}
+    assert set(summary["deep_links"]) == {
+        "approval_url",
+        "policy_url",
+        "evidence_url",
+        "return_url",
+    }
 
 
 def test_warn_policy_summary_can_be_ignored():
@@ -43,7 +48,11 @@ def test_warn_policy_summary_can_be_ignored():
 def test_policy_summary_schema_unsupported_returns_contract_error():
     with pytest.raises(AgentOpsError) as exc:
         build_policy_requirement_summary(
-            {"decision": "approval_required", "policy_version": "policy.v2", "audit_id": "audit_1"},
+            {
+                "decision": "approval_required",
+                "policy_version": "policy.v2",
+                "audit_id": "audit_1",
+            },
             affected_actions=["deploy"],
             consumer_schema_version="policy-summary.v2",
         )

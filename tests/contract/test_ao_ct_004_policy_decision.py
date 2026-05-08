@@ -5,7 +5,9 @@ from agentops.core.errors import AgentOpsError
 
 
 def test_high_risk_action_requires_approval_or_block():
-    decision = evaluate_policy_decision(action="deploy", resource_scope={"repo": "AgentOps"})
+    decision = evaluate_policy_decision(
+        action="deploy", resource_scope={"repo": "AgentOps"}
+    )
 
     assert decision["decision"] in {"approval_required", "block"}
     assert decision["fallback_action"] == "require_online"

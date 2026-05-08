@@ -40,12 +40,19 @@ AGENT_STORE_CONSUMER_BOUNDARY = {
 }
 
 
-def consume_agent_store_metadata(repository: InMemoryRepository, metadata: dict[str, Any]) -> dict[str, Any]:
+def consume_agent_store_metadata(
+    repository: InMemoryRepository, metadata: dict[str, Any]
+) -> dict[str, Any]:
     """Cache Agent Store metadata without becoming the registration source."""
 
     _require(metadata, {"agent_id"}, "AGENT_STORE_METADATA_INVALID")
-    if metadata.get("version") in (None, "") and metadata.get("agent_version") in (None, ""):
-        raise AgentOpsError("AGENT_STORE_METADATA_INVALID", "Missing required fields: version.")
+    if metadata.get("version") in (None, "") and metadata.get("agent_version") in (
+        None,
+        "",
+    ):
+        raise AgentOpsError(
+            "AGENT_STORE_METADATA_INVALID", "Missing required fields: version."
+        )
     record = repository.upsert_agent_store_metadata(metadata)
     return {
         "agent_id": record["agent_id"],
@@ -106,7 +113,10 @@ def discover_agent_store_gaps(repository: InMemoryRepository) -> list[dict[str, 
                     primary_action="补齐 Skill 注册事实或标记忽略",
                 )
 
-    return sorted(discovery.values(), key=lambda item: (item["gap_type"], item["agent_id"], item["skill_id"]))
+    return sorted(
+        discovery.values(),
+        key=lambda item: (item["gap_type"], item["agent_id"], item["skill_id"]),
+    )
 
 
 def build_run_audit(
@@ -117,7 +127,11 @@ def build_run_audit(
     discovery_gaps: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     if events is None:
-        events = [event for event in repository.raw_event_records() if _event_run_id(event) == run_id]
+        events = [
+            event
+            for event in repository.raw_event_records()
+            if _event_run_id(event) == run_id
+        ]
     else:
         events = [event for event in events if _event_run_id(event) == run_id]
     if not events:
@@ -127,12 +141,12 @@ def build_run_audit(
     first = events[0]
     agent_id, version = _run_agent_identity(events)
     metadata = repository.get_agent_store_metadata(agent_id, version)
-    discovery_gaps = discovery_gaps if discovery_gaps is not None else discover_agent_store_gaps(repository)
-    gaps = [
-        gap
-        for gap in discovery_gaps
-        if run_id in gap["affected_runs"]
-    ]
+    discovery_gaps = (
+        discovery_gaps
+        if discovery_gaps is not None
+        else discover_agent_store_gaps(repository)
+    )
+    gaps = [gap for gap in discovery_gaps if run_id in gap["affected_runs"]]
     registration_state = "governed" if metadata and not gaps else "suspected"
 
     return {
@@ -147,7 +161,9 @@ def build_run_audit(
         "discovery_gap_ids": [gap["gap_id"] for gap in gaps],
         "related_agent_versions": sorted(
             {
-                f"{identity[0]}@{identity[1]}" if (identity := _event_agent_identity(event)) else "unknown_agent@unknown"
+                f"{identity[0]}@{identity[1]}"
+                if (identity := _event_agent_identity(event))
+                else "unknown_agent@unknown"
                 for event in events
             }
         ),
@@ -156,7 +172,9 @@ def build_run_audit(
             "version": version,
             "session_id": str(first.get("session_id") or f"sess_{run_id}"),
             "run_id": run_id,
-            "installation_id": str(first.get("installation_id") or "unknown_installation"),
+            "installation_id": str(
+                first.get("installation_id") or "unknown_installation"
+            ),
             "trace_id": str(first.get("trace_id") or f"trace_{run_id}"),
             "audit_id": f"audit_run_{_slug(run_id)}",
             "return_url": f"/agent-store/agents/{agent_id}/runs/{run_id}",
@@ -175,7 +193,9 @@ def build_agent_store_echo_summary(
     discovery_gaps: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     if not consumer_schema_version.startswith("1."):
-        raise AgentOpsError("SUMMARY_SCHEMA_UNSUPPORTED", "Unsupported Agent Store summary schema.")
+        raise AgentOpsError(
+            "SUMMARY_SCHEMA_UNSUPPORTED", "Unsupported Agent Store summary schema."
+        )
 
     metadata = repository.get_agent_store_metadata(agent_id, version)
     run_id = str(evidence_summary["run_id"])
@@ -186,10 +206,18 @@ def build_agent_store_echo_summary(
             "STORE_SUMMARY_RUN_MISMATCH",
             "Run audit does not match the requested Agent Store summary target.",
         )
-    discovery_gaps = discovery_gaps if discovery_gaps is not None else discover_agent_store_gaps(repository)
+    discovery_gaps = (
+        discovery_gaps
+        if discovery_gaps is not None
+        else discover_agent_store_gaps(repository)
+    )
     run_gaps = [gap for gap in discovery_gaps if run_id in gap["affected_runs"]]
     registered = metadata is not None and not run_gaps
-    risk_state = "normal" if registered and evidence_summary.get("evidence_level") == "L5" else "warning"
+    risk_state = (
+        "normal"
+        if registered and evidence_summary.get("evidence_level") == "L5"
+        else "warning"
+    )
     calculated_at = datetime.now(UTC)
     valid_until = calculated_at + timedelta(days=30)
     raw_access_state = str(evidence_summary.get("raw_access_state") or "summary_only")
@@ -213,13 +241,16 @@ def build_agent_store_echo_summary(
         "quality_state": {
             "source": "AgentOps",
             "source_trust": str(
-                evidence_summary.get("source_trust") or ("verified" if risk_state == "normal" else "declared")
+                evidence_summary.get("source_trust")
+                or ("verified" if risk_state == "normal" else "declared")
             ),
             "completeness": float(
-                evidence_summary.get("completeness") or (1.0 if not evidence_summary["missing_evidence"] else 0.5)
+                evidence_summary.get("completeness")
+                or (1.0 if not evidence_summary["missing_evidence"] else 0.5)
             ),
             "freshness": str(
-                evidence_summary.get("freshness") or ("fresh" if not evidence_summary["missing_evidence"] else "unknown")
+                evidence_summary.get("freshness")
+                or ("fresh" if not evidence_summary["missing_evidence"] else "unknown")
             ),
         },
         "raw_access_state": raw_access_state,
@@ -297,7 +328,11 @@ def _event_run_id(event: dict[str, Any]) -> str:
 
 def _event_skill_id(event: dict[str, Any]) -> str:
     payload = _event_payload(event)
-    for candidate in (payload.get("skill_id"), payload.get("stage_id"), payload.get("stage_name")):
+    for candidate in (
+        payload.get("skill_id"),
+        payload.get("stage_id"),
+        payload.get("stage_name"),
+    ):
         if candidate not in (None, ""):
             return str(candidate)
     return ""
@@ -311,9 +346,13 @@ def _event_sequence_no(event: dict[str, Any]) -> int:
 
 
 def _require(data: dict[str, Any], fields: set[str], error_code: str) -> None:
-    missing = sorted(field for field in fields if field not in data or data[field] in (None, ""))
+    missing = sorted(
+        field for field in fields if field not in data or data[field] in (None, "")
+    )
     if missing:
-        raise AgentOpsError(error_code, f"Missing required fields: {', '.join(missing)}.")
+        raise AgentOpsError(
+            error_code, f"Missing required fields: {', '.join(missing)}."
+        )
 
 
 def _iso_utc(value: datetime) -> str:

@@ -4,7 +4,15 @@ from agentops.api.console_snapshot import build_console_snapshot
 from agentops.storage.repository import InMemoryRepository
 from tests.contract.conftest import base_event
 
-REQUIRED_TIMELINE_KEYS = {"id", "stage", "occurred_at", "title", "body", "owner", "status"}
+REQUIRED_TIMELINE_KEYS = {
+    "id",
+    "stage",
+    "occurred_at",
+    "title",
+    "body",
+    "owner",
+    "status",
+}
 REQUIRED_PACKET_KEYS = {
     "packet_id",
     "summary",
@@ -22,14 +30,24 @@ def _contains_url_or_forbidden_key(value: object) -> bool:
     if isinstance(value, list | tuple):
         return any(_contains_url_or_forbidden_key(item) for item in value)
     if isinstance(value, dict):
-        forbidden = {"raw_payload", "download_url", "raw_url", "original_url", "raw_access_url"}
-        return bool(forbidden & set(value)) or any(_contains_url_or_forbidden_key(item) for item in value.values())
+        forbidden = {
+            "raw_payload",
+            "download_url",
+            "raw_url",
+            "original_url",
+            "raw_access_url",
+        }
+        return bool(forbidden & set(value)) or any(
+            _contains_url_or_forbidden_key(item) for item in value.values()
+        )
     return False
 
 
 def _repository_with_core_items() -> InMemoryRepository:
     repository = InMemoryRepository()
-    repository.write_event(base_event("stage_started", agent_id="agent.unknown", agent_version="0.1.0"))
+    repository.write_event(
+        base_event("stage_started", agent_id="agent.unknown", agent_version="0.1.0")
+    )
     repository.store_approval(
         {
             "approval_id": "ap_pending",
@@ -46,7 +64,9 @@ def _repository_with_core_items() -> InMemoryRepository:
 
 
 def test_ao10_ct_001_each_action_detail_has_readable_timeline():
-    details = build_console_snapshot(repository=_repository_with_core_items())["consoleData"]["actionWorkbench"]["details"]
+    details = build_console_snapshot(repository=_repository_with_core_items())[
+        "consoleData"
+    ]["actionWorkbench"]["details"]
 
     assert details
     for detail in details:
@@ -62,7 +82,9 @@ def test_ao10_ct_001_each_action_detail_has_readable_timeline():
 
 
 def test_ao10_ct_002_each_action_detail_has_summary_only_audit_packet():
-    details = build_console_snapshot(repository=_repository_with_core_items())["consoleData"]["actionWorkbench"]["details"]
+    details = build_console_snapshot(repository=_repository_with_core_items())[
+        "consoleData"
+    ]["actionWorkbench"]["details"]
 
     for detail in details:
         packet = detail["audit_packet"]
@@ -80,11 +102,17 @@ def test_ao10_ct_002_each_action_detail_has_summary_only_audit_packet():
 
 
 def test_ao10_ct_003_approval_evidence_and_agent_store_gap_are_covered():
-    details = build_console_snapshot(repository=_repository_with_core_items())["consoleData"]["actionWorkbench"]["details"]
+    details = build_console_snapshot(repository=_repository_with_core_items())[
+        "consoleData"
+    ]["actionWorkbench"]["details"]
     detail_ids = {detail["id"]: detail for detail in details}
 
     for prefix in ("action_approval_", "action_evidence_", "action_gap_"):
-        matching = [detail for detail_id, detail in detail_ids.items() if detail_id.startswith(prefix)]
+        matching = [
+            detail
+            for detail_id, detail in detail_ids.items()
+            if detail_id.startswith(prefix)
+        ]
         assert matching, f"{prefix} detail must exist"
         for detail in matching:
             assert detail["timeline"]
@@ -92,7 +120,9 @@ def test_ao10_ct_003_approval_evidence_and_agent_store_gap_are_covered():
 
 
 def test_ao10_ct_004_audit_packet_targets_are_localized_and_safe():
-    details = build_console_snapshot(repository=_repository_with_core_items())["consoleData"]["actionWorkbench"]["details"]
+    details = build_console_snapshot(repository=_repository_with_core_items())[
+        "consoleData"
+    ]["actionWorkbench"]["details"]
 
     for detail in details:
         targets = "、".join(detail["audit_packet"]["echo_targets"])

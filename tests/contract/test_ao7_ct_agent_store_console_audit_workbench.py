@@ -10,11 +10,16 @@ from tests.contract.conftest import base_event
 
 def test_ao7_ct_001_console_snapshot_declares_agent_store_audit_route_and_domain():
     repository = InMemoryRepository()
-    repository.write_event(base_event("stage_started", agent_id="agent.unknown", agent_version="0.1.0"))
+    repository.write_event(
+        base_event("stage_started", agent_id="agent.unknown", agent_version="0.1.0")
+    )
 
     snapshot = build_console_snapshot(repository=repository)
 
-    assert any(route["id"] == "agent-store-audit" and route["label"] == "Agent Store 审计" for route in snapshot["routes"])
+    assert any(
+        route["id"] == "agent-store-audit" and route["label"] == "Agent Store 审计"
+        for route in snapshot["routes"]
+    )
     assert set(snapshot["consoleData"]["agentStore"]) == {
         "discoveryGaps",
         "runAudits",
@@ -26,7 +31,9 @@ def test_ao7_ct_001_console_snapshot_declares_agent_store_audit_route_and_domain
 
 def test_ao7_ct_002_discovery_gaps_are_visible_without_raw_payload():
     repository = InMemoryRepository()
-    repository.write_event(base_event("stage_started", agent_id="agent.unknown", agent_version="0.1.0"))
+    repository.write_event(
+        base_event("stage_started", agent_id="agent.unknown", agent_version="0.1.0")
+    )
 
     console_data = build_console_snapshot(repository=repository)["consoleData"]
     agent_store = console_data["agentStore"]
@@ -35,7 +42,9 @@ def test_ao7_ct_002_discovery_gaps_are_visible_without_raw_payload():
     assert agent_store["discoveryGaps"][0]["state"] == "suspected"
     assert agent_store["discoveryGaps"][0]["owner_hint"] == "Agent 负责人"
     assert agent_store["discoveryGaps"][0]["affected_runs"] == ["run_1"]
-    agent_store_risk = next(risk for risk in console_data["risks"] if risk["source"] == "Agent Store")
+    agent_store_risk = next(
+        risk for risk in console_data["risks"] if risk["source"] == "Agent Store"
+    )
     assert agent_store_risk["deep_link"] == "agent-store-audit"
     assert "raw_payload" not in str(agent_store["discoveryGaps"])
 
@@ -61,12 +70,20 @@ def test_ao7_ct_003_run_audit_workbench_keeps_deep_links_and_related_versions():
         )
     )
 
-    audit = build_console_snapshot(repository=repository)["consoleData"]["agentStore"]["runAudits"][0]
+    audit = build_console_snapshot(repository=repository)["consoleData"]["agentStore"][
+        "runAudits"
+    ][0]
 
     assert audit["registration_state"] == "suspected"
     assert audit["discovery_gap_ids"] == ["gap_agent_agent_ai_sdlc_2_0_0"]
-    assert audit["related_agent_versions"] == ["agent.ai-sdlc@1.0.0", "agent.ai-sdlc@2.0.0"]
-    assert audit["deep_links"]["return_url"] == "/agent-store/agents/agent.ai-sdlc/runs/run_1"
+    assert audit["related_agent_versions"] == [
+        "agent.ai-sdlc@1.0.0",
+        "agent.ai-sdlc@2.0.0",
+    ]
+    assert (
+        audit["deep_links"]["return_url"]
+        == "/agent-store/agents/agent.ai-sdlc/runs/run_1"
+    )
     assert audit["raw_access_state"] == "summary_only"
 
 
@@ -84,10 +101,15 @@ def test_ao7_ct_003a_run_audit_uses_agent_store_run_id_fallback():
         )
     )
 
-    audit = build_console_snapshot(repository=repository)["consoleData"]["agentStore"]["runAudits"][0]
+    audit = build_console_snapshot(repository=repository)["consoleData"]["agentStore"][
+        "runAudits"
+    ][0]
 
     assert audit["run_id"] == "evt_without_run_id"
-    assert audit["deep_links"]["return_url"] == "/agent-store/agents/agent.ai-sdlc/runs/evt_without_run_id"
+    assert (
+        audit["deep_links"]["return_url"]
+        == "/agent-store/agents/agent.ai-sdlc/runs/evt_without_run_id"
+    )
 
 
 def test_ao7_ct_004_store_summary_workbench_contains_policy_requirement_and_validity():
@@ -102,12 +124,17 @@ def test_ao7_ct_004_store_summary_workbench_contains_policy_requirement_and_vali
     )
     repository.write_event(base_event("stage_started"))
 
-    summary = build_console_snapshot(repository=repository)["consoleData"]["agentStore"]["storeSummaries"][0]
+    summary = build_console_snapshot(repository=repository)["consoleData"][
+        "agentStore"
+    ]["storeSummaries"][0]
 
     assert summary["registry_fact_owner"] == "Agent Store"
     assert summary["risk_state"] == "warning"
     assert summary["policy_requirement"]["policy_owner"] == "安全/IAM"
-    assert summary["policy_requirement"]["affected_actions"] == ["运行审计", "高风险 Skill 调用"]
+    assert summary["policy_requirement"]["affected_actions"] == [
+        "运行审计",
+        "高风险 Skill 调用",
+    ]
     assert summary["discovery_gap_ids"] == ["gap_skill_agent_ai_sdlc_1_0_0_refine"]
     assert summary["calculated_at"]
     assert summary["valid_until"]
@@ -138,7 +165,9 @@ def test_ao7_ct_004a_store_summary_reuses_l5_gate_event_contract():
     ):
         repository.write_event(base_event(event_type, sequence_no=index))
 
-    summary = build_console_snapshot(repository=repository)["consoleData"]["agentStore"]["storeSummaries"][0]
+    summary = build_console_snapshot(repository=repository)["consoleData"][
+        "agentStore"
+    ]["storeSummaries"][0]
 
     assert summary["evidence_level"] == "L5"
     assert summary["confidence"] == 1.0
@@ -182,14 +211,18 @@ def test_ao7_ct_004b_store_summary_sorts_events_before_l5_evaluation():
     ):
         repository.write_event(base_event(event_type, sequence_no=index))
 
-    summary = build_console_snapshot(repository=repository)["consoleData"]["agentStore"]["storeSummaries"][0]
+    summary = build_console_snapshot(repository=repository)["consoleData"][
+        "agentStore"
+    ]["storeSummaries"][0]
 
     assert summary["evidence_level"] == "L4"
     assert summary["confidence"] == 0.8
     assert summary["risk_state"] == "warning"
 
 
-def test_ao7_ct_004c_store_summary_reuses_precomputed_agent_store_audit_context(monkeypatch):
+def test_ao7_ct_004c_store_summary_reuses_precomputed_agent_store_audit_context(
+    monkeypatch,
+):
     repository = InMemoryRepository()
     sync_agent_store_metadata(
         repository,
@@ -211,8 +244,12 @@ def test_ao7_ct_004c_store_summary_reuses_precomputed_agent_store_audit_context(
     def unexpected_core_discover(repository):
         raise AssertionError("console snapshot must reuse precomputed Agent Store gaps")
 
-    monkeypatch.setattr(console_snapshot_api, "discover_agent_store_gaps", counted_discover)
-    monkeypatch.setattr(agent_store_core, "discover_agent_store_gaps", unexpected_core_discover)
+    monkeypatch.setattr(
+        console_snapshot_api, "discover_agent_store_gaps", counted_discover
+    )
+    monkeypatch.setattr(
+        agent_store_core, "discover_agent_store_gaps", unexpected_core_discover
+    )
 
     snapshot = console_snapshot_api.build_console_snapshot(repository=repository)
 
@@ -229,7 +266,9 @@ def test_ao7_ct_004d_audit_generation_failure_surfaces_degraded_record(monkeypat
 
     monkeypatch.setattr(console_snapshot_api, "build_run_audit", failing_audit)
 
-    agent_store = console_snapshot_api.build_console_snapshot(repository=repository)["consoleData"]["agentStore"]
+    agent_store = console_snapshot_api.build_console_snapshot(repository=repository)[
+        "consoleData"
+    ]["agentStore"]
 
     assert agent_store["runAudits"][0]["run_id"] == "run_1"
     assert agent_store["runAudits"][0]["registration_state"] == "degraded"
@@ -253,13 +292,23 @@ def test_ao7_ct_004e_summary_generation_failure_surfaces_degraded_summary(monkey
     def failing_summary(*args, **kwargs):
         raise RuntimeError("unexpected summary failure")
 
-    monkeypatch.setattr(console_snapshot_api, "build_agent_store_echo_summary", failing_summary)
+    monkeypatch.setattr(
+        console_snapshot_api, "build_agent_store_echo_summary", failing_summary
+    )
 
-    agent_store = console_snapshot_api.build_console_snapshot(repository=repository)["consoleData"]["agentStore"]
+    agent_store = console_snapshot_api.build_console_snapshot(repository=repository)[
+        "consoleData"
+    ]["agentStore"]
 
     assert agent_store["runAudits"][0]["registration_state"] == "governed"
-    assert agent_store["storeSummaries"][0]["run_audit"]["registration_state"] == "degraded"
-    assert agent_store["storeSummaries"][0]["processing_error"] == "运行 run_1 的 Agent Store 回显摘要生成失败"
+    assert (
+        agent_store["storeSummaries"][0]["run_audit"]["registration_state"]
+        == "degraded"
+    )
+    assert (
+        agent_store["storeSummaries"][0]["processing_error"]
+        == "运行 run_1 的 Agent Store 回显摘要生成失败"
+    )
 
 
 def test_ao7_ct_005_registry_map_is_read_only_agent_store_metadata():
@@ -273,7 +322,9 @@ def test_ao7_ct_005_registry_map_is_read_only_agent_store_metadata():
         },
     )
 
-    registry_record = build_console_snapshot(repository=repository)["consoleData"]["agentStore"]["registryMap"][0]
+    registry_record = build_console_snapshot(repository=repository)["consoleData"][
+        "agentStore"
+    ]["registryMap"][0]
 
     assert registry_record["agent_id"] == "agent.ai-sdlc"
     assert registry_record["version"] == "1.0.0"

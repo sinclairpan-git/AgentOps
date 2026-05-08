@@ -35,8 +35,15 @@ def credential_request() -> dict:
     return load_fixture("agentops_credential_handoff.v1.json")
 
 
-def issue_fixture(repository, request: dict | None = None, headers: dict[str, str] | None = None):
-    return issue_credentials(request or credential_request(), repository, now=FIXTURE_NOW, headers=headers or HEADERS)
+def issue_fixture(
+    repository, request: dict | None = None, headers: dict[str, str] | None = None
+):
+    return issue_credentials(
+        request or credential_request(),
+        repository,
+        now=FIXTURE_NOW,
+        headers=headers or HEADERS,
+    )
 
 
 def test_cct_001_agent_store_handoff_fixture_issues_credential(repository):
@@ -50,7 +57,9 @@ def test_cct_001_agent_store_handoff_fixture_issues_credential(repository):
 def test_cct_001_handoff_embeds_external_assertion_and_device_proof_fixtures():
     request = credential_request()
 
-    assert request["installation_assertion"] == load_fixture("signed_installation_assertion.v1.json")
+    assert request["installation_assertion"] == load_fixture(
+        "signed_installation_assertion.v1.json"
+    )
     assert request["device_proof"] == load_fixture("device_proof.v1.json")
 
 
@@ -141,7 +150,12 @@ def test_missing_idempotency_key_returns_contract_error(repository):
 def test_lowercase_idempotency_key_is_accepted(repository):
     repository.add_bootstrap_session(bootstrap_session())
 
-    response = issue_credentials(credential_request(), repository, now=FIXTURE_NOW, headers={"idempotency-key": "idem-fixture"})
+    response = issue_credentials(
+        credential_request(),
+        repository,
+        now=FIXTURE_NOW,
+        headers={"idempotency-key": "idem-fixture"},
+    )
 
     assert response["credential_id"] == "cred-fixture"
 
@@ -248,7 +262,9 @@ def test_artifact_mismatch_returns_contract_error(repository):
     assert exc.value.error_code == "BOOTSTRAP_ARTIFACT_MISMATCH"
 
 
-@pytest.mark.parametrize(("field", "value"), [("installation_id", "inst-other"), ("user_id", "user-other")])
+@pytest.mark.parametrize(
+    ("field", "value"), [("installation_id", "inst-other"), ("user_id", "user-other")]
+)
 def test_identity_mismatch_returns_contract_error(repository, field, value):
     repository.add_bootstrap_session(bootstrap_session())
     request = credential_request()
@@ -292,6 +308,11 @@ def test_nonce_replay_window_blocks_second_bootstrap(repository):
     request["bootstrap_id"] = "boot-other"
 
     with pytest.raises(AgentOpsError) as exc:
-        issue_credentials(request, repository, now=FIXTURE_NOW, headers={"Idempotency-Key": "idem-second"})
+        issue_credentials(
+            request,
+            repository,
+            now=FIXTURE_NOW,
+            headers={"Idempotency-Key": "idem-second"},
+        )
 
     assert exc.value.error_code == "BOOTSTRAP_REPLAY_DETECTED"

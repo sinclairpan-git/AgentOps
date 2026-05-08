@@ -40,8 +40,12 @@ def build_evidence_summary(
             "downgrade_reason": l5_evaluation.get("downgrade_reason", ""),
         },
         "payload_hash": f"sha256:{run_id}",
-        "source_trust": "verified" if l5_evaluation["evidence_level"] == "L5" else "declared",
+        "source_trust": "verified"
+        if l5_evaluation["evidence_level"] == "L5"
+        else "declared",
         "completeness": 1.0 if not l5_evaluation.get("missing_evidence") else 0.5,
-        "freshness": "fresh" if "verification_result" not in l5_evaluation.get("missing_evidence", []) else "unknown",
+        "freshness": "fresh"
+        if "verification_result" not in l5_evaluation.get("missing_evidence", [])
+        else "unknown",
         "downgrade_reason": l5_evaluation.get("downgrade_reason", ""),
     }

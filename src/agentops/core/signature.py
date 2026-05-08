@@ -8,4 +8,6 @@ from typing import Any
 
 
 def has_usable_signature(event: dict[str, Any]) -> bool:
-    return bool(event.get("signature")) and event.get("source_trust_level") == "verified"
+    return (
+        bool(event.get("signature")) and event.get("source_trust_level") == "verified"
+    )

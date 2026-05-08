@@ -34,7 +34,9 @@ def get_agent_store_summary(
         )
 
     if not consumer_schema_version.startswith("1."):
-        raise AgentOpsError("SUMMARY_SCHEMA_UNSUPPORTED", "Unsupported Agent Store summary schema.")
+        raise AgentOpsError(
+            "SUMMARY_SCHEMA_UNSUPPORTED", "Unsupported Agent Store summary schema."
+        )
 
     run_id = evidence_summary["run_id"]
     return {
@@ -52,7 +54,9 @@ def get_agent_store_summary(
         "evidence_level": evidence_summary["evidence_level"],
         "confidence": evidence_summary["confidence"],
         "missing_evidence": list(evidence_summary["missing_evidence"]),
-        "risk_state": "normal" if evidence_summary["evidence_level"] == "L5" else "warning",
+        "risk_state": "normal"
+        if evidence_summary["evidence_level"] == "L5"
+        else "warning",
         "approval_state": "none",
         "quality_state": {
             "source": "AgentOps",
@@ -106,7 +110,9 @@ def get_agent_store_summary_for_run(
     )
 
 
-def _events_for_run(repository: InMemoryRepository, run_id: str) -> list[dict[str, Any]]:
+def _events_for_run(
+    repository: InMemoryRepository, run_id: str
+) -> list[dict[str, Any]]:
     events = [
         event
         for event in repository.raw_event_records()
@@ -115,13 +121,17 @@ def _events_for_run(repository: InMemoryRepository, run_id: str) -> list[dict[st
     return sorted(events, key=_event_sequence_no)
 
 
-def _agent_store_evidence_summary(run_id: str, events: list[dict[str, Any]]) -> dict[str, Any]:
+def _agent_store_evidence_summary(
+    run_id: str, events: list[dict[str, Any]]
+) -> dict[str, Any]:
     l5_input = _last_payload(events, "l5_eligibility_input")
     evaluation = evaluate_l5_gate(
         events,
         governance_state=_governance_state(events),
         outbox_status=str(l5_input.get("outbox_status", "delivered")),
-        policy_state_known=_strict_bool(l5_input.get("policy_state_known"), default=False),
+        policy_state_known=_strict_bool(
+            l5_input.get("policy_state_known"), default=False
+        ),
     )
     return build_evidence_summary(
         run_id,

@@ -42,9 +42,13 @@ def build_evidence_vault_summary(
         )
         return base
 
-    raw_state = _raw_access_state(raw_access_grant, evidence_id=evidence_id, requester=requester, now=now)
+    raw_state = _raw_access_state(
+        raw_access_grant, evidence_id=evidence_id, requester=requester, now=now
+    )
     if request_raw and raw_state != "approved":
-        error_code = "RAW_ACCESS_EXPIRED" if raw_state == "expired" else "RAW_ACCESS_DENIED"
+        error_code = (
+            "RAW_ACCESS_EXPIRED" if raw_state == "expired" else "RAW_ACCESS_DENIED"
+        )
         raise AgentOpsError(
             error_code,
             "Raw evidence access requires active Evidence Vault approval.",
@@ -56,7 +60,8 @@ def build_evidence_vault_summary(
         {
             "raw_access_state": raw_state,
             "redaction_state": "ok",
-            "redacted_summary": redacted_summary or {"summary": "No sensitive evidence included."},
+            "redacted_summary": redacted_summary
+            or {"summary": "No sensitive evidence included."},
         }
     )
     return base
@@ -93,7 +98,9 @@ def approve_raw_access_request(
     now = now or datetime.now(UTC)
     request = repository.get_raw_access_request(request_id)
     if not request:
-        raise AgentOpsError("RAW_ACCESS_REQUEST_NOT_FOUND", "Raw access request does not exist.")
+        raise AgentOpsError(
+            "RAW_ACCESS_REQUEST_NOT_FOUND", "Raw access request does not exist."
+        )
 
     request["status"] = "approved"
     repository.store_raw_access_request(request)

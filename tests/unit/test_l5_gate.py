@@ -26,7 +26,11 @@ def test_complete_run_is_l5():
 
 
 def test_missing_fresh_verification_is_not_l5():
-    events = [event for event in complete_events() if event["event_type"] != "verification_result"]
+    events = [
+        event
+        for event in complete_events()
+        if event["event_type"] != "verification_result"
+    ]
 
     result = evaluate_l5_gate(events)
 

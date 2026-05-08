@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from agentops.core.grants import consume_capability_grant, issue_capability_grant, revoke_capability_grant
+from agentops.core.grants import (
+    consume_capability_grant,
+    issue_capability_grant,
+    revoke_capability_grant,
+)
 from agentops.storage.repository import InMemoryRepository
 
 
@@ -26,5 +30,7 @@ def consume_grant(
     return consume_capability_grant(grant_id, policy_request, repository, **kwargs)
 
 
-def revoke_grant(grant_id: str, repository: InMemoryRepository, **kwargs: Any) -> dict[str, Any]:
+def revoke_grant(
+    grant_id: str, repository: InMemoryRepository, **kwargs: Any
+) -> dict[str, Any]:
     return revoke_capability_grant(grant_id, repository, **kwargs)

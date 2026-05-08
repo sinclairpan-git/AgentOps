@@ -25,8 +25,17 @@ REQUIRED_CHAIN_KEYS = {
 
 def _repository() -> InMemoryRepository:
     repository = InMemoryRepository()
-    repository.write_event(base_event("stage_started", agent_id="agent.quality", agent_version="1.0.0"))
-    repository.write_event(base_event("stage_completed", agent_id="agent.quality", agent_version="1.0.0", sequence_no=2))
+    repository.write_event(
+        base_event("stage_started", agent_id="agent.quality", agent_version="1.0.0")
+    )
+    repository.write_event(
+        base_event(
+            "stage_completed",
+            agent_id="agent.quality",
+            agent_version="1.0.0",
+            sequence_no=2,
+        )
+    )
     return repository
 
 
@@ -36,15 +45,32 @@ def _contains_url_or_forbidden_key(value: object) -> bool:
     if isinstance(value, list | tuple):
         return any(_contains_url_or_forbidden_key(item) for item in value)
     if isinstance(value, dict):
-        forbidden = {"raw_payload", "download_url", "raw_url", "original_url", "raw_access_url", "diff"}
-        return bool(forbidden & set(value)) or any(_contains_url_or_forbidden_key(item) for item in value.values())
+        forbidden = {
+            "raw_payload",
+            "download_url",
+            "raw_url",
+            "original_url",
+            "raw_access_url",
+            "diff",
+        }
+        return bool(forbidden & set(value)) or any(
+            _contains_url_or_forbidden_key(item) for item in value.values()
+        )
     return False
 
 
 def test_ao11_ct_001_snapshot_contains_adoption_domain():
-    adoption = build_console_snapshot(repository=_repository())["consoleData"]["adoption"]
+    adoption = build_console_snapshot(repository=_repository())["consoleData"][
+        "adoption"
+    ]
 
-    assert set(adoption) == {"metrics", "explanationChains", "segments", "reviewSignals", "guardrails"}
+    assert set(adoption) == {
+        "metrics",
+        "explanationChains",
+        "segments",
+        "reviewSignals",
+        "guardrails",
+    }
     assert REQUIRED_METRICS <= set(adoption["metrics"])
     assert adoption["explanationChains"]
     assert adoption["segments"]
@@ -52,7 +78,9 @@ def test_ao11_ct_001_snapshot_contains_adoption_domain():
 
 
 def test_ao11_ct_002_metrics_are_summary_only_and_safe():
-    adoption = build_console_snapshot(repository=_repository())["consoleData"]["adoption"]
+    adoption = build_console_snapshot(repository=_repository())["consoleData"][
+        "adoption"
+    ]
     metrics = adoption["metrics"]
 
     for key in REQUIRED_METRICS - {"ci_failure_types"}:
@@ -63,9 +91,15 @@ def test_ao11_ct_002_metrics_are_summary_only_and_safe():
 
 
 def test_ao11_ct_003_empty_repository_reports_zero_activity():
-    adoption = build_console_snapshot(repository=InMemoryRepository())["consoleData"]["adoption"]
+    adoption = build_console_snapshot(repository=InMemoryRepository())["consoleData"][
+        "adoption"
+    ]
     metrics = adoption["metrics"]
-    sdlc_segment = next(segment for segment in adoption["segments"] if segment["id"] == "segment_sdlc_runs")
+    sdlc_segment = next(
+        segment
+        for segment in adoption["segments"]
+        if segment["id"] == "segment_sdlc_runs"
+    )
 
     assert metrics["generated_lines"] == 0
     assert metrics["retained_lines"] == 0
@@ -78,7 +112,9 @@ def test_ao11_ct_003_empty_repository_reports_zero_activity():
 
 
 def test_ao11_ct_004_explanation_chains_have_quality_contract_fields():
-    chains = build_console_snapshot(repository=_repository())["consoleData"]["adoption"]["explanationChains"]
+    chains = build_console_snapshot(repository=_repository())["consoleData"][
+        "adoption"
+    ]["explanationChains"]
 
     for chain in chains:
         assert REQUIRED_CHAIN_KEYS <= set(chain)
@@ -91,7 +127,9 @@ def test_ao11_ct_004_explanation_chains_have_quality_contract_fields():
 
 
 def test_ao11_ct_005_review_signals_do_not_execute_lifecycle_actions():
-    adoption = build_console_snapshot(repository=_repository())["consoleData"]["adoption"]
+    adoption = build_console_snapshot(repository=_repository())["consoleData"][
+        "adoption"
+    ]
     combined_text = f"{adoption['reviewSignals']} {adoption['guardrails']}"
 
     assert "执行自动下架" not in combined_text

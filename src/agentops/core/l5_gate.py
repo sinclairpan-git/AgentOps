@@ -29,14 +29,16 @@ def evaluate_l5_gate(
     event_types = {event["event_type"] for event in events}
     missing_events = sorted(L5_REQUIRED_EVENTS - event_types)
     enterprise_events = [
-        event for event in events if event.get("integration_mode") == "enterprise_managed"
+        event
+        for event in events
+        if event.get("integration_mode") == "enterprise_managed"
     ]
     imported_events = [
-        event for event in events if event.get("integration_mode") != "enterprise_managed"
+        event
+        for event in events
+        if event.get("integration_mode") != "enterprise_managed"
     ]
-    signed = all(
-        event.get("signature") for event in enterprise_events
-    )
+    signed = all(event.get("signature") for event in enterprise_events)
 
     failed_conditions: list[str] = []
     missing_evidence: list[str] = []
@@ -50,7 +52,9 @@ def evaluate_l5_gate(
 
     if not enterprise_events or imported_events:
         failed_conditions.append("enterprise_managed")
-        downgrade_reason = "Only enterprise_managed signed events can enter AgentOps L5."
+        downgrade_reason = (
+            "Only enterprise_managed signed events can enter AgentOps L5."
+        )
         result = "L3"
 
     if governance_state != "verified_loaded":
@@ -97,7 +101,8 @@ def evaluate_l5_gate(
         "session_mapping": True,
         "stage_events_complete": not missing_events,
         "verification_fresh": "verification_result" in event_types,
-        "artifact_linked": "artifact_generated" in event_types or "generation_snapshot" in event_types,
+        "artifact_linked": "artifact_generated" in event_types
+        or "generation_snapshot" in event_types,
         "outbox_delivered": outbox_status == "delivered",
         "policy_state_known": policy_state_known,
     }

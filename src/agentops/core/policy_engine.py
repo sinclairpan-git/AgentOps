@@ -129,13 +129,21 @@ def _first_priority_deny(governance_signals: dict[str, Any]) -> str | None:
     return None
 
 
-def _grant_matches_request(grant: dict[str, Any], request: dict[str, Any], now: datetime) -> bool:
+def _grant_matches_request(
+    grant: dict[str, Any], request: dict[str, Any], now: datetime
+) -> bool:
     if grant.get("status") != "active":
         return False
     if _parse_time(grant["expires_at"]) <= now:
         return False
 
-    comparable_fields = ("action", "requester", "agent_id", "skill_id", "policy_version")
+    comparable_fields = (
+        "action",
+        "requester",
+        "agent_id",
+        "skill_id",
+        "policy_version",
+    )
     for field in comparable_fields:
         if grant.get(field) != request.get(field):
             return False
@@ -144,7 +152,10 @@ def _grant_matches_request(grant: dict[str, Any], request: dict[str, Any], now: 
 
 
 def _is_high_risk(action: str, request: dict[str, Any]) -> bool:
-    return action in HIGH_RISK_ACTIONS or request.get("risk_level") in {"high", "critical"}
+    return action in HIGH_RISK_ACTIONS or request.get("risk_level") in {
+        "high",
+        "critical",
+    }
 
 
 def _parse_time(value: str) -> datetime:

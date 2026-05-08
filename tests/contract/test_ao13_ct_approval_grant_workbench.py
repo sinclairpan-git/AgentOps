@@ -33,7 +33,16 @@ REQUIRED_GRANT_KEYS = {
     "audit_id",
     "consumption_policy",
 }
-REQUIRED_AUDIT_KEYS = {"id", "approval_id", "stage", "occurred_at", "summary", "owner", "status", "audit_id"}
+REQUIRED_AUDIT_KEYS = {
+    "id",
+    "approval_id",
+    "stage",
+    "occurred_at",
+    "summary",
+    "owner",
+    "status",
+    "audit_id",
+}
 
 
 def _contains_unsafe_reference(value: object) -> bool:
@@ -51,7 +60,9 @@ def _contains_unsafe_reference(value: object) -> bool:
             "pullRequestBody",
             "pull_request_body",
         }
-        return bool(forbidden & set(value)) or any(_contains_unsafe_reference(item) for item in value.values())
+        return bool(forbidden & set(value)) or any(
+            _contains_unsafe_reference(item) for item in value.values()
+        )
     return False
 
 
@@ -150,7 +161,9 @@ def test_ao13_ct_004_approval_states_bind_to_safe_grant_outcomes():
 
 
 def test_ao13_ct_005_empty_repository_reports_safe_empty_workbench():
-    workbench = build_console_snapshot(repository=InMemoryRepository())["consoleData"]["approvalWorkbench"]
+    workbench = build_console_snapshot(repository=InMemoryRepository())["consoleData"][
+        "approvalWorkbench"
+    ]
 
     assert workbench["queues"] == []
     assert workbench["grants"] == []
