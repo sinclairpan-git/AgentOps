@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import argparse
+import base64
+import binascii
 import json
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -32,6 +34,7 @@ ALLOWED_ORIGINS = {
 
 AUDIT_QUERY_DEFAULT_LIMIT = 50
 AUDIT_QUERY_MAX_LIMIT = 200
+AUDIT_QUERY_CURSOR_VERSION = 1
 
 
 def create_http_handler(
@@ -480,20 +483,45 @@ def create_http_handler(
                 for name in ("audit_id", "request_id", "action", "outcome")
                 if self._query_value(query, name)
             }
+            cursor = self._query_value(query, "cursor")
+            cursor_offset = self._audit_query_cursor_offset(cursor, filters)
             matched_records = []
+            matched_seen = 0
+            has_more = False
             for record in audit_log.records() if audit_log is not None else []:
                 record_payload = record.to_dict()
                 if any(record_payload.get(name) != value for name, value in filters.items()):
                     continue
+                if matched_seen < cursor_offset:
+                    matched_seen += 1
+                    continue
                 matched_records.append(record_payload)
+                matched_seen += 1
                 if len(matched_records) >= limit:
+                    has_more = self._audit_query_has_more(
+                        filters=filters,
+                        offset=cursor_offset + len(matched_records),
+                    )
                     break
+            next_cursor = (
+                self._encode_audit_query_cursor(
+                    offset=cursor_offset + len(matched_records),
+                    filters=filters,
+                )
+                if has_more
+                else ""
+            )
             return {
                 "schema_version": "agentops.runtime_audit.query.v1",
                 "records": matched_records,
                 "returned": len(matched_records),
                 "limit": limit,
                 "filters": filters,
+                "page_info": {
+                    "cursor": cursor,
+                    "next_cursor": next_cursor,
+                    "has_more": has_more,
+                },
             }
 
         def _audit_query_limit(self, query: dict[str, list[str]]) -> int:
@@ -513,6 +541,77 @@ def create_http_handler(
                     "Runtime audit query limit must be a positive integer.",
                 )
             return min(limit, AUDIT_QUERY_MAX_LIMIT)
+
+        def _audit_query_cursor_offset(
+            self, cursor: str, filters: dict[str, str]
+        ) -> int:
+            if not cursor:
+                return 0
+            try:
+                padded_cursor = cursor + "=" * (-len(cursor) % 4)
+                decoded = base64.urlsafe_b64decode(padded_cursor.encode("ascii"))
+                payload = json.loads(decoded.decode("utf-8"))
+            except (
+                binascii.Error,
+                UnicodeDecodeError,
+                ValueError,
+                json.JSONDecodeError,
+            ) as exc:
+                raise AgentOpsError(
+                    "AUDIT_CURSOR_INVALID",
+                    "Runtime audit query cursor is invalid.",
+                ) from exc
+            if not isinstance(payload, dict):
+                raise AgentOpsError(
+                    "AUDIT_CURSOR_INVALID",
+                    "Runtime audit query cursor is invalid.",
+                )
+            if payload.get("v") != AUDIT_QUERY_CURSOR_VERSION:
+                raise AgentOpsError(
+                    "AUDIT_CURSOR_INVALID",
+                    "Runtime audit query cursor is invalid.",
+                )
+            offset = payload.get("offset")
+            if not isinstance(offset, int) or isinstance(offset, bool) or offset < 0:
+                raise AgentOpsError(
+                    "AUDIT_CURSOR_INVALID",
+                    "Runtime audit query cursor is invalid.",
+                )
+            if payload.get("filters") != filters:
+                raise AgentOpsError(
+                    "AUDIT_CURSOR_INVALID",
+                    "Runtime audit query cursor does not match filters.",
+                )
+            return offset
+
+        def _encode_audit_query_cursor(
+            self, *, offset: int, filters: dict[str, str]
+        ) -> str:
+            payload = {
+                "filters": filters,
+                "offset": offset,
+                "v": AUDIT_QUERY_CURSOR_VERSION,
+            }
+            serialized = json.dumps(
+                payload,
+                ensure_ascii=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            ).encode("utf-8")
+            return base64.urlsafe_b64encode(serialized).decode("ascii").rstrip("=")
+
+        def _audit_query_has_more(
+            self, *, filters: dict[str, str], offset: int
+        ) -> bool:
+            matched_seen = 0
+            for record in audit_log.records() if audit_log is not None else []:
+                record_payload = record.to_dict()
+                if any(record_payload.get(name) != value for name, value in filters.items()):
+                    continue
+                if matched_seen >= offset:
+                    return True
+                matched_seen += 1
+            return False
 
         def _store_summary_status(self, exc: AgentOpsError) -> HTTPStatus:
             if exc.error_code == "RUN_NOT_FOUND":
