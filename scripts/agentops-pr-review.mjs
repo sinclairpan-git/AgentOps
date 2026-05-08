@@ -967,9 +967,10 @@ function checkCredentialReissueAfterRevocation() {
     for (const needle of [
       "def mark_credentials_reissued",
       "def remove_unissued_bootstrap_session",
+      "def _replacement_chain_token_matches",
       "revocation_resolution",
       "reissued_bootstrap_id",
-      "replacement_token_matches",
+      "seen_bootstrap_ids",
       "EVENT_CREDENTIAL_REVOKED"
     ]) {
       if (!text.includes(needle)) {
@@ -1020,6 +1021,7 @@ function checkCredentialReissueAfterRevocation() {
       "test_ao21_ct_005_reissue_retry_returns_same_result",
       "test_ao21_ct_006_http_reissue_route_returns_json_and_cors",
       "test_ao21_ct_007_reissued_identity_requires_replacement_token",
+      "test_ao21_ct_008_revocation_check_follows_replacement_chain",
       "BOOTSTRAP_REPLAY_DETECTED",
       "EVENT_CREDENTIAL_REVOKED"
     ]) {

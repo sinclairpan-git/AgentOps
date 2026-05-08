@@ -357,3 +357,68 @@ def test_ao21_ct_007_reissued_identity_requires_replacement_token(revoked_reposi
     assert accepted["accepted"] == ["evt_after_reissue"]
     assert rejected["accepted"] == []
     assert rejected["rejected"][0]["error_code"] == "EVENT_CREDENTIAL_REVOKED"
+
+
+def test_ao21_ct_008_revocation_check_follows_replacement_chain(revoked_repository):
+    reissue_credentials(
+        reissue_request(),
+        revoked_repository,
+        now=REISSUE_NOW,
+        headers={"Idempotency-Key": "idem-reissue-fixture"},
+    )
+    revoke_credentials(
+        revocation_request(
+            bootstrap_id="boot-inst-fixture-r1",
+            revocation_id="revoke-inst-fixture-r1",
+        ),
+        revoked_repository,
+        now=REISSUE_NOW + timedelta(minutes=2),
+    )
+    handoff = reissue_handoff(bootstrap_id="boot-inst-fixture-r2")
+    handoff["installation_assertion"]["assertion_hash"] = "sha256:assertion-fixture-r2"
+    handoff["installation_assertion"]["nonce"] = "nonce-install-fixture-r2"
+    handoff["installation_assertion"]["issued_at"] = "2026-05-07T12:14:00+00:00"
+    handoff["installation_assertion"]["expires_at"] = "2026-05-07T12:44:00+00:00"
+    handoff["installation_assertion"]["signature"] = "sig-install-fixture-r2"
+    handoff["device_proof"]["assertion_hash"] = "sha256:assertion-fixture-r2"
+    handoff["device_proof"]["nonce"] = "nonce-device-fixture-r2"
+    handoff["device_proof"]["key_id"] = "device-key-fixture-r2"
+    handoff["device_proof"]["issued_at"] = "2026-05-07T12:14:00+00:00"
+    handoff["device_proof"]["expires_at"] = "2026-05-07T12:44:00+00:00"
+    handoff["device_proof"]["signature"] = "sig-device-fixture-r2"
+    reissue_credentials(
+        reissue_request(
+            source_bootstrap_id="boot-inst-fixture-r1",
+            new_bootstrap_id="boot-inst-fixture-r2",
+            reissue_id="reissue-inst-fixture-r2",
+            credential_handoff=handoff,
+        ),
+        revoked_repository,
+        now=REISSUE_NOW + timedelta(minutes=2),
+        headers={"Idempotency-Key": "idem-reissue-fixture-r2"},
+    )
+
+    accepted = ingest_events_batch(
+        [
+            enterprise_event_for_reissue(
+                event_id="evt_after_second_reissue",
+                idempotency_key="stage-started:after-second-reissue",
+                ingestion_token="token-fixture-r2",
+            )
+        ],
+        revoked_repository,
+    )
+    rejected = ingest_events_batch(
+        [
+            enterprise_event_for_reissue(
+                event_id="evt_after_second_reissue_stale_token",
+                idempotency_key="stage-started:after-second-reissue-stale-token",
+                ingestion_token="token-fixture-r1",
+            )
+        ],
+        revoked_repository,
+    )
+
+    assert accepted["accepted"] == ["evt_after_second_reissue"]
+    assert rejected["accepted"] == []
+    assert rejected["rejected"][0]["error_code"] == "EVENT_CREDENTIAL_REVOKED"

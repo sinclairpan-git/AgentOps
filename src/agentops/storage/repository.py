@@ -195,18 +195,29 @@ class InMemoryRepository:
                 if not token_matches and not identity_matches:
                     continue
                 if credentials.get("status") == "revoked":
-                    replacement_credentials = self.credentials_by_bootstrap.get(str(credentials.get("reissued_bootstrap_id") or ""))
-                    replacement_token_matches = (
-                        replacement_credentials is not None
-                        and ingestion_token not in (None, "")
-                        and ingestion_token == replacement_credentials.get("token_id")
-                    )
-                    if identity_matches and not token_matches and credentials.get("revocation_resolution") == "reissued" and replacement_token_matches:
+                    if identity_matches and not token_matches and self._replacement_chain_token_matches(credentials, ingestion_token):
                         continue
                     raise AgentOpsError("EVENT_CREDENTIAL_REVOKED", "enterprise_managed event uses a revoked credential.")
                 matched_known_credential = True
             if matched_known_credential:
                 return
+
+    def _replacement_chain_token_matches(self, credentials: dict[str, Any], ingestion_token: str | None) -> bool:
+        if ingestion_token in (None, "") or credentials.get("revocation_resolution") != "reissued":
+            return False
+        seen_bootstrap_ids: set[str] = set()
+        next_bootstrap_id = str(credentials.get("reissued_bootstrap_id") or "")
+        while next_bootstrap_id and next_bootstrap_id not in seen_bootstrap_ids:
+            seen_bootstrap_ids.add(next_bootstrap_id)
+            replacement = self.credentials_by_bootstrap.get(next_bootstrap_id)
+            if not replacement:
+                return False
+            if replacement.get("status") != "revoked":
+                return replacement.get("status") == "active" and ingestion_token == replacement.get("token_id")
+            if replacement.get("revocation_resolution") != "reissued":
+                return False
+            next_bootstrap_id = str(replacement.get("reissued_bootstrap_id") or "")
+        return False
 
     def record_credential_issue_idempotency(self, idempotency_key: str, handoff_identity: dict[str, Any]) -> None:
         with self._lock:

@@ -35,6 +35,7 @@
 - AO21-CT-005：同一 reissue 请求可幂等重试并返回相同结果。
 - AO21-CT-006：HTTP reissue route 必须返回 JSON、CORS 和 `agentops_credential_reissue.v1`。
 - AO21-CT-007：reissued 后同一 identity 的企业托管事件必须使用替代 credential token。
+- AO21-CT-008：多次轮换时，revoked ancestor 必须追踪到最新 active replacement，允许最新 token 并拒绝中间 stale token。
 
 ## 落地结果
 

@@ -56,7 +56,8 @@
 - 自检结论：reissue 由 AgentOps 作为事实源签发替代 credential，Agent Store 和 Console 只显示回显事实。
 - 安全边界：source credential 保持 revoked；旧 token 和随机 token 不得借同一 identity 绕过撤销。
 - 状态边界：reissued 不构成 `verified_loaded` 或 L5，所有回显保持 `not_asserted`。
-- PR #21 Codex review 反馈：source credential 已 reissued 后仍可用不同 `new_bootstrap_id` 二次重新签发。已新增 source-level guard，只允许同一 `reissue_id`/`reissued_bootstrap_id` 幂等返回同一个 replacement，并补 `test_ao21_ct_001c_reissue_source_allows_only_one_replacement` 回归测试。
+- PR #21 Codex review 反馈 1：source credential 已 reissued 后仍可用不同 `new_bootstrap_id` 二次重新签发。已新增 source-level guard，只允许同一 `reissue_id`/`reissued_bootstrap_id` 幂等返回同一个 replacement，并补 `test_ao21_ct_001c_reissue_source_allows_only_one_replacement` 回归测试。
+- PR #21 Codex review 反馈 2：A->B->C 多次轮换时，A 的 revoked identity check 只看直接 replacement B，会误拒 C 的最新 token。已新增 replacement chain token resolution，并补 `test_ao21_ct_008_revocation_check_follows_replacement_chain` 回归测试。
 
 ## 任务/计划同步状态
 
