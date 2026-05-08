@@ -93,36 +93,39 @@ specs:
 - id: 024-durable-audit-log
   path: specs/024-durable-audit-log
   depends_on: []
+- id: 025-production-audit-coverage
+  path: specs/025-production-audit-coverage
+  depends_on: []
 truth_snapshot:
-  generated_at: '2026-05-08T07:28:14Z'
+  generated_at: '2026-05-08T08:26:46Z'
   generated_by: ai-sdlc program truth sync
   generator_version: program_truth_snapshot_v1
-  repo_revision: da8cf4c
-  authoring_hash: 975c8fdd6653e40353b6df990aa10001761db0b1a0e036b231f6edde1cda4354
+  repo_revision: c69bf9c
+  authoring_hash: 91255e37ba368ba3e796cba290151cb8f9f5d047f4c9c5664b07d2240e62ccc8
   source_hashes: {}
-  snapshot_hash: 90379c97951362cb06388af123d4a58a9433b8f0f7fb19786db2d1c8cdc06d2e
+  snapshot_hash: 73bd6124e31a6257a3cb3e8ce24a0aabdaa795a0e195e67bb004a7c2be916e2c
   computed_capabilities: []
   source_inventory:
     state: complete
-    total_sources: 120
-    mapped_sources: 120
+    total_sources: 125
+    mapped_sources: 125
     unmapped_sources: 0
     missing_sources: 2
-    phase_signal_count: 120
-    deferred_signal_count: 167
-    non_goal_signal_count: 33
+    phase_signal_count: 123
+    deferred_signal_count: 175
+    non_goal_signal_count: 38
     layer_totals:
-      spec: 24
-      plan: 24
-      tasks: 24
-      execution: 24
-      close: 24
+      spec: 25
+      plan: 25
+      tasks: 25
+      execution: 25
+      close: 25
     layer_materialized:
-      spec: 24
-      plan: 24
-      tasks: 24
-      execution: 22
-      close: 24
+      spec: 25
+      plan: 25
+      tasks: 25
+      execution: 23
+      close: 25
     entries:
     - path: specs/001-agentops-trusted-loop/spec.md
       source_type: spec_doc
@@ -1203,6 +1206,51 @@ truth_snapshot:
       mapping_ref: 024-durable-audit-log
       phase_signal_count: 0
       deferred_signal_count: 3
+      non_goal_signal_count: 0
+    - path: specs/025-production-audit-coverage/spec.md
+      source_type: spec_doc
+      truth_layer: spec
+      mapped: true
+      exists: true
+      mapping_ref: 025-production-audit-coverage
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 1
+    - path: specs/025-production-audit-coverage/plan.md
+      source_type: plan_doc
+      truth_layer: plan
+      mapped: true
+      exists: true
+      mapping_ref: 025-production-audit-coverage
+      phase_signal_count: 1
+      deferred_signal_count: 1
+      non_goal_signal_count: 2
+    - path: specs/025-production-audit-coverage/tasks.md
+      source_type: tasks_doc
+      truth_layer: tasks
+      mapped: true
+      exists: true
+      mapping_ref: 025-production-audit-coverage
+      phase_signal_count: 2
+      deferred_signal_count: 2
+      non_goal_signal_count: 0
+    - path: specs/025-production-audit-coverage/task-execution-log.md
+      source_type: execution_log
+      truth_layer: execution
+      mapped: true
+      exists: true
+      mapping_ref: 025-production-audit-coverage
+      phase_signal_count: 0
+      deferred_signal_count: 3
+      non_goal_signal_count: 2
+    - path: specs/025-production-audit-coverage/development-summary.md
+      source_type: development_summary
+      truth_layer: close
+      mapped: true
+      exists: true
+      mapping_ref: 025-production-audit-coverage
+      phase_signal_count: 0
+      deferred_signal_count: 2
       non_goal_signal_count: 0
     unmapped_paths: []
   state: ready

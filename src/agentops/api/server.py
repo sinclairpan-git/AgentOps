@@ -83,9 +83,13 @@ def create_http_handler(
                 if auth_error:
                     self._send_auth_error(auth_error)
                     return
-                self._send_json(
-                    HTTPStatus.OK, build_console_snapshot(repository=live_repository)
+                response = build_console_snapshot(repository=live_repository)
+                self._append_audit_record(
+                    action="console.snapshot.read",
+                    outcome="accepted",
+                    resource=request_path,
                 )
+                self._send_json(HTTPStatus.OK, response)
                 return
 
             store_summary_prefix = "/v1/store-summary/"
@@ -109,6 +113,12 @@ def create_http_handler(
                 run_id = self._query_value(query, "run_id")
                 schema_version = self._query_value(query, "schema_version") or "1.0"
                 if not version or not run_id:
+                    self._append_audit_record(
+                        action="store.summary.read",
+                        outcome="rejected",
+                        resource=request_path,
+                        error_code="STORE_SUMMARY_QUERY_REQUIRED",
+                    )
                     self._send_json(
                         HTTPStatus.BAD_REQUEST,
                         {
@@ -126,9 +136,20 @@ def create_http_handler(
                         run_id,
                         consumer_schema_version=schema_version,
                     )
+                    self._append_audit_record(
+                        action="store.summary.read",
+                        outcome="accepted",
+                        resource=request_path,
+                    )
                     self._send_json(HTTPStatus.OK, response)
                 except AgentOpsError as exc:
                     status = self._store_summary_status(exc)
+                    self._append_audit_record(
+                        action="store.summary.read",
+                        outcome="rejected",
+                        resource=request_path,
+                        error_code=exc.error_code,
+                    )
                     self._send_json(
                         status,
                         {
@@ -147,11 +168,23 @@ def create_http_handler(
                     return
                 bootstrap_id = request_path.removeprefix(credential_status_prefix)
                 try:
+                    response = get_credential_status(live_repository, bootstrap_id)
+                    self._append_audit_record(
+                        action="credential.read",
+                        outcome="accepted",
+                        resource=request_path,
+                    )
                     self._send_json(
                         HTTPStatus.OK,
-                        get_credential_status(live_repository, bootstrap_id),
+                        response,
                     )
                 except AgentOpsError as exc:
+                    self._append_audit_record(
+                        action="credential.read",
+                        outcome="rejected",
+                        resource=request_path,
+                        error_code=exc.error_code,
+                    )
                     self._send_json(
                         HTTPStatus.NOT_FOUND,
                         {
@@ -198,6 +231,12 @@ def create_http_handler(
                 )
                 payload = self._read_json()
                 if payload is None:
+                    self._append_audit_record(
+                        action="credential.reissue",
+                        outcome="rejected",
+                        resource=request_path,
+                        error_code="REQUEST_JSON_INVALID",
+                    )
                     self._send_json(
                         HTTPStatus.BAD_REQUEST,
                         {
@@ -212,12 +251,23 @@ def create_http_handler(
                         live_repository,
                         headers=dict(self.headers),
                     )
+                    self._append_audit_record(
+                        action="credential.reissue",
+                        outcome="accepted",
+                        resource=request_path,
+                    )
                     self._send_json(HTTPStatus.OK, response)
                 except AgentOpsError as exc:
                     status = (
                         HTTPStatus.NOT_FOUND
                         if exc.error_code == "CREDENTIAL_REISSUE_NOT_FOUND"
                         else HTTPStatus.BAD_REQUEST
+                    )
+                    self._append_audit_record(
+                        action="credential.reissue",
+                        outcome="rejected",
+                        resource=request_path,
+                        error_code=exc.error_code,
                     )
                     self._send_json(
                         status,
@@ -245,6 +295,12 @@ def create_http_handler(
                 )
                 payload = self._read_json()
                 if payload is None:
+                    self._append_audit_record(
+                        action="credential.revoke",
+                        outcome="rejected",
+                        resource=request_path,
+                        error_code="REQUEST_JSON_INVALID",
+                    )
                     self._send_json(
                         HTTPStatus.BAD_REQUEST,
                         {
@@ -257,12 +313,23 @@ def create_http_handler(
                     response = revoke_credentials(
                         {**payload, "bootstrap_id": bootstrap_id}, live_repository
                     )
+                    self._append_audit_record(
+                        action="credential.revoke",
+                        outcome="accepted",
+                        resource=request_path,
+                    )
                     self._send_json(HTTPStatus.OK, response)
                 except AgentOpsError as exc:
                     status = (
                         HTTPStatus.NOT_FOUND
                         if exc.error_code == "CREDENTIAL_REVOCATION_NOT_FOUND"
                         else HTTPStatus.BAD_REQUEST
+                    )
+                    self._append_audit_record(
+                        action="credential.revoke",
+                        outcome="rejected",
+                        resource=request_path,
+                        error_code=exc.error_code,
                     )
                     self._send_json(
                         status,
