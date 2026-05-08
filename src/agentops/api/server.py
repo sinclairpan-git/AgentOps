@@ -30,6 +30,9 @@ ALLOWED_ORIGINS = {
     "http://localhost:5174",
 }
 
+AUDIT_QUERY_DEFAULT_LIMIT = 50
+AUDIT_QUERY_MAX_LIMIT = 200
+
 
 def create_http_handler(
     repository: InMemoryRepository | None = None,
@@ -86,6 +89,52 @@ def create_http_handler(
                 response = build_console_snapshot(repository=live_repository)
                 self._append_audit_record(
                     action="console.snapshot.read",
+                    outcome="accepted",
+                    resource=request_path,
+                )
+                self._send_json(HTTPStatus.OK, response)
+                return
+
+            if request_path == "/v1/audit/runtime":
+                auth_error = self._require_scope("runtime.audit.read")
+                if auth_error:
+                    self._send_auth_error(
+                        auth_error,
+                        action="runtime.audit.read",
+                        resource=request_path,
+                    )
+                    return
+                if audit_log is None:
+                    self._send_json(
+                        HTTPStatus.SERVICE_UNAVAILABLE,
+                        {
+                            "error_code": "AUDIT_LOG_UNAVAILABLE",
+                            "message": "Runtime audit log is not configured.",
+                            "retryable": True,
+                        },
+                    )
+                    return
+                query = self._request_query()
+                try:
+                    response = self._runtime_audit_query_response(query)
+                except AgentOpsError as exc:
+                    self._append_audit_record(
+                        action="runtime.audit.read",
+                        outcome="rejected",
+                        resource=request_path,
+                        error_code=exc.error_code,
+                    )
+                    self._send_json(
+                        HTTPStatus.BAD_REQUEST,
+                        {
+                            "error_code": exc.error_code,
+                            "message": exc.message,
+                            "retryable": exc.retryable,
+                        },
+                    )
+                    return
+                self._append_audit_record(
+                    action="runtime.audit.read",
                     outcome="accepted",
                     resource=request_path,
                 )
@@ -421,6 +470,49 @@ def create_http_handler(
         def _query_value(self, query: dict[str, list[str]], name: str) -> str:
             values = query.get(name) or []
             return values[0].strip() if values else ""
+
+        def _runtime_audit_query_response(
+            self, query: dict[str, list[str]]
+        ) -> dict[str, Any]:
+            limit = self._audit_query_limit(query)
+            filters = {
+                name: self._query_value(query, name)
+                for name in ("audit_id", "request_id", "action", "outcome")
+                if self._query_value(query, name)
+            }
+            matched_records = []
+            for record in audit_log.records() if audit_log is not None else []:
+                record_payload = record.to_dict()
+                if any(record_payload.get(name) != value for name, value in filters.items()):
+                    continue
+                matched_records.append(record_payload)
+                if len(matched_records) >= limit:
+                    break
+            return {
+                "schema_version": "agentops.runtime_audit.query.v1",
+                "records": matched_records,
+                "returned": len(matched_records),
+                "limit": limit,
+                "filters": filters,
+            }
+
+        def _audit_query_limit(self, query: dict[str, list[str]]) -> int:
+            raw_limit = self._query_value(query, "limit")
+            if not raw_limit:
+                return AUDIT_QUERY_DEFAULT_LIMIT
+            try:
+                limit = int(raw_limit)
+            except ValueError as exc:
+                raise AgentOpsError(
+                    "AUDIT_LIMIT_INVALID",
+                    "Runtime audit query limit must be a positive integer.",
+                ) from exc
+            if limit < 1:
+                raise AgentOpsError(
+                    "AUDIT_LIMIT_INVALID",
+                    "Runtime audit query limit must be a positive integer.",
+                )
+            return min(limit, AUDIT_QUERY_MAX_LIMIT)
 
         def _store_summary_status(self, exc: AgentOpsError) -> HTTPStatus:
             if exc.error_code == "RUN_NOT_FOUND":

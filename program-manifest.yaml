@@ -96,36 +96,39 @@ specs:
 - id: 025-production-audit-coverage
   path: specs/025-production-audit-coverage
   depends_on: []
+- id: 026-runtime-audit-query
+  path: specs/026-runtime-audit-query
+  depends_on: []
 truth_snapshot:
-  generated_at: '2026-05-08T08:26:46Z'
+  generated_at: '2026-05-08T09:00:57Z'
   generated_by: ai-sdlc program truth sync
   generator_version: program_truth_snapshot_v1
-  repo_revision: c69bf9c
-  authoring_hash: 91255e37ba368ba3e796cba290151cb8f9f5d047f4c9c5664b07d2240e62ccc8
+  repo_revision: b45ff84
+  authoring_hash: c418f45c85c10d0715cbf00734a4f6d3efa875781614ee904ed306e542c4b469
   source_hashes: {}
-  snapshot_hash: 73bd6124e31a6257a3cb3e8ce24a0aabdaa795a0e195e67bb004a7c2be916e2c
+  snapshot_hash: f2ae41006f6c04fcb9b76aa208b769bda54161230ca1bfa5de0a703af625de30
   computed_capabilities: []
   source_inventory:
     state: complete
-    total_sources: 125
-    mapped_sources: 125
+    total_sources: 130
+    mapped_sources: 130
     unmapped_sources: 0
     missing_sources: 2
-    phase_signal_count: 123
-    deferred_signal_count: 175
-    non_goal_signal_count: 38
+    phase_signal_count: 126
+    deferred_signal_count: 184
+    non_goal_signal_count: 42
     layer_totals:
-      spec: 25
-      plan: 25
-      tasks: 25
-      execution: 25
-      close: 25
+      spec: 26
+      plan: 26
+      tasks: 26
+      execution: 26
+      close: 26
     layer_materialized:
-      spec: 25
-      plan: 25
-      tasks: 25
-      execution: 23
-      close: 25
+      spec: 26
+      plan: 26
+      tasks: 26
+      execution: 24
+      close: 26
     entries:
     - path: specs/001-agentops-trusted-loop/spec.md
       source_type: spec_doc
@@ -1249,6 +1252,51 @@ truth_snapshot:
       mapped: true
       exists: true
       mapping_ref: 025-production-audit-coverage
+      phase_signal_count: 0
+      deferred_signal_count: 2
+      non_goal_signal_count: 0
+    - path: specs/026-runtime-audit-query/spec.md
+      source_type: spec_doc
+      truth_layer: spec
+      mapped: true
+      exists: true
+      mapping_ref: 026-runtime-audit-query
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 1
+    - path: specs/026-runtime-audit-query/plan.md
+      source_type: plan_doc
+      truth_layer: plan
+      mapped: true
+      exists: true
+      mapping_ref: 026-runtime-audit-query
+      phase_signal_count: 1
+      deferred_signal_count: 2
+      non_goal_signal_count: 1
+    - path: specs/026-runtime-audit-query/tasks.md
+      source_type: tasks_doc
+      truth_layer: tasks
+      mapped: true
+      exists: true
+      mapping_ref: 026-runtime-audit-query
+      phase_signal_count: 1
+      deferred_signal_count: 1
+      non_goal_signal_count: 0
+    - path: specs/026-runtime-audit-query/task-execution-log.md
+      source_type: execution_log
+      truth_layer: execution
+      mapped: true
+      exists: true
+      mapping_ref: 026-runtime-audit-query
+      phase_signal_count: 1
+      deferred_signal_count: 4
+      non_goal_signal_count: 2
+    - path: specs/026-runtime-audit-query/development-summary.md
+      source_type: development_summary
+      truth_layer: close
+      mapped: true
+      exists: true
+      mapping_ref: 026-runtime-audit-query
       phase_signal_count: 0
       deferred_signal_count: 2
       non_goal_signal_count: 0
