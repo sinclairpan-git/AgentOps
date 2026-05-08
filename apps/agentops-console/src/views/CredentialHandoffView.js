@@ -1,11 +1,13 @@
 import { DataTable } from "../components/DataTable.js";
 import { StatusBadge } from "../components/StatusBadge.js";
+import { TermGlossary } from "../components/TermGlossary.js";
 
 export const CredentialHandoffView = {
   name: "CredentialHandoffView",
   components: {
     DataTable,
-    StatusBadge
+    StatusBadge,
+    TermGlossary
   },
   props: {
     data: { type: Object, required: true }
@@ -21,6 +23,12 @@ export const CredentialHandoffView = {
         { key: "next_action_label", label: "下一步" },
         { key: "verified_loaded", label: "治理加载", type: "status" },
         { key: "l5_status", label: "L5", type: "status" }
+      ],
+      glossaryTerms: [
+        { label: "只读回显", copy: "只展示后端事实，不在页面里签发、激活或撤销。" },
+        { label: "签名测试", copy: "验证事件确实来自可信来源，但不等同治理已激活。" },
+        { label: "已验证加载", copy: "需要机器证据证明治理规则真实加载。" },
+        { label: "L5", copy: "最高等级证据，必须同时满足加载、签名、投递等条件。" }
       ]
     };
   },
@@ -41,6 +49,21 @@ export const CredentialHandoffView = {
     }
   },
   methods: {
+    readableText(value) {
+      return String(value || "")
+        .replaceAll("verified_loaded", "已验证加载")
+        .replaceAll("ReporterCredential", "上报器凭证")
+        .replaceAll("IngestionToken", "接入令牌")
+        .replaceAll("DeviceKey", "设备密钥")
+        .replaceAll("infer_active", "本地推导可用")
+        .replaceAll("issue_credential", "签发凭证")
+        .replaceAll("issue_ingestion_token", "签发接入令牌")
+        .replaceAll("issue_device_key", "签发设备密钥")
+        .replaceAll("display_status", "展示状态")
+        .replaceAll("show_next_action", "展示下一步")
+        .replaceAll("active", "可用")
+        .replaceAll("signature_verified", "签名测试通过");
+    },
     actionLabel(action) {
       const labels = {
         issue_credential: "签发 AgentOps 凭证",
@@ -55,8 +78,9 @@ export const CredentialHandoffView = {
     <div class="view-stack">
       <section class="page-heading">
         <div><p class="eyebrow">跨项目联调</p><h3>凭证联调</h3></div>
-        <p class="heading-copy">展示 Agent Store 交接到 AgentOps 后的只读状态回显；本页不签发、不激活、不得本地推导 active，也不推导 verified_loaded。</p>
+        <p class="heading-copy">展示 Agent Store 交接到 AgentOps 后的只读状态回显；本页不签发、不激活、不得本地推导“可用”，也不推导“已验证加载”。</p>
       </section>
+      <term-glossary :terms="glossaryTerms" />
 
       <section class="panel-grid four">
         <ent-card>
@@ -72,7 +96,7 @@ export const CredentialHandoffView = {
         <ent-card>
           <p class="eyebrow">签名测试通过</p>
           <h4>{{ workbench.summary.signature_verified || 0 }}</h4>
-          <p class="muted">不等同 verified_loaded 或 L5。</p>
+          <p class="muted">不等同“已验证加载”或 L5。</p>
         </ent-card>
         <ent-card>
           <p class="eyebrow">已撤销</p>
@@ -85,7 +109,7 @@ export const CredentialHandoffView = {
         <div>
           <p class="eyebrow">事实来源</p>
           <h4>{{ workbench.summary.agentops_fact_owner || "agentops" }}</h4>
-          <p class="muted">{{ workbench.summary.safety_note }}</p>
+          <p class="muted">{{ readableText(workbench.summary.safety_note) }}</p>
         </div>
         <status-badge :status="workbench.summary.verified_loaded || 'not_asserted'" />
       </section>
@@ -95,8 +119,12 @@ export const CredentialHandoffView = {
           <h4>凭证状态回显</h4>
           <span>Agent Store 只消费展示字段</span>
         </div>
-        <data-table v-if="sessionRows.length" :columns="sessionColumns" :rows="sessionRows" />
-        <ent-card v-else><p class="empty-state">暂无凭证联调记录。</p></ent-card>
+        <data-table
+          :columns="sessionColumns"
+          :rows="sessionRows"
+          empty-title="暂无凭证联调记录"
+          empty-detail="当前没有跨项目凭证回显；签发、签名测试、撤销或重新签发后会显示只读状态。"
+        />
       </section>
 
       <section class="panel-grid two">
@@ -118,8 +146,8 @@ export const CredentialHandoffView = {
             <span>reissue_id：{{ item.reissue_id }}</span>
             <span>新启动会话：{{ item.reissued_bootstrap_id }}</span>
             <span>新凭证：{{ item.reissued_credential_id }}</span>
-            <span>允许动作：{{ item.allowed_actions }}</span>
-            <span>禁止动作：{{ item.forbidden_actions }}</span>
+            <span>允许动作：{{ readableText(item.allowed_actions) }}</span>
+            <span>禁止动作：{{ readableText(item.forbidden_actions) }}</span>
           </div>
           <p class="muted">{{ item.display_scope }}</p>
         </ent-card>
@@ -127,7 +155,7 @@ export const CredentialHandoffView = {
 
       <section class="guardrail-list">
         <div v-for="guardrail in workbench.guardrails" :key="guardrail" class="guardrail-item">
-          {{ guardrail }}
+          {{ readableText(guardrail) }}
         </div>
       </section>
     </div>

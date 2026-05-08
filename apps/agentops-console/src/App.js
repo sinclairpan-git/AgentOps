@@ -77,6 +77,7 @@ export default {
       :action-workbench="consoleData.actionWorkbench"
       :active-action-id="activeActionId"
       :source-state="sourceState"
+      :show-source-banner="activeRoute === 'overview'"
       @navigate="navigate"
       @open-action-detail="openActionDetail"
       @close-action-detail="closeActionDetail"

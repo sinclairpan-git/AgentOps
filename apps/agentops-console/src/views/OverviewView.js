@@ -35,7 +35,7 @@ export const OverviewView = {
         <ent-card>
           <div class="section-title">
             <h4>优先风险</h4>
-            <ent-button tone="ghost" @click="$emit('navigate', 'risks')">打开队列</ent-button>
+            <ent-button tone="ghost" @click="$emit('navigate', 'risks')">查看风险处置队列</ent-button>
           </div>
           <div class="list-stack">
             <button
@@ -51,13 +51,17 @@ export const OverviewView = {
               </span>
               <status-badge :status="risk.state" />
             </button>
+            <div v-if="!data.risks.length" class="empty-workbench">
+              <strong>暂无优先风险</strong>
+              <p>当前没有策略阻断、证据脱敏失败或治理证明缺口。新风险出现后会同步到风险处置队列。</p>
+            </div>
           </div>
         </ent-card>
 
         <ent-card>
           <div class="section-title">
             <h4>治理证明</h4>
-            <ent-button tone="ghost" @click="$emit('navigate', 'sdlc-runs')">查看</ent-button>
+            <ent-button tone="ghost" @click="$emit('navigate', 'sdlc-runs')">查看 AI-SDLC 证明</ent-button>
           </div>
           <div class="proof-panel">
             <status-badge :status="data.summary.adapter.status" />
