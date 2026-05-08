@@ -131,3 +131,14 @@
   - `uv run pytest tests/contract/test_ao24_ct_durable_audit_log.py -q`
   - `uv run ruff check src tests`
 - 结果：通过。
+
+### Review Fix 2026-05-08-002 | Codex P1 audit append I/O isolation
+
+- 反馈来源：PR #25 Codex Review。
+- 问题：`audit_log.append(...)` 同步抛出 `OSError` 时会中断 auth denial 或 event ingest 响应，使审计后端故障影响 API contract。
+- 修复：`_append_audit_record` 捕获 `OSError` 并保持业务响应路径继续执行。
+- 新增测试：`test_ao24_ct_007_audit_append_io_errors_do_not_abort_api_responses`
+- 执行命令：
+  - `uv run pytest tests/contract/test_ao24_ct_durable_audit_log.py -q`
+  - `uv run ruff check src tests`
+- 结果：通过。

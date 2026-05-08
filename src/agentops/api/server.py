@@ -418,22 +418,25 @@ def create_http_handler(
                 return
 
             identity = parse_upstream_identity(self.headers)
-            audit_log.append(
-                AuditRecord(
-                    audit_id=audit_id
-                    or (identity.audit_id if identity else "audit_anonymous"),
-                    request_id=request_id
-                    or (identity.request_id if identity else "req_anonymous"),
-                    action=action,
-                    outcome=outcome,
-                    principal=identity.principal if identity else "anonymous",
-                    roles=tuple(sorted(identity.roles)) if identity else (),
-                    scopes=tuple(sorted(identity.scopes)) if identity else (),
-                    resource=resource,
-                    denied_scope=denied_scope or "",
-                    error_code=error_code,
+            try:
+                audit_log.append(
+                    AuditRecord(
+                        audit_id=audit_id
+                        or (identity.audit_id if identity else "audit_anonymous"),
+                        request_id=request_id
+                        or (identity.request_id if identity else "req_anonymous"),
+                        action=action,
+                        outcome=outcome,
+                        principal=identity.principal if identity else "anonymous",
+                        roles=tuple(sorted(identity.roles)) if identity else (),
+                        scopes=tuple(sorted(identity.scopes)) if identity else (),
+                        resource=resource,
+                        denied_scope=denied_scope or "",
+                        error_code=error_code,
+                    )
                 )
-            )
+            except OSError:
+                return
 
         def _send_json(self, status: HTTPStatus, payload: dict[str, Any]) -> None:
             body = (

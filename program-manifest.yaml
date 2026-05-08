@@ -94,13 +94,13 @@ specs:
   path: specs/024-durable-audit-log
   depends_on: []
 truth_snapshot:
-  generated_at: '2026-05-08T07:15:22Z'
+  generated_at: '2026-05-08T07:28:14Z'
   generated_by: ai-sdlc program truth sync
   generator_version: program_truth_snapshot_v1
-  repo_revision: 75c5f12
+  repo_revision: da8cf4c
   authoring_hash: 975c8fdd6653e40353b6df990aa10001761db0b1a0e036b231f6edde1cda4354
   source_hashes: {}
-  snapshot_hash: d81307e189911abe43df0aebc75c4c3f98e45b8c935504b3b8adc903a8ccaa30
+  snapshot_hash: 90379c97951362cb06388af123d4a58a9433b8f0f7fb19786db2d1c8cdc06d2e
   computed_capabilities: []
   source_inventory:
     state: complete
@@ -108,8 +108,8 @@ truth_snapshot:
     mapped_sources: 120
     unmapped_sources: 0
     missing_sources: 2
-    phase_signal_count: 119
-    deferred_signal_count: 166
+    phase_signal_count: 120
+    deferred_signal_count: 167
     non_goal_signal_count: 33
     layer_totals:
       spec: 24
@@ -1192,8 +1192,8 @@ truth_snapshot:
       mapped: true
       exists: true
       mapping_ref: 024-durable-audit-log
-      phase_signal_count: 1
-      deferred_signal_count: 8
+      phase_signal_count: 2
+      deferred_signal_count: 9
       non_goal_signal_count: 1
     - path: specs/024-durable-audit-log/development-summary.md
       source_type: development_summary

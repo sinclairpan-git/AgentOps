@@ -246,3 +246,32 @@ def test_ao24_ct_006_malformed_audit_lines_do_not_block_valid_readback(
     records = JsonlAuditLog(audit_path).records()
 
     assert [record.audit_id for record in records] == ["audit_before", "audit_after"]
+
+
+class _UnavailableAuditLog:
+    def append(self, record: AuditRecord) -> None:
+        raise OSError("audit backend unavailable")
+
+
+def test_ao24_ct_007_audit_append_io_errors_do_not_abort_api_responses():
+    repository = InMemoryRepository()
+    server = ThreadingHTTPServer(
+        ("127.0.0.1", 0),
+        create_http_handler(
+            repository,
+            require_auth=True,
+            audit_log=_UnavailableAuditLog(),  # type: ignore[arg-type]
+        ),
+    )
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        response, payload = _json_request(
+            server, "POST", "/v1/events", payload={"events": [_sensitive_event()]}
+        )
+    finally:
+        server.shutdown()
+
+    assert response.status == 401
+    assert payload["error_code"] == "UPSTREAM_IDENTITY_REQUIRED"
+    assert repository.raw_event_count() == 0
