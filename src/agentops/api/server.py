@@ -10,7 +10,7 @@ from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
 from agentops import __version__
-from agentops.api.auth import require_scope
+from agentops.api.auth import parse_upstream_identity, require_scope
 from agentops.api.console_snapshot import build_console_snapshot
 from agentops.api.credentials import (
     get_credential_status,
@@ -20,6 +20,7 @@ from agentops.api.credentials import (
 from agentops.api.ingestion import ingest_events_batch
 from agentops.api.store_summary import get_agent_store_summary_for_run
 from agentops.core.errors import AgentOpsError
+from agentops.storage.audit import AuditRecord, JsonlAuditLog
 from agentops.storage.repository import InMemoryRepository
 
 ALLOWED_ORIGINS = {
@@ -34,6 +35,7 @@ def create_http_handler(
     repository: InMemoryRepository | None = None,
     *,
     require_auth: bool = False,
+    audit_log: JsonlAuditLog | None = None,
 ) -> type[BaseHTTPRequestHandler]:
     live_repository = repository or InMemoryRepository()
 
@@ -275,10 +277,18 @@ def create_http_handler(
             if request_path in {"/v1/events", "/v1/events/batch"}:
                 auth_error = self._require_scope("event.ingest")
                 if auth_error:
-                    self._send_auth_error(auth_error)
+                    self._send_auth_error(
+                        auth_error, action="event.ingest", resource=request_path
+                    )
                     return
                 payload = self._read_json()
                 if payload is None:
+                    self._append_audit_record(
+                        action="event.ingest",
+                        outcome="rejected",
+                        resource=request_path,
+                        error_code="REQUEST_JSON_INVALID",
+                    )
                     self._send_json(
                         HTTPStatus.BAD_REQUEST,
                         {
@@ -289,6 +299,12 @@ def create_http_handler(
                     return
                 events = payload.get("events") if isinstance(payload, dict) else None
                 if not isinstance(events, list):
+                    self._append_audit_record(
+                        action="event.ingest",
+                        outcome="rejected",
+                        resource=request_path,
+                        error_code="EVENTS_REQUIRED",
+                    )
                     self._send_json(
                         HTTPStatus.BAD_REQUEST,
                         {
@@ -302,6 +318,14 @@ def create_http_handler(
                     HTTPStatus.ACCEPTED
                     if outcome["accepted"] or outcome["deduplicated"]
                     else HTTPStatus.BAD_REQUEST
+                )
+                self._append_audit_record(
+                    action="event.ingest",
+                    outcome="accepted"
+                    if status == HTTPStatus.ACCEPTED
+                    else "rejected",
+                    resource=request_path,
+                    error_code="" if status == HTTPStatus.ACCEPTED else "EVENTS_REJECTED",
                 )
                 self._send_json(status, outcome)
                 return
@@ -356,13 +380,63 @@ def create_http_handler(
                 return exc
             return None
 
-        def _send_auth_error(self, exc: AgentOpsError) -> None:
+        def _send_auth_error(
+            self,
+            exc: AgentOpsError,
+            *,
+            action: str | None = None,
+            resource: str | None = None,
+        ) -> None:
+            self._append_audit_record(
+                action=action or exc.denied_scope or "authorization.check",
+                outcome="denied",
+                resource=resource or self._request_path(),
+                denied_scope=exc.denied_scope,
+                error_code=exc.error_code,
+                audit_id=exc.audit_id,
+                request_id=exc.request_id,
+            )
             status = (
                 HTTPStatus.UNAUTHORIZED
                 if exc.error_code == "UPSTREAM_IDENTITY_REQUIRED"
                 else HTTPStatus.FORBIDDEN
             )
             self._send_json(status, exc.to_response())
+
+        def _append_audit_record(
+            self,
+            *,
+            action: str,
+            outcome: str,
+            resource: str,
+            denied_scope: str | None = None,
+            error_code: str = "",
+            audit_id: str | None = None,
+            request_id: str | None = None,
+        ) -> None:
+            if audit_log is None:
+                return
+
+            identity = parse_upstream_identity(self.headers)
+            try:
+                audit_log.append(
+                    AuditRecord(
+                        audit_id=audit_id
+                        or (identity.audit_id if identity else "audit_anonymous"),
+                        request_id=request_id
+                        or (identity.request_id if identity else "req_anonymous"),
+                        action=action,
+                        outcome=outcome,
+                        principal=identity.principal if identity else "anonymous",
+                        roles=tuple(sorted(identity.roles)) if identity else (),
+                        scopes=tuple(sorted(identity.scopes)) if identity else (),
+                        resource=resource,
+                        denied_scope=denied_scope or "",
+                        error_code=error_code,
+                    )
+                )
+            except OSError:
+                return
 
         def _send_json(self, status: HTTPStatus, payload: dict[str, Any]) -> None:
             body = (
