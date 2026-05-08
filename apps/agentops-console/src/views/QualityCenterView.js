@@ -130,9 +130,19 @@ export const QualityCenterView = {
           <h4>复核队列</h4>
           <span>人工处理</span>
         </div>
-        <data-table :columns="reviewColumns" :rows="adoption.reviewSignals" />
+        <data-table
+          :columns="reviewColumns"
+          :rows="adoption.reviewSignals"
+          empty-title="暂无人工复核事项"
+          empty-detail="当前没有低置信、返工或采纳异常需要人工处理。"
+        />
       </section>
-      <data-table :columns="columns" :rows="data.quality" />
+      <data-table
+        :columns="columns"
+        :rows="data.quality"
+        empty-title="暂无质量信号"
+        empty-detail="当前快照没有质量异常信号；采纳、CI、复核或 Agent Store 回显产生后会在这里展示。"
+      />
     </div>
   `
 };

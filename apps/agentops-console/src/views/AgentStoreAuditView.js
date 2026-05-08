@@ -82,17 +82,17 @@ export const AgentStoreAuditView = {
       <section class="panel-grid three">
         <ent-card>
           <p class="eyebrow">发现队列</p>
-          <h4>{{ agentStore.discoveryGaps.length }}</h4>
+          <h4><span class="metric-number">{{ agentStore.discoveryGaps.length }}</span></h4>
           <p class="muted">未注册 Agent 或 Skill 会进入疑似异常队列。</p>
         </ent-card>
         <ent-card>
           <p class="eyebrow">运行审计</p>
-          <h4>{{ agentStore.runAudits.length }}</h4>
+          <h4><span class="metric-number">{{ agentStore.runAudits.length }}</span></h4>
           <p class="muted">审计只展示摘要和深链，不暴露原文。</p>
         </ent-card>
         <ent-card>
           <p class="eyebrow">注册映射</p>
-          <h4>{{ agentStore.registryMap.length }}</h4>
+          <h4><span class="metric-number">{{ agentStore.registryMap.length }}</span></h4>
           <p class="muted">事实来源保持为 Agent Store。</p>
         </ent-card>
       </section>
@@ -103,7 +103,12 @@ export const AgentStoreAuditView = {
           <span>负责人和下一步动作</span>
         </div>
         <data-table v-if="gapRows.length" :columns="gapColumns" :rows="gapRows" />
-        <ent-card v-else><p class="empty-state">暂无未注册发现。</p></ent-card>
+        <ent-card v-else>
+          <div class="empty-workbench">
+            <strong>暂无未注册发现</strong>
+            <p>当前没有运行事件指向未注册 Agent 或 Skill。出现疑似异常后，这里会展示负责人、影响运行和下一步动作。</p>
+          </div>
+        </ent-card>
       </section>
 
       <section class="list-stack">
@@ -111,6 +116,12 @@ export const AgentStoreAuditView = {
           <h4>运行审计</h4>
           <span>注册状态、事件数和深链</span>
         </div>
+        <ent-card v-if="!agentStore.runAudits.length">
+          <div class="empty-workbench">
+            <strong>暂无运行审计</strong>
+            <p>当前没有可映射到 Agent Store 的运行审计摘要。产生运行事件后会展示注册状态、事件数和深链。</p>
+          </div>
+        </ent-card>
         <ent-card v-for="audit in agentStore.runAudits" :key="audit.audit_id">
           <div class="audit-card">
             <div>
@@ -147,7 +158,12 @@ export const AgentStoreAuditView = {
           <h4>注册映射</h4>
           <span>只读消费 Agent Store 元数据</span>
         </div>
-        <data-table :columns="registryColumns" :rows="agentStore.registryMap" />
+        <data-table
+          :columns="registryColumns"
+          :rows="agentStore.registryMap"
+          empty-title="暂无注册映射"
+          empty-detail="当前快照没有 Agent Store 元数据映射；同步后会显示 Agent、版本、Skill 数和事实来源。"
+        />
       </section>
     </div>
   `

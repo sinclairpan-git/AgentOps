@@ -141,7 +141,7 @@ for (const expectedChineseText of [
   "撤销原因",
   "Agent Store 只消费展示字段",
   "不得本地推导 active",
-  "不构成 verified_loaded 或 L5",
+  "不等同“已验证加载”或 L5",
   "发现队列",
   "负责人",
   "影响运行",

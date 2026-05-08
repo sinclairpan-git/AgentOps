@@ -1,4 +1,5 @@
 schema_version: '2'
+prd_path: ''
 program:
   goal: ''
 specs:
@@ -108,36 +109,39 @@ specs:
 - id: 029-runtime-audit-export-bundle
   path: specs/029-runtime-audit-export-bundle
   depends_on: []
+- id: 030-frontend-adversarial-remediation
+  path: specs/030-frontend-adversarial-remediation
+  depends_on: []
 truth_snapshot:
-  generated_at: '2026-05-08T13:16:11Z'
+  generated_at: '2026-05-08T17:27:05Z'
   generated_by: ai-sdlc program truth sync
   generator_version: program_truth_snapshot_v1
-  repo_revision: 5591acc
-  authoring_hash: ba91e85682d60a6074b3e580241c65677c45bc72767e6d8378d7cbe779e4949e
+  repo_revision: 7e73944
+  authoring_hash: 3072b46238dc77a85ea38c977b8831af70a22fab2d25b9e0e272e8bc87ec1479
   source_hashes: {}
-  snapshot_hash: 82cf03a93f283fb5cb995a4e660c5aedf99bbc23b05fe84a47a62b3af157cbe9
+  snapshot_hash: 3dde4c214cd4e483e9c5492604c4d03d4e0d06bccfb2c51714b659247883ecd1
   computed_capabilities: []
   source_inventory:
     state: complete
-    total_sources: 145
-    mapped_sources: 145
+    total_sources: 150
+    mapped_sources: 150
     unmapped_sources: 0
-    missing_sources: 2
-    phase_signal_count: 133
-    deferred_signal_count: 220
-    non_goal_signal_count: 52
+    missing_sources: 0
+    phase_signal_count: 157
+    deferred_signal_count: 244
+    non_goal_signal_count: 55
     layer_totals:
-      spec: 29
-      plan: 29
-      tasks: 29
-      execution: 29
-      close: 29
+      spec: 30
+      plan: 30
+      tasks: 30
+      execution: 30
+      close: 30
     layer_materialized:
-      spec: 29
-      plan: 29
-      tasks: 29
-      execution: 27
-      close: 29
+      spec: 30
+      plan: 30
+      tasks: 30
+      execution: 30
+      close: 30
     entries:
     - path: specs/001-agentops-trusted-loop/spec.md
       source_type: spec_doc
@@ -395,11 +399,11 @@ truth_snapshot:
       source_type: execution_log
       truth_layer: execution
       mapped: true
-      exists: false
+      exists: true
       mapping_ref: 006-agent-store-discovery-audit
       phase_signal_count: 0
       deferred_signal_count: 0
-      non_goal_signal_count: 0
+      non_goal_signal_count: 1
     - path: specs/006-agent-store-discovery-audit/development-summary.md
       source_type: development_summary
       truth_layer: close
@@ -440,11 +444,11 @@ truth_snapshot:
       source_type: execution_log
       truth_layer: execution
       mapped: true
-      exists: false
+      exists: true
       mapping_ref: 007-agent-store-console-audit-workbench
       phase_signal_count: 0
       deferred_signal_count: 0
-      non_goal_signal_count: 0
+      non_goal_signal_count: 1
     - path: specs/007-agent-store-console-audit-workbench/development-summary.md
       source_type: development_summary
       truth_layer: close
@@ -1443,6 +1447,51 @@ truth_snapshot:
       mapping_ref: 029-runtime-audit-export-bundle
       phase_signal_count: 0
       deferred_signal_count: 2
+      non_goal_signal_count: 0
+    - path: specs/030-frontend-adversarial-remediation/spec.md
+      source_type: spec_doc
+      truth_layer: spec
+      mapped: true
+      exists: true
+      mapping_ref: 030-frontend-adversarial-remediation
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 1
+    - path: specs/030-frontend-adversarial-remediation/plan.md
+      source_type: plan_doc
+      truth_layer: plan
+      mapped: true
+      exists: true
+      mapping_ref: 030-frontend-adversarial-remediation
+      phase_signal_count: 5
+      deferred_signal_count: 5
+      non_goal_signal_count: 0
+    - path: specs/030-frontend-adversarial-remediation/tasks.md
+      source_type: tasks_doc
+      truth_layer: tasks
+      mapped: true
+      exists: true
+      mapping_ref: 030-frontend-adversarial-remediation
+      phase_signal_count: 9
+      deferred_signal_count: 9
+      non_goal_signal_count: 0
+    - path: specs/030-frontend-adversarial-remediation/task-execution-log.md
+      source_type: execution_log
+      truth_layer: execution
+      mapped: true
+      exists: true
+      mapping_ref: 030-frontend-adversarial-remediation
+      phase_signal_count: 6
+      deferred_signal_count: 6
+      non_goal_signal_count: 0
+    - path: specs/030-frontend-adversarial-remediation/development-summary.md
+      source_type: development_summary
+      truth_layer: close
+      mapped: true
+      exists: true
+      mapping_ref: 030-frontend-adversarial-remediation
+      phase_signal_count: 4
+      deferred_signal_count: 4
       non_goal_signal_count: 0
     unmapped_paths: []
   state: ready
