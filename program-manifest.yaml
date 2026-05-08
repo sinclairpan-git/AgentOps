@@ -91,13 +91,13 @@ specs:
   path: specs/023-production-runtime-boundary
   depends_on: []
 truth_snapshot:
-  generated_at: '2026-05-08T06:37:56Z'
+  generated_at: '2026-05-08T06:47:40Z'
   generated_by: ai-sdlc program truth sync
   generator_version: program_truth_snapshot_v1
-  repo_revision: 939b1b1
+  repo_revision: 80d826c
   authoring_hash: d8cea9668205b44ebb3b64ecae916a526f422566f89669f867a4b789e0b49024
   source_hashes: {}
-  snapshot_hash: c39394f5c1012f6b474270963e3815f24b9e2a64dc2eda9f09e2a64dba58620d
+  snapshot_hash: 392746e442eea9cd23e157a13e1d456c36a84f67b1176c7b54720e7d8d9db1ad
   computed_capabilities: []
   source_inventory:
     state: complete
@@ -105,8 +105,8 @@ truth_snapshot:
     mapped_sources: 115
     unmapped_sources: 0
     missing_sources: 2
-    phase_signal_count: 114
-    deferred_signal_count: 147
+    phase_signal_count: 115
+    deferred_signal_count: 148
     non_goal_signal_count: 30
     layer_totals:
       spec: 23
@@ -1144,8 +1144,8 @@ truth_snapshot:
       mapped: true
       exists: true
       mapping_ref: 023-production-runtime-boundary
-      phase_signal_count: 1
-      deferred_signal_count: 1
+      phase_signal_count: 2
+      deferred_signal_count: 2
       non_goal_signal_count: 0
     - path: specs/023-production-runtime-boundary/development-summary.md
       source_type: development_summary

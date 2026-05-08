@@ -170,6 +170,30 @@ def test_ao23_ct_004_ingestor_role_can_ingest_events_in_production_mode():
     assert repository.raw_event_count() == 1
 
 
+def test_ao23_ct_004a_auth_headers_are_case_insensitive():
+    repository = InMemoryRepository()
+    server = _start_server(repository)
+    try:
+        response, payload = _json_request(
+            server,
+            "POST",
+            "/v1/events",
+            headers={
+                "x-agentops-principal": "user.ops@example.com",
+                "x-agentops-roles": "agentops-ingestor",
+                "x-agentops-request-id": "req_lowercase",
+                "x-agentops-audit-id": "audit_lowercase",
+            },
+            payload={"events": [base_event()]},
+        )
+    finally:
+        server.shutdown()
+
+    assert response.status == 202
+    assert payload["accepted"] == ["evt_stage_started"]
+    assert repository.raw_event_count() == 1
+
+
 def test_ao23_ct_005_store_summary_requires_consumer_or_viewer_boundary():
     repository = InMemoryRepository()
     _write_l5_run(repository)

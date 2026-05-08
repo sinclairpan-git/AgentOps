@@ -351,7 +351,7 @@ def create_http_handler(
 
         def _require_scope(self, scope: str) -> AgentOpsError | None:
             try:
-                require_scope(dict(self.headers), scope, auth_required=require_auth)
+                require_scope(self.headers, scope, auth_required=require_auth)
             except AgentOpsError as exc:
                 return exc
             return None

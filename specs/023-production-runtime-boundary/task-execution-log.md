@@ -49,6 +49,7 @@
 - `uv run ai-sdlc program status`：通过；frontend generation artifact set 可加载。
 - `uv run ai-sdlc program validate`：PASS，保留 `prd_path is empty` 非阻断提示。
 - `uv run ai-sdlc program truth sync --execute --yes`：truth snapshot ready，115/115 mapped。
+- PR #24 Codex review P1：`dict(self.headers)` 会丢失 HTTP header 名大小写不敏感语义，代理若发送小写 `x-agentops-*` 会被误拒。已改为 case-insensitive header lookup，并补 `test_ao23_ct_004a_auth_headers_are_case_insensitive`。
 
 ## 代码审查
 
@@ -57,6 +58,7 @@
 - 权限边界：viewer 不能写入 event ingestion；ingestor 不能读取 Agent Store summary；consumer/viewer/operator/admin 才能读取 summary。
 - 审计边界：鉴权拒绝响应只包含 error_code、message、retryable、request_id、audit_id、denied_scope，不回显 raw payload、token、device key 或 credential secret。
 - 治理边界：frontend generation artifacts 已迁移到 AI-SDLC loader 兼容结构，避免 `program status` 在生产收口时崩溃。
+- HTTP 边界：鉴权 header 按 HTTP 语义大小写不敏感解析，避免上游代理改写 header casing 后误拒授权请求。
 
 ## 任务/计划同步状态
 

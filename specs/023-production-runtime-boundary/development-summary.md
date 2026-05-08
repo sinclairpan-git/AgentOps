@@ -7,6 +7,7 @@
 - 生产模式保护写接口：`POST /v1/events`、credential revoke、credential reissue。
 - 生产模式保护敏感读接口：Console snapshot、credential status、Agent Store summary。
 - 鉴权失败稳定返回 `UPSTREAM_IDENTITY_REQUIRED` 或 `AGENTOPS_SCOPE_DENIED`，并包含 `request_id`、`audit_id`、`denied_scope`。
+- 鉴权 header 名按 HTTP 语义大小写不敏感解析，兼容上游代理/网关 header casing。
 - `create_app()` route manifest 声明 production auth boundary。
 - 补齐 frontend generation artifacts：`recipe.yaml`、`exceptions.yaml`，并把 generation artifact 集迁移到 AI-SDLC loader 兼容结构。
 

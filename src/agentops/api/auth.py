@@ -108,7 +108,15 @@ def require_scope(
 
 
 def _header(headers: Mapping[str, str], name: str) -> str:
-    return str(headers.get(name, ""))
+    value = headers.get(name, "")
+    if value:
+        return str(value)
+
+    expected = name.lower()
+    for candidate_name, candidate_value in headers.items():
+        if str(candidate_name).lower() == expected:
+            return str(candidate_value)
+    return ""
 
 
 def _split_header_values(value: str) -> list[str]:
