@@ -3,7 +3,12 @@
 from __future__ import annotations
 
 import argparse
+import base64
+import binascii
+import hashlib
+import hmac
 import json
+import os
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
@@ -32,6 +37,8 @@ ALLOWED_ORIGINS = {
 
 AUDIT_QUERY_DEFAULT_LIMIT = 50
 AUDIT_QUERY_MAX_LIMIT = 200
+AUDIT_QUERY_CURSOR_VERSION = 1
+AUDIT_QUERY_CURSOR_SECRET_ENV = "AGENTOPS_AUDIT_CURSOR_SECRET"
 
 
 def create_http_handler(
@@ -39,8 +46,12 @@ def create_http_handler(
     *,
     require_auth: bool = False,
     audit_log: JsonlAuditLog | None = None,
+    audit_cursor_secret: str | bytes | None = None,
 ) -> type[BaseHTTPRequestHandler]:
     live_repository = repository or InMemoryRepository()
+    audit_cursor_secret_bytes = _audit_cursor_secret_bytes(
+        audit_cursor_secret,
+    )
 
     class AgentOpsRequestHandler(BaseHTTPRequestHandler):
         server_version = "AgentOpsHTTP/0.1"
@@ -124,8 +135,13 @@ def create_http_handler(
                         resource=request_path,
                         error_code=exc.error_code,
                     )
+                    status = (
+                        HTTPStatus.SERVICE_UNAVAILABLE
+                        if exc.error_code == "AUDIT_CURSOR_SECRET_UNCONFIGURED"
+                        else HTTPStatus.BAD_REQUEST
+                    )
                     self._send_json(
-                        HTTPStatus.BAD_REQUEST,
+                        status,
                         {
                             "error_code": exc.error_code,
                             "message": exc.message,
@@ -480,20 +496,51 @@ def create_http_handler(
                 for name in ("audit_id", "request_id", "action", "outcome")
                 if self._query_value(query, name)
             }
-            matched_records = []
+            cursor = self._query_value(query, "cursor")
+            cursor_state = self._audit_query_cursor_state(cursor, filters)
+            cursor_offset = cursor_state["offset"]
+            page_end = cursor_offset + limit
+            page_records = []
+            matched_count = 0
             for record in audit_log.records() if audit_log is not None else []:
+                if (
+                    cursor_state["end"] is not None
+                    and matched_count >= cursor_state["end"]
+                ):
+                    break
                 record_payload = record.to_dict()
                 if any(record_payload.get(name) != value for name, value in filters.items()):
                     continue
-                matched_records.append(record_payload)
-                if len(matched_records) >= limit:
-                    break
+                if cursor_offset <= matched_count < page_end:
+                    page_records.append(record_payload)
+                matched_count += 1
+            snapshot_end = cursor_state["end"]
+            if snapshot_end is None:
+                snapshot_end = matched_count
+            snapshot_end = min(snapshot_end, matched_count)
+            cursor_offset = min(cursor_offset, snapshot_end)
+            next_offset = cursor_offset + len(page_records)
+            has_more = next_offset < snapshot_end
+            next_cursor = (
+                self._encode_audit_query_cursor(
+                    end=snapshot_end,
+                    offset=next_offset,
+                    filters=filters,
+                )
+                if has_more and audit_cursor_secret_bytes is not None
+                else ""
+            )
             return {
                 "schema_version": "agentops.runtime_audit.query.v1",
-                "records": matched_records,
-                "returned": len(matched_records),
+                "records": page_records,
+                "returned": len(page_records),
                 "limit": limit,
                 "filters": filters,
+                "page_info": {
+                    "cursor": cursor,
+                    "next_cursor": next_cursor,
+                    "has_more": has_more,
+                },
             }
 
         def _audit_query_limit(self, query: dict[str, list[str]]) -> int:
@@ -513,6 +560,133 @@ def create_http_handler(
                     "Runtime audit query limit must be a positive integer.",
                 )
             return min(limit, AUDIT_QUERY_MAX_LIMIT)
+
+        def _audit_query_cursor_state(
+            self, cursor: str, filters: dict[str, str]
+        ) -> dict[str, int | None]:
+            if not cursor:
+                return {"end": None, "offset": 0}
+            try:
+                padded_cursor = cursor + "=" * (-len(cursor) % 4)
+                decoded = base64.b64decode(
+                    padded_cursor.encode("ascii"),
+                    altchars=b"-_",
+                    validate=True,
+                )
+                envelope = json.loads(decoded.decode("utf-8"))
+            except (
+                binascii.Error,
+                UnicodeEncodeError,
+                UnicodeDecodeError,
+                ValueError,
+                json.JSONDecodeError,
+            ) as exc:
+                raise AgentOpsError(
+                    "AUDIT_CURSOR_INVALID",
+                    "Runtime audit query cursor is invalid.",
+                ) from exc
+            if not isinstance(envelope, dict):
+                raise AgentOpsError(
+                    "AUDIT_CURSOR_INVALID",
+                    "Runtime audit query cursor is invalid.",
+                )
+            payload = envelope.get("payload")
+            signature = envelope.get("sig")
+            if not isinstance(payload, dict) or not isinstance(signature, str):
+                raise AgentOpsError(
+                    "AUDIT_CURSOR_INVALID",
+                    "Runtime audit query cursor is invalid.",
+                )
+            try:
+                signature_bytes = signature.encode("ascii")
+            except UnicodeEncodeError as exc:
+                raise AgentOpsError(
+                    "AUDIT_CURSOR_INVALID",
+                    "Runtime audit query cursor is invalid.",
+                ) from exc
+            signing_secret = self._audit_query_signing_secret()
+            serialized_payload = self._audit_query_cursor_payload_bytes(payload)
+            expected_signature = hmac.new(
+                signing_secret,
+                serialized_payload,
+                hashlib.sha256,
+            ).hexdigest().encode("ascii")
+            if not hmac.compare_digest(signature_bytes, expected_signature):
+                raise AgentOpsError(
+                    "AUDIT_CURSOR_INVALID",
+                    "Runtime audit query cursor is invalid.",
+                )
+            if payload.get("v") != AUDIT_QUERY_CURSOR_VERSION:
+                raise AgentOpsError(
+                    "AUDIT_CURSOR_INVALID",
+                    "Runtime audit query cursor is invalid.",
+                )
+            offset = payload.get("offset")
+            if not isinstance(offset, int) or isinstance(offset, bool) or offset < 0:
+                raise AgentOpsError(
+                    "AUDIT_CURSOR_INVALID",
+                    "Runtime audit query cursor is invalid.",
+                )
+            end = payload.get("end")
+            if not isinstance(end, int) or isinstance(end, bool) or end < 0:
+                raise AgentOpsError(
+                    "AUDIT_CURSOR_INVALID",
+                    "Runtime audit query cursor is invalid.",
+                )
+            if payload.get("filters") != filters:
+                raise AgentOpsError(
+                    "AUDIT_CURSOR_INVALID",
+                    "Runtime audit query cursor does not match filters.",
+                )
+            return {"end": end, "offset": offset}
+
+        def _encode_audit_query_cursor(
+            self, *, end: int, offset: int, filters: dict[str, str]
+        ) -> str:
+            payload = {
+                "end": end,
+                "filters": filters,
+                "offset": offset,
+                "v": AUDIT_QUERY_CURSOR_VERSION,
+            }
+            signing_secret = self._audit_query_signing_secret()
+            serialized_payload = self._audit_query_cursor_payload_bytes(payload)
+            envelope = {
+                "payload": payload,
+                "sig": hmac.new(
+                    signing_secret,
+                    serialized_payload,
+                    hashlib.sha256,
+                ).hexdigest(),
+            }
+            serialized_envelope = json.dumps(
+                envelope,
+                ensure_ascii=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            ).encode("utf-8")
+            return (
+                base64.urlsafe_b64encode(serialized_envelope)
+                .decode("ascii")
+                .rstrip("=")
+            )
+
+        def _audit_query_cursor_payload_bytes(self, payload: dict[str, Any]) -> bytes:
+            return json.dumps(
+                payload,
+                ensure_ascii=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            ).encode("utf-8")
+
+        def _audit_query_signing_secret(self) -> bytes:
+            if audit_cursor_secret_bytes is None:
+                raise AgentOpsError(
+                    "AUDIT_CURSOR_SECRET_UNCONFIGURED",
+                    "Runtime audit query cursor signing secret is not configured.",
+                    retryable=True,
+                )
+            return audit_cursor_secret_bytes
 
         def _store_summary_status(self, exc: AgentOpsError) -> HTTPStatus:
             if exc.error_code == "RUN_NOT_FOUND":
@@ -624,6 +798,21 @@ def create_http_handler(
                 self.wfile.write(body)
 
     return AgentOpsRequestHandler
+
+
+def _audit_cursor_secret_bytes(
+    audit_cursor_secret: str | bytes | None,
+) -> bytes | None:
+    if isinstance(audit_cursor_secret, bytes) and audit_cursor_secret:
+        return audit_cursor_secret
+    if isinstance(audit_cursor_secret, str) and audit_cursor_secret:
+        return audit_cursor_secret.encode("utf-8")
+
+    env_secret = os.environ.get(AUDIT_QUERY_CURSOR_SECRET_ENV, "")
+    if env_secret:
+        return env_secret.encode("utf-8")
+
+    return None
 
 
 def run_server(
