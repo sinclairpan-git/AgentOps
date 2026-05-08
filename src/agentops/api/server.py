@@ -8,7 +8,7 @@ import binascii
 import hashlib
 import hmac
 import json
-import secrets
+import os
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
@@ -38,6 +38,7 @@ ALLOWED_ORIGINS = {
 AUDIT_QUERY_DEFAULT_LIMIT = 50
 AUDIT_QUERY_MAX_LIMIT = 200
 AUDIT_QUERY_CURSOR_VERSION = 1
+AUDIT_QUERY_CURSOR_SECRET_ENV = "AGENTOPS_AUDIT_CURSOR_SECRET"
 
 
 def create_http_handler(
@@ -45,9 +46,13 @@ def create_http_handler(
     *,
     require_auth: bool = False,
     audit_log: JsonlAuditLog | None = None,
+    audit_cursor_secret: str | bytes | None = None,
 ) -> type[BaseHTTPRequestHandler]:
     live_repository = repository or InMemoryRepository()
-    audit_cursor_secret = secrets.token_bytes(32)
+    audit_cursor_secret_bytes = _audit_cursor_secret_bytes(
+        audit_cursor_secret,
+        audit_log,
+    )
 
     class AgentOpsRequestHandler(BaseHTTPRequestHandler):
         server_version = "AgentOpsHTTP/0.1"
@@ -581,7 +586,7 @@ def create_http_handler(
                 )
             serialized_payload = self._audit_query_cursor_payload_bytes(payload)
             expected_signature = hmac.new(
-                audit_cursor_secret,
+                audit_cursor_secret_bytes,
                 serialized_payload,
                 hashlib.sha256,
             ).hexdigest()
@@ -627,7 +632,7 @@ def create_http_handler(
             envelope = {
                 "payload": payload,
                 "sig": hmac.new(
-                    audit_cursor_secret,
+                    audit_cursor_secret_bytes,
                     serialized_payload,
                     hashlib.sha256,
                 ).hexdigest(),
@@ -762,6 +767,28 @@ def create_http_handler(
                 self.wfile.write(body)
 
     return AgentOpsRequestHandler
+
+
+def _audit_cursor_secret_bytes(
+    audit_cursor_secret: str | bytes | None,
+    audit_log: JsonlAuditLog | None,
+) -> bytes:
+    if isinstance(audit_cursor_secret, bytes) and audit_cursor_secret:
+        return audit_cursor_secret
+    if isinstance(audit_cursor_secret, str) and audit_cursor_secret:
+        return audit_cursor_secret.encode("utf-8")
+
+    env_secret = os.environ.get(AUDIT_QUERY_CURSOR_SECRET_ENV, "")
+    if env_secret:
+        return env_secret.encode("utf-8")
+
+    audit_log_path = getattr(audit_log, "path", None)
+    if audit_log_path is not None:
+        return hashlib.sha256(
+            f"agentops-runtime-audit-cursor:{audit_log_path.resolve()}".encode("utf-8")
+        ).digest()
+
+    return hashlib.sha256(b"agentops-runtime-audit-cursor:local-dev").digest()
 
 
 def run_server(

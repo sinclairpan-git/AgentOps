@@ -36,10 +36,16 @@ def _start_server(
     repository: InMemoryRepository,
     *,
     audit_log: JsonlAuditLog | None,
+    audit_cursor_secret: str | bytes | None = None,
 ) -> ThreadingHTTPServer:
     server = ThreadingHTTPServer(
         ("127.0.0.1", 0),
-        create_http_handler(repository, require_auth=True, audit_log=audit_log),
+        create_http_handler(
+            repository,
+            require_auth=True,
+            audit_log=audit_log,
+            audit_cursor_secret=audit_cursor_secret,
+        ),
     )
     thread = Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -337,4 +343,47 @@ def test_ao27_ct_009_broad_filter_cursor_terminates_despite_read_audits(
         "audit_runtime_4",
         "audit_runtime_5",
         "audit_store_1",
+    ]
+
+
+def test_ao27_ct_010_cursor_survives_handler_recreation_with_stable_secret(
+    tmp_path: Path,
+):
+    audit_log = _audit_log(tmp_path / "audit.jsonl")
+    first_server = _start_server(
+        InMemoryRepository(),
+        audit_log=audit_log,
+        audit_cursor_secret="stable-runtime-audit-cursor-secret",
+    )
+    try:
+        first_response, first_payload = _json_request(
+            first_server,
+            "GET",
+            "/v1/audit/runtime?action=credential.revoke&limit=2",
+            headers=_auth_headers(),
+        )
+    finally:
+        first_server.shutdown()
+
+    cursor = first_payload["page_info"]["next_cursor"]
+    second_server = _start_server(
+        InMemoryRepository(),
+        audit_log=audit_log,
+        audit_cursor_secret="stable-runtime-audit-cursor-secret",
+    )
+    try:
+        second_response, second_payload = _json_request(
+            second_server,
+            "GET",
+            f"/v1/audit/runtime?action=credential.revoke&limit=2&cursor={cursor}",
+            headers=_auth_headers(),
+        )
+    finally:
+        second_server.shutdown()
+
+    assert first_response.status == 200
+    assert second_response.status == 200
+    assert [record["audit_id"] for record in second_payload["records"]] == [
+        "audit_runtime_3",
+        "audit_runtime_4",
     ]

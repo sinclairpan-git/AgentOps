@@ -138,3 +138,19 @@
 - **提交哈希**：见当前 Git HEAD。
 - 当前批次 worktree disposition 状态：当前 worktree 继续承载 PR #28 收口。
 - 是否继续下一批：否，本批继续 PR 收口。
+
+### Review Fix 2026-05-08-002 | Codex stable cursor signing key
+
+#### RF-002 | stabilize cursor signing key across handlers
+
+- **验证画像**：code-change
+- **改动范围**：`src/agentops/api/server.py`, `tests/contract/test_ao27_ct_runtime_audit_pagination.py`, `specs/027-runtime-audit-pagination/development-summary.md`, `specs/027-runtime-audit-pagination/task-execution-log.md`, `program-manifest.yaml`
+- 改动内容：新增 `audit_cursor_secret` handler 参数和 `AGENTOPS_AUDIT_CURSOR_SECRET` 环境变量支持；本地 fallback 在 audit log path 存在时按 path 派生稳定 key，缺少 path 时使用模块级本地稳定 fallback；避免 handler 重建后正常 cursor 失效。
+- 新增/调整的测试：同一稳定 signing secret 下，第一 handler 生成的 cursor 可被第二 handler 继续使用；补跑 AO24 unavailable audit log 回归。
+- 执行的命令：`uv run pytest tests/contract/test_ao27_ct_runtime_audit_pagination.py -q`、`uv run pytest tests/contract/test_ao24_ct_durable_audit_log.py::test_ao24_ct_007_audit_append_io_errors_do_not_abort_api_responses -q`、`uv run pytest tests/contract/test_ao23_ct_production_runtime_boundary.py tests/contract/test_ao24_ct_durable_audit_log.py tests/contract/test_ao25_ct_production_audit_coverage.py tests/contract/test_ao26_ct_runtime_audit_query.py tests/contract/test_ao27_ct_runtime_audit_pagination.py -q`、`uv run ruff check src tests`、`uv run ai-sdlc verify constraints`
+- 测试结果：通过，AO27 10 个测试通过；AO24 定向回归通过；AO23-AO27 回归 38 个测试通过、1 个既有环境相关测试跳过；ruff 通过；constraints 无 BLOCKER。
+- 是否符合任务目标：是；回应 Codex review 对 multi-instance/restart cursor signing key 稳定性的要求。
+- **已完成 git 提交**：是，提交后以当前 Git HEAD 作为本次 review fix 提交。
+- **提交哈希**：见当前 Git HEAD。
+- 当前批次 worktree disposition 状态：当前 worktree 继续承载 PR #28 收口。
+- 是否继续下一批：否，本批继续 PR 收口。
