@@ -106,13 +106,13 @@ specs:
   path: specs/028-runtime-audit-export-manifest
   depends_on: []
 truth_snapshot:
-  generated_at: '2026-05-08T11:46:58Z'
+  generated_at: '2026-05-08T11:55:50Z'
   generated_by: ai-sdlc program truth sync
   generator_version: program_truth_snapshot_v1
-  repo_revision: 4f2b9d9
+  repo_revision: b2ad2a0
   authoring_hash: dbbd148a6a658589914bd060f5f44e78e153d056e9c5efc95ad43519afa20169
   source_hashes: {}
-  snapshot_hash: 46e8beadd48d13cb5951391f3a6456f469b2ea44575e5bde2c73771cc9ad2361
+  snapshot_hash: 286c780386051b39d13964070cd5511b9c308c8a415500b42c437cec42b6741a
   computed_capabilities: []
   source_inventory:
     state: complete
@@ -121,7 +121,7 @@ truth_snapshot:
     unmapped_sources: 0
     missing_sources: 2
     phase_signal_count: 130
-    deferred_signal_count: 206
+    deferred_signal_count: 207
     non_goal_signal_count: 49
     layer_totals:
       spec: 28
@@ -1394,7 +1394,7 @@ truth_snapshot:
       exists: true
       mapping_ref: 028-runtime-audit-export-manifest
       phase_signal_count: 0
-      deferred_signal_count: 2
+      deferred_signal_count: 3
       non_goal_signal_count: 0
     unmapped_paths: []
   state: ready

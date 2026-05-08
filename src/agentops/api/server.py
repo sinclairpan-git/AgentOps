@@ -601,6 +601,8 @@ def create_http_handler(
             export_records = []
             for record in audit_log.records() if audit_log is not None else []:
                 record_payload = record.to_dict()
+                if record_payload.get("action") == "runtime.audit.export":
+                    continue
                 if any(record_payload.get(name) != value for name, value in filters.items()):
                     continue
                 export_records.append(record_payload)

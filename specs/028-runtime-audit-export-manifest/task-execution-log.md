@@ -122,3 +122,19 @@
 - 当前批次 branch disposition 状态：待提交、推送并创建 PR。
 - 当前批次 worktree disposition 状态：当前 worktree 继续承载 028 收口。
 - 是否继续下一批：否，本批进入 PR 收口。
+
+### Review Fix 2026-05-08-001 | Codex deterministic broad export manifest
+
+#### RF-001 | exclude export audit records from digest input
+
+- **验证画像**：code-change
+- **改动范围**：`src/agentops/api/server.py`, `tests/contract/test_ao28_ct_runtime_audit_export_manifest.py`, `specs/028-runtime-audit-export-manifest/development-summary.md`, `specs/028-runtime-audit-export-manifest/task-execution-log.md`, `program-manifest.yaml`
+- 改动内容：export manifest 构建 digest 输入时排除 `runtime.audit.export` records，避免 manifest 请求自身追加的 accepted audit 改写无 action filter 的下一次 manifest。
+- 新增/调整的测试：新增 broad export manifest 重复请求稳定性测试，验证 record_count、record_audit_ids 和 content_digest 不被 `runtime.audit.export` evidence 影响。
+- 执行的命令：`uv run pytest tests/contract/test_ao28_ct_runtime_audit_export_manifest.py -q`、`uv run pytest tests/contract/test_ao23_ct_production_runtime_boundary.py tests/contract/test_ao24_ct_durable_audit_log.py tests/contract/test_ao25_ct_production_audit_coverage.py tests/contract/test_ao26_ct_runtime_audit_query.py tests/contract/test_ao27_ct_runtime_audit_pagination.py tests/contract/test_ao28_ct_runtime_audit_export_manifest.py -q`、`uv run ruff check src tests`、`uv run ai-sdlc verify constraints`
+- 测试结果：通过，AO28 5 个测试通过；AO23-AO28 回归 46 个测试通过、1 个既有环境相关测试跳过；ruff 通过；constraints 无 BLOCKER。
+- 是否符合任务目标：是；回应 Codex review 对 broad export manifest deterministic digest 的要求。
+- **已完成 git 提交**：是，提交后以当前 Git HEAD 作为本次 review fix 提交。
+- **提交哈希**：见当前 Git HEAD。
+- 当前批次 worktree disposition 状态：当前 worktree 继续承载 PR #29 收口。
+- 是否继续下一批：否，本批继续 PR 收口。

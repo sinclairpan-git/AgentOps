@@ -175,7 +175,44 @@ def test_ao28_ct_002_export_manifest_does_not_expose_sensitive_markers(
         assert forbidden not in serialized
 
 
-def test_ao28_ct_003_viewer_is_denied_and_audited(tmp_path: Path):
+def test_ao28_ct_003_broad_export_manifest_excludes_export_audits(
+    tmp_path: Path,
+):
+    audit_path = tmp_path / "audit.jsonl"
+    audit_log = _audit_log(audit_path)
+    server = _start_server(InMemoryRepository(), audit_log=audit_log)
+    try:
+        first_response, first_payload = _json_request(
+            server,
+            "GET",
+            "/v1/audit/runtime/export-manifest?limit=10",
+            headers=_auth_headers(),
+        )
+        second_response, second_payload = _json_request(
+            server,
+            "GET",
+            "/v1/audit/runtime/export-manifest?limit=10",
+            headers=_auth_headers(),
+        )
+    finally:
+        server.shutdown()
+
+    records = JsonlAuditLog(audit_path).records()
+    assert first_response.status == 200
+    assert second_response.status == 200
+    assert first_payload["record_count"] == 3
+    assert first_payload["record_audit_ids"] == [
+        "audit_runtime_1",
+        "audit_runtime_2",
+        "audit_store_1",
+    ]
+    assert first_payload["content_digest"] == second_payload["content_digest"]
+    assert first_payload["record_count"] == second_payload["record_count"]
+    assert records[-2].action == "runtime.audit.export"
+    assert records[-1].action == "runtime.audit.export"
+
+
+def test_ao28_ct_004_viewer_is_denied_and_audited(tmp_path: Path):
     audit_path = tmp_path / "audit.jsonl"
     audit_log = _audit_log(audit_path)
     server = _start_server(InMemoryRepository(), audit_log=audit_log)
@@ -198,7 +235,7 @@ def test_ao28_ct_003_viewer_is_denied_and_audited(tmp_path: Path):
     assert records[-1].denied_scope == "runtime.audit.read"
 
 
-def test_ao28_ct_004_invalid_limit_is_rejected_and_audited(tmp_path: Path):
+def test_ao28_ct_005_invalid_limit_is_rejected_and_audited(tmp_path: Path):
     audit_path = tmp_path / "secret-audit-path.jsonl"
     audit_log = _audit_log(audit_path)
     server = _start_server(InMemoryRepository(), audit_log=audit_log)
