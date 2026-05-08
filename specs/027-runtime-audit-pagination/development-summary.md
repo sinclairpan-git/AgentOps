@@ -7,7 +7,8 @@
 
 - 在 `GET /v1/audit/runtime` 上新增 opaque `cursor` query parameter。
 - 响应新增 `page_info.cursor`、`page_info.next_cursor`、`page_info.has_more`。
-- cursor 绑定当前 `audit_id`、`request_id`、`action`、`outcome` filters，不能跨 filters 复用。
+- cursor 使用服务端 HMAC 完整性保护，绑定当前 `audit_id`、`request_id`、`action`、`outcome` filters，不能伪造 offset 或跨 filters 复用。
+- cursor 保存首屏匹配集合的稳定边界，避免读取审计自身追加导致 broad filter 分页无法结束。
 - malformed cursor 或 filters mismatch 返回 `AUDIT_CURSOR_INVALID`，并写入 `runtime.audit.read/rejected` durable audit record。
 
 ## 安全边界

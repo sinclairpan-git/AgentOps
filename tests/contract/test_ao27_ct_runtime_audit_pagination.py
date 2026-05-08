@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import json
 from http.client import HTTPConnection
 from http.server import ThreadingHTTPServer
@@ -243,3 +244,97 @@ def test_ao27_ct_006_cursor_response_does_not_expose_sensitive_markers(
         "secret-audit-path",
     ):
         assert forbidden not in serialized
+
+
+def test_ao27_ct_007_unsigned_cursor_payload_is_rejected(tmp_path: Path):
+    audit_path = tmp_path / "audit.jsonl"
+    audit_log = _audit_log(audit_path)
+    forged_payload = {
+        "filters": {"action": "credential.revoke"},
+        "offset": 4,
+        "v": 1,
+    }
+    forged_cursor = (
+        base64.urlsafe_b64encode(
+            json.dumps(forged_payload, separators=(",", ":")).encode("utf-8")
+        )
+        .decode("ascii")
+        .rstrip("=")
+    )
+    server = _start_server(InMemoryRepository(), audit_log=audit_log)
+    try:
+        response, payload = _json_request(
+            server,
+            "GET",
+            f"/v1/audit/runtime?action=credential.revoke&cursor={forged_cursor}",
+            headers=_auth_headers(),
+        )
+    finally:
+        server.shutdown()
+
+    records = JsonlAuditLog(audit_path).records()
+    assert response.status == 400
+    assert payload["error_code"] == "AUDIT_CURSOR_INVALID"
+    assert records[-1].action == "runtime.audit.read"
+    assert records[-1].outcome == "rejected"
+
+
+def test_ao27_ct_008_cursor_base64_validation_is_strict(tmp_path: Path):
+    audit_path = tmp_path / "audit.jsonl"
+    audit_log = _audit_log(audit_path)
+    server = _start_server(InMemoryRepository(), audit_log=audit_log)
+    try:
+        _, first_payload = _json_request(
+            server,
+            "GET",
+            "/v1/audit/runtime?action=credential.revoke&limit=2",
+            headers=_auth_headers(),
+        )
+        cursor = first_payload["page_info"]["next_cursor"]
+        response, payload = _json_request(
+            server,
+            "GET",
+            f"/v1/audit/runtime?action=credential.revoke&cursor=!!{cursor}",
+            headers=_auth_headers(),
+        )
+    finally:
+        server.shutdown()
+
+    assert response.status == 400
+    assert payload["error_code"] == "AUDIT_CURSOR_INVALID"
+
+
+def test_ao27_ct_009_broad_filter_cursor_terminates_despite_read_audits(
+    tmp_path: Path,
+):
+    audit_log = _audit_log(tmp_path / "audit.jsonl")
+    server = _start_server(InMemoryRepository(), audit_log=audit_log)
+    seen_audit_ids = []
+    path = "/v1/audit/runtime?limit=1"
+    try:
+        for _ in range(8):
+            response, payload = _json_request(
+                server,
+                "GET",
+                path,
+                headers=_auth_headers(),
+            )
+            assert response.status == 200
+            seen_audit_ids.extend(record["audit_id"] for record in payload["records"])
+            cursor = payload["page_info"]["next_cursor"]
+            if not payload["page_info"]["has_more"]:
+                break
+            path = f"/v1/audit/runtime?limit=1&cursor={cursor}"
+        else:
+            raise AssertionError("cursor chain did not terminate")
+    finally:
+        server.shutdown()
+
+    assert seen_audit_ids == [
+        "audit_runtime_1",
+        "audit_runtime_2",
+        "audit_runtime_3",
+        "audit_runtime_4",
+        "audit_runtime_5",
+        "audit_store_1",
+    ]

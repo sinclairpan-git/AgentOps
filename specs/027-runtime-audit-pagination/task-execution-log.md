@@ -122,3 +122,19 @@
 - 当前批次 branch disposition 状态：待提交、推送并创建 PR。
 - 当前批次 worktree disposition 状态：当前 worktree 继续承载 027 收口。
 - 是否继续下一批：否，本批进入 PR 收口。
+
+### Review Fix 2026-05-08-001 | Codex cursor integrity and stable boundary
+
+#### RF-001 | protect and stabilize runtime audit cursors
+
+- **验证画像**：code-change
+- **改动范围**：`src/agentops/api/server.py`, `tests/contract/test_ao27_ct_runtime_audit_pagination.py`, `specs/027-runtime-audit-pagination/development-summary.md`, `specs/027-runtime-audit-pagination/task-execution-log.md`, `program-manifest.yaml`
+- 改动内容：cursor envelope 增加服务端 HMAC 完整性保护；cursor 保存首屏匹配集合的稳定 `end` 边界；base64 解码改为 strict validation。
+- 新增/调整的测试：unsigned forged cursor 被拒绝；带非法 base64 字符的 cursor 被拒绝；无 filters 且 `limit=1` 时分页链在读取审计持续追加后仍能终止。
+- 执行的命令：`uv run pytest tests/contract/test_ao27_ct_runtime_audit_pagination.py -q`、`uv run pytest tests/contract/test_ao23_ct_production_runtime_boundary.py tests/contract/test_ao24_ct_durable_audit_log.py tests/contract/test_ao25_ct_production_audit_coverage.py tests/contract/test_ao26_ct_runtime_audit_query.py tests/contract/test_ao27_ct_runtime_audit_pagination.py -q`、`uv run ruff check src tests`、`uv run ai-sdlc verify constraints`
+- 测试结果：通过，AO27 9 个测试通过；AO23-AO27 回归 37 个测试通过、1 个既有环境相关测试跳过；ruff 通过；constraints 无 BLOCKER。
+- 是否符合任务目标：是；回应 Codex review 对 cursor 完整性、稳定分页边界和 strict base64 validation 的要求。
+- **已完成 git 提交**：是，提交后以当前 Git HEAD 作为本次 review fix 提交。
+- **提交哈希**：见当前 Git HEAD。
+- 当前批次 worktree disposition 状态：当前 worktree 继续承载 PR #28 收口。
+- 是否继续下一批：否，本批继续 PR 收口。
