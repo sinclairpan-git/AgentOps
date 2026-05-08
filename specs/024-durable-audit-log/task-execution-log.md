@@ -120,3 +120,14 @@
 - 当前批次 branch disposition 状态：待提交、推送并创建 PR。
 - 当前批次 worktree disposition 状态：当前 worktree 继续承载 024 收口。
 - 是否继续下一批：否，本批进入 PR 收口。
+
+### Review Fix 2026-05-08-001 | Codex P1 malformed JSONL readback
+
+- 反馈来源：PR #25 Codex Review。
+- 问题：`JsonlAuditLog.records()` 遇到单行 malformed JSONL 会中断整个读取，削弱 durable audit readback。
+- 修复：读取时捕获 `json.JSONDecodeError` 并跳过损坏行，保留前后有效审计记录。
+- 新增测试：`test_ao24_ct_006_malformed_audit_lines_do_not_block_valid_readback`
+- 执行命令：
+  - `uv run pytest tests/contract/test_ao24_ct_durable_audit_log.py -q`
+  - `uv run ruff check src tests`
+- 结果：通过。

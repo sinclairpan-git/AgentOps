@@ -8,7 +8,7 @@ from threading import Thread
 
 from agentops.api.app import create_app
 from agentops.api.server import create_http_handler
-from agentops.storage.audit import JsonlAuditLog
+from agentops.storage.audit import AuditRecord, JsonlAuditLog
 from agentops.storage.repository import InMemoryRepository
 from tests.contract.conftest import base_event
 
@@ -215,3 +215,34 @@ def test_ao24_ct_005_route_manifest_declares_durable_audit_boundary():
     manifest = create_app()
 
     assert manifest["durable_audit_log"] == "append-only JSONL runtime audit boundary"
+
+
+def test_ao24_ct_006_malformed_audit_lines_do_not_block_valid_readback(
+    tmp_path: Path,
+):
+    audit_path = tmp_path / "runtime-audit.jsonl"
+    audit_log = JsonlAuditLog(audit_path)
+    audit_log.append(
+        AuditRecord(
+            audit_id="audit_before",
+            request_id="req_before",
+            action="event.ingest",
+            outcome="accepted",
+            principal="user.ops@example.com",
+        )
+    )
+    with audit_path.open("a", encoding="utf-8") as handle:
+        handle.write("{malformed-jsonl\n")
+    audit_log.append(
+        AuditRecord(
+            audit_id="audit_after",
+            request_id="req_after",
+            action="event.ingest",
+            outcome="accepted",
+            principal="user.ops@example.com",
+        )
+    )
+
+    records = JsonlAuditLog(audit_path).records()
+
+    assert [record.audit_id for record in records] == ["audit_before", "audit_after"]

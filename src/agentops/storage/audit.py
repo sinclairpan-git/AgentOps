@@ -81,7 +81,10 @@ class JsonlAuditLog:
                 stripped = line.strip()
                 if not stripped:
                     continue
-                payload = json.loads(stripped)
+                try:
+                    payload = json.loads(stripped)
+                except json.JSONDecodeError:
+                    continue
                 if not isinstance(payload, dict):
                     continue
                 records.append(AuditRecord.from_dict(payload))
