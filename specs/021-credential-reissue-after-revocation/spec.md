@@ -31,6 +31,7 @@
 - AO21-CT-002：新 credential 的签名测试事件可通过，旧 token 仍被拒绝。
 - AO21-CT-003：reissue 必须使用新的 bootstrap id。
 - AO21-CT-003b：复用旧 nonce 必须稳定返回 replay 错误，且不能留下未签发 bootstrap session。
+- AO21-CT-003c：malformed handoff parse error 必须清理未签发 session，修正 payload 后可重试成功。
 - AO21-CT-004：非 revoked source credential 不允许 reissue。
 - AO21-CT-005：同一 reissue 请求可幂等重试并返回相同结果。
 - AO21-CT-006：HTTP reissue route 必须返回 JSON、CORS 和 `agentops_credential_reissue.v1`。

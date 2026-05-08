@@ -287,6 +287,29 @@ def test_ao21_ct_003b_reissue_rejects_reused_nonce_without_orphan_session(revoke
     assert revoked_repository.get_bootstrap_session("boot-inst-fixture-r1") is None
 
 
+def test_ao21_ct_003c_reissue_bad_handoff_parse_error_rolls_back_session(revoked_repository):
+    malformed_handoff = reissue_handoff(expires_at="not-a-timestamp")
+
+    with pytest.raises(AgentOpsError) as exc:
+        reissue_credentials(
+            reissue_request(credential_handoff=malformed_handoff),
+            revoked_repository,
+            now=REISSUE_NOW,
+            headers={"Idempotency-Key": "idem-reissue-fixture-bad-time"},
+        )
+
+    retry = reissue_credentials(
+        reissue_request(),
+        revoked_repository,
+        now=REISSUE_NOW,
+        headers={"Idempotency-Key": "idem-reissue-fixture"},
+    )
+
+    assert exc.value.error_code == "CREDENTIAL_REISSUE_HANDOFF_INVALID"
+    assert retry["credential_id"] == "cred-fixture-r1"
+    assert revoked_repository.get_bootstrap_session("boot-inst-fixture-r1")["bootstrap_status"] == "credential_issued"
+
+
 def test_ao21_ct_004_reissue_rejects_non_revoked_source(repository):
     issue_fixture_credentials(repository)
 

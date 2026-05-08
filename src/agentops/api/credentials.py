@@ -307,6 +307,9 @@ def reissue_credentials(
     except AgentOpsError:
         repository.remove_unissued_bootstrap_session(new_bootstrap_id)
         raise
+    except ValueError as exc:
+        repository.remove_unissued_bootstrap_session(new_bootstrap_id)
+        raise AgentOpsError("CREDENTIAL_REISSUE_HANDOFF_INVALID", "Credential reissue handoff is invalid.") from exc
     repository.mark_credentials_reissued(
         source_bootstrap_id,
         {

@@ -58,6 +58,7 @@
 - 状态边界：reissued 不构成 `verified_loaded` 或 L5，所有回显保持 `not_asserted`。
 - PR #21 Codex review 反馈 1：source credential 已 reissued 后仍可用不同 `new_bootstrap_id` 二次重新签发。已新增 source-level guard，只允许同一 `reissue_id`/`reissued_bootstrap_id` 幂等返回同一个 replacement，并补 `test_ao21_ct_001c_reissue_source_allows_only_one_replacement` 回归测试。
 - PR #21 Codex review 反馈 2：A->B->C 多次轮换时，A 的 revoked identity check 只看直接 replacement B，会误拒 C 的最新 token。已新增 replacement chain token resolution，并补 `test_ao21_ct_008_revocation_check_follows_replacement_chain` 回归测试。
+- PR #21 Codex review 反馈 3：malformed handoff timestamp 触发 `ValueError` 时会绕过 rollback，留下未签发 session。已捕获 parse `ValueError`、清理 session 并补 `test_ao21_ct_003c_reissue_bad_handoff_parse_error_rolls_back_session` 回归测试。
 
 ## 任务/计划同步状态
 
