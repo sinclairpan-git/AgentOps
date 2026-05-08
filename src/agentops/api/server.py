@@ -7,12 +7,13 @@ import json
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 
 from agentops import __version__
 from agentops.api.console_snapshot import build_console_snapshot
 from agentops.api.credentials import get_credential_status, reissue_credentials, revoke_credentials
 from agentops.api.ingestion import ingest_events_batch
+from agentops.api.store_summary import get_agent_store_summary_for_run
 from agentops.core.errors import AgentOpsError
 from agentops.storage.repository import InMemoryRepository
 
@@ -57,6 +58,40 @@ def create_http_handler(repository: InMemoryRepository | None = None) -> type[Ba
 
             if request_path == "/v1/console/snapshot":
                 self._send_json(HTTPStatus.OK, build_console_snapshot(repository=live_repository))
+                return
+
+            store_summary_prefix = "/v1/store-summary/"
+            if request_path.startswith(store_summary_prefix):
+                agent_id = request_path.removeprefix(store_summary_prefix).strip("/")
+                query = self._request_query()
+                version = self._query_value(query, "version")
+                run_id = self._query_value(query, "run_id")
+                schema_version = self._query_value(query, "schema_version") or "1.0"
+                if not agent_id or not version or not run_id:
+                    self._send_json(
+                        HTTPStatus.BAD_REQUEST,
+                        {
+                            "error_code": "STORE_SUMMARY_QUERY_REQUIRED",
+                            "message": "Agent Store summary requires agent_id, version, and run_id.",
+                            "retryable": False,
+                        },
+                    )
+                    return
+                try:
+                    response = get_agent_store_summary_for_run(
+                        live_repository,
+                        agent_id,
+                        version,
+                        run_id,
+                        consumer_schema_version=schema_version,
+                    )
+                    self._send_json(HTTPStatus.OK, response)
+                except AgentOpsError as exc:
+                    status = self._store_summary_status(exc)
+                    self._send_json(
+                        status,
+                        {"error_code": exc.error_code, "message": exc.message, "retryable": exc.retryable},
+                    )
                 return
 
             credential_status_prefix = "/v1/bootstrap/credentials/"
@@ -157,6 +192,22 @@ def create_http_handler(repository: InMemoryRepository | None = None) -> type[Ba
 
         def _request_path(self) -> str:
             return urlsplit(self.path).path
+
+        def _request_query(self) -> dict[str, list[str]]:
+            return parse_qs(urlsplit(self.path).query, keep_blank_values=True)
+
+        def _query_value(self, query: dict[str, list[str]], name: str) -> str:
+            values = query.get(name) or []
+            return values[0].strip() if values else ""
+
+        def _store_summary_status(self, exc: AgentOpsError) -> HTTPStatus:
+            if exc.error_code == "RUN_NOT_FOUND":
+                return HTTPStatus.NOT_FOUND
+            if exc.error_code == "SUMMARY_SCHEMA_UNSUPPORTED":
+                return HTTPStatus.CONFLICT
+            if exc.error_code == "STORE_SUMMARY_RUN_MISMATCH":
+                return HTTPStatus.CONFLICT
+            return HTTPStatus.BAD_REQUEST
 
         def _read_json(self) -> dict[str, Any] | None:
             try:

@@ -21,6 +21,24 @@ DEFAULT_POLICY_REQUIREMENT = {
     "affected_actions": ["运行审计", "高风险 Skill 调用"],
 }
 
+AGENT_STORE_CONSUMER_BOUNDARY = {
+    "mode": "display_only",
+    "summary_fact_owner": "AgentOps",
+    "registry_fact_owner": "Agent Store",
+    "allowed_actions": [
+        "display_summary",
+        "open_agentops_deep_link",
+        "request_agentops_review",
+    ],
+    "forbidden_actions": [
+        "infer_active",
+        "infer_verified_loaded",
+        "publish_or_unpublish_agent",
+        "read_raw_evidence",
+        "issue_credentials",
+    ],
+}
+
 
 def consume_agent_store_metadata(repository: InMemoryRepository, metadata: dict[str, Any]) -> dict[str, Any]:
     """Cache Agent Store metadata without becoming the registration source."""
@@ -174,19 +192,39 @@ def build_agent_store_echo_summary(
     risk_state = "normal" if registered and evidence_summary.get("evidence_level") == "L5" else "warning"
     calculated_at = datetime.now(UTC)
     valid_until = calculated_at + timedelta(days=30)
+    raw_access_state = str(evidence_summary.get("raw_access_state") or "summary_only")
+    redaction_policy = str(evidence_summary.get("redaction_policy") or "repo_default")
+    data_classification = str(evidence_summary.get("data_classification") or "internal")
 
     return {
         "schema_version": "agentops.agent_store.echo.v1",
         "agent_id": agent_id,
         "agent_version": version,
         "metadata_state": "registered" if metadata else "unregistered",
+        "agentops_fact_owner": "AgentOps",
         "registry_fact_owner": "Agent Store",
+        "agent_store_consumer_boundary": deepcopy(AGENT_STORE_CONSUMER_BOUNDARY),
         "score_template_id": "framework-capability-stage3",
         "evidence_level": evidence_summary["evidence_level"],
         "confidence": evidence_summary["confidence"],
         "missing_evidence": list(evidence_summary["missing_evidence"]),
         "risk_state": risk_state,
         "approval_state": "none",
+        "quality_state": {
+            "source": "AgentOps",
+            "source_trust": str(
+                evidence_summary.get("source_trust") or ("verified" if risk_state == "normal" else "declared")
+            ),
+            "completeness": float(
+                evidence_summary.get("completeness") or (1.0 if not evidence_summary["missing_evidence"] else 0.5)
+            ),
+            "freshness": str(
+                evidence_summary.get("freshness") or ("fresh" if not evidence_summary["missing_evidence"] else "unknown")
+            ),
+        },
+        "raw_access_state": raw_access_state,
+        "redaction_policy": redaction_policy,
+        "data_classification": data_classification,
         "policy_requirement": deepcopy(DEFAULT_POLICY_REQUIREMENT),
         "discovery_gap_ids": [gap["gap_id"] for gap in run_gaps],
         "run_audit": {

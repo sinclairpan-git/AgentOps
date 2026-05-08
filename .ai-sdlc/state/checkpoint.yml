@@ -1,12 +1,12 @@
 pipeline_started_at: '2026-05-04T06:14:47+00:00'
-pipeline_last_updated: '2026-05-08T03:35:49+00:00'
+pipeline_last_updated: '2026-05-08T05:08:19+00:00'
 current_stage: close
 feature:
-  id: 021-credential-reissue-after-revocation
-  spec_dir: specs/021-credential-reissue-after-revocation
-  design_branch: design/021-credential-reissue-after-revocation-docs
-  feature_branch: feature/021-credential-reissue-after-revocation-dev
-  current_branch: codex/021-credential-reissue-after-revocation
+  id: 022-agent-store-summary-http-contract
+  spec_dir: specs/022-agent-store-summary-http-contract
+  design_branch: design/022-agent-store-summary-http-contract-docs
+  feature_branch: feature/022-agent-store-summary-http-contract-dev
+  current_branch: codex/022-agent-store-summary-http-contract
   docs_baseline_ref: ''
   docs_baseline_at: ''
 multi_agent:
@@ -16,33 +16,33 @@ multi_agent:
 prd_source: /Users/sinclairpan/project/AI-Native底座开发文档/AgentOps_项目_PRD.md
 completed_stages:
 - stage: init
-  completed_at: '2026-05-08T03:35:49+00:00'
+  completed_at: '2026-05-08T05:08:19+00:00'
   artifacts: []
 - stage: refine
-  completed_at: '2026-05-08T03:35:49+00:00'
+  completed_at: '2026-05-08T05:08:19+00:00'
   artifacts:
   - spec.md
 - stage: design
-  completed_at: '2026-05-08T03:35:49+00:00'
+  completed_at: '2026-05-08T05:08:19+00:00'
   artifacts:
   - plan.md
 - stage: decompose
-  completed_at: '2026-05-08T03:35:49+00:00'
+  completed_at: '2026-05-08T05:08:19+00:00'
   artifacts:
   - tasks.md
 - stage: verify
-  completed_at: '2026-05-08T03:35:49+00:00'
+  completed_at: '2026-05-08T05:08:19+00:00'
   artifacts:
   - task-execution-log.md
   - tasks.md
 - stage: execute
-  completed_at: '2026-05-08T03:35:49+00:00'
+  completed_at: '2026-05-08T05:08:19+00:00'
   artifacts:
   - development-summary.md
   - task-execution-log.md
 execute_progress: null
 ai_decisions_count: 0
 execution_mode: auto
-linked_wi_id: 021-credential-reissue-after-revocation
-linked_plan_uri: specs/021-credential-reissue-after-revocation/plan.md
+linked_wi_id: 022-agent-store-summary-http-contract
+linked_plan_uri: specs/022-agent-store-summary-http-contract/plan.md
 last_synced_at: '2026-05-08T03:34:41+00:00'

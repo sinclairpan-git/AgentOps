@@ -214,6 +214,16 @@ paths:
             type: string
         - name: version
           in: query
+          required: true
+          schema:
+            type: string
+        - name: run_id
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: schema_version
+          in: query
           required: false
           schema:
             type: string
@@ -224,8 +234,20 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AgentStoreSummary"
+        "400":
+          description: Required summary query is missing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Summary run source was not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "409":
-          description: Summary schema unsupported
+          description: Summary schema unsupported or run target mismatch
           content:
             application/json:
               schema:
@@ -785,21 +807,47 @@ components:
     AgentStoreSummary:
       type: object
       required:
+        - schema_version
         - agent_id
+        - metadata_state
+        - agentops_fact_owner
+        - registry_fact_owner
+        - agent_store_consumer_boundary
         - score_template_id
         - evidence_level
         - confidence
         - missing_evidence
         - risk_state
         - approval_state
+        - quality_state
+        - raw_access_state
+        - redaction_policy
+        - data_classification
+        - policy_requirement
+        - discovery_gap_ids
+        - run_audit
         - calculated_at
         - valid_until
         - deep_links
       properties:
+        schema_version:
+          type: string
+          enum: [agentops.agent_store.echo.v1]
         agent_id:
           type: string
         agent_version:
           type: string
+        metadata_state:
+          type: string
+          enum: [registered, unregistered, unknown]
+        agentops_fact_owner:
+          type: string
+          enum: [AgentOps]
+        registry_fact_owner:
+          type: string
+          enum: [Agent Store]
+        agent_store_consumer_boundary:
+          $ref: "#/components/schemas/AgentStoreConsumerBoundary"
         evidence_level:
           type: string
           enum: [L1, L2, L3, L4, L5, pending, unknown]
@@ -815,6 +863,23 @@ components:
         approval_state:
           type: string
           enum: [none, pending, approved, rejected, expired]
+        quality_state:
+          $ref: "#/components/schemas/AgentOpsQualityState"
+        raw_access_state:
+          type: string
+          enum: [summary_only, approved]
+        redaction_policy:
+          type: string
+        data_classification:
+          type: string
+        policy_requirement:
+          $ref: "#/components/schemas/AgentOpsPolicyRequirement"
+        discovery_gap_ids:
+          type: array
+          items:
+            type: string
+        run_audit:
+          $ref: "#/components/schemas/AgentStoreRunAuditSummary"
         score_template_id:
           type: string
         calculated_at:
@@ -825,6 +890,85 @@ components:
           format: date-time
         deep_links:
           $ref: "#/components/schemas/AgentOpsDeepLinks"
+    AgentStoreConsumerBoundary:
+      type: object
+      required:
+        - mode
+        - summary_fact_owner
+        - registry_fact_owner
+        - allowed_actions
+        - forbidden_actions
+      properties:
+        mode:
+          type: string
+          enum: [display_only]
+        summary_fact_owner:
+          type: string
+          enum: [AgentOps]
+        registry_fact_owner:
+          type: string
+          enum: [Agent Store]
+        allowed_actions:
+          type: array
+          items:
+            type: string
+        forbidden_actions:
+          type: array
+          items:
+            type: string
+    AgentOpsQualityState:
+      type: object
+      required: [source, source_trust, completeness, freshness]
+      properties:
+        source:
+          type: string
+          enum: [AgentOps]
+        source_trust:
+          type: string
+          enum: [verified, declared]
+        completeness:
+          type: number
+        freshness:
+          type: string
+    AgentOpsPolicyRequirement:
+      type: object
+      required:
+        - required_by
+        - source
+        - issuer
+        - policy_owner
+        - policy_version
+        - can_ignore
+        - affected_actions
+      properties:
+        required_by:
+          type: string
+          enum: [AgentOps]
+        source:
+          type: string
+        issuer:
+          type: string
+        policy_owner:
+          type: string
+        policy_version:
+          type: string
+        can_ignore:
+          type: boolean
+        affected_actions:
+          type: array
+          items:
+            type: string
+    AgentStoreRunAuditSummary:
+      type: object
+      required: [audit_id, registration_state, event_count]
+      properties:
+        audit_id:
+          type: string
+        registration_state:
+          type: string
+          enum: [governed, suspected, degraded]
+        event_count:
+          type: integer
     AgentOpsDeepLinks:
       type: object
       required:
