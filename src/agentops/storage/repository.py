@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -85,6 +87,11 @@ class InMemoryRepository:
         with self._lock:
             credentials = self.credentials_by_bootstrap.get(bootstrap_id)
             return dict(credentials) if credentials else None
+
+    @contextmanager
+    def credential_reissue_transaction(self) -> Iterator[None]:
+        with self._lock:
+            yield
 
     def credential_bootstrap_records(self) -> tuple[dict[str, Any], ...]:
         with self._lock:

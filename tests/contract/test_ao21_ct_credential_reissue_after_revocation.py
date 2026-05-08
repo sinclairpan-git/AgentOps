@@ -1,13 +1,16 @@
 import json
+from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 from datetime import UTC, datetime, timedelta
 from http.client import HTTPConnection
 from http.server import ThreadingHTTPServer
 from pathlib import Path
-from threading import Thread
+from threading import Event, Thread
+from time import sleep
 
 import pytest
 
+import agentops.api.credentials as credentials_api
 from agentops.api.credentials import get_credential_status, issue_credentials, reissue_credentials, revoke_credentials
 from agentops.api.ingestion import ingest_events_batch
 from agentops.api.server import create_http_handler
@@ -240,6 +243,59 @@ def test_ao21_ct_001c_reissue_source_allows_only_one_replacement(revoked_reposit
     assert first["credential_id"] == "cred-fixture-r1"
     assert exc.value.error_code == "CREDENTIAL_REISSUE_SOURCE_ALREADY_REISSUED"
     assert source_status["reissued_bootstrap_id"] == "boot-inst-fixture-r1"
+    assert revoked_repository.get_bootstrap_session("boot-inst-fixture-r2") is None
+
+
+def test_ao21_ct_001d_reissue_source_guard_is_atomic_under_parallel_requests(revoked_repository, monkeypatch):
+    original_issue_credentials = credentials_api.issue_credentials
+    first_issue_entered = Event()
+    release_first_issue = Event()
+
+    def blocking_issue_credentials(request, repository, now=None, headers=None):
+        if request.get("bootstrap_id") == "boot-inst-fixture-r1":
+            first_issue_entered.set()
+            assert release_first_issue.wait(timeout=5)
+        return original_issue_credentials(request, repository, now=now, headers=headers)
+
+    handoff = reissue_handoff(bootstrap_id="boot-inst-fixture-r2")
+    handoff["installation_assertion"]["assertion_hash"] = "sha256:assertion-fixture-r2"
+    handoff["installation_assertion"]["nonce"] = "nonce-install-fixture-r2"
+    handoff["installation_assertion"]["signature"] = "sig-install-fixture-r2"
+    handoff["device_proof"]["assertion_hash"] = "sha256:assertion-fixture-r2"
+    handoff["device_proof"]["nonce"] = "nonce-device-fixture-r2"
+    handoff["device_proof"]["key_id"] = "device-key-fixture-r2"
+    handoff["device_proof"]["signature"] = "sig-device-fixture-r2"
+    monkeypatch.setattr(credentials_api, "issue_credentials", blocking_issue_credentials)
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        first_future = executor.submit(
+            reissue_credentials,
+            reissue_request(),
+            revoked_repository,
+            now=REISSUE_NOW,
+            headers={"Idempotency-Key": "idem-reissue-fixture"},
+        )
+        assert first_issue_entered.wait(timeout=5)
+        second_future = executor.submit(
+            reissue_credentials,
+            reissue_request(
+                new_bootstrap_id="boot-inst-fixture-r2",
+                reissue_id="reissue-inst-fixture-r2",
+                credential_handoff=handoff,
+            ),
+            revoked_repository,
+            now=REISSUE_NOW,
+            headers={"Idempotency-Key": "idem-reissue-fixture-r2"},
+        )
+        sleep(0.05)
+        assert not second_future.done()
+        release_first_issue.set()
+        first = first_future.result(timeout=5)
+        with pytest.raises(AgentOpsError) as exc:
+            second_future.result(timeout=5)
+
+    assert first["credential_id"] == "cred-fixture-r1"
+    assert exc.value.error_code == "CREDENTIAL_REISSUE_SOURCE_ALREADY_REISSUED"
     assert revoked_repository.get_bootstrap_session("boot-inst-fixture-r2") is None
 
 

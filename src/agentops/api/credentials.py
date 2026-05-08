@@ -255,85 +255,86 @@ def reissue_credentials(
     if handoff.get("bootstrap_id") != new_bootstrap_id:
         raise AgentOpsError("CREDENTIAL_REISSUE_HANDOFF_MISMATCH", "Credential handoff bootstrap_id must match new_bootstrap_id.")
 
-    source_session = repository.get_bootstrap_session(source_bootstrap_id)
-    source_credentials = repository.get_credentials(source_bootstrap_id)
-    if not source_session or not source_credentials:
-        raise AgentOpsError("CREDENTIAL_REISSUE_NOT_FOUND", "Source credential status does not exist for this bootstrap.")
-    if source_credentials.get("status") != "revoked" or source_credentials.get("bootstrap_status") != "revoked":
-        raise AgentOpsError("CREDENTIAL_REISSUE_SOURCE_NOT_REVOKED", "Credential reissue requires a revoked source credential.")
-    if source_credentials.get("revocation_scope") == "installation":
-        raise AgentOpsError("CREDENTIAL_REISSUE_INSTALLATION_REVOKED", "Installation-scoped revocation requires a new installation handoff.")
-    if source_credentials.get("revocation_resolution") == "reissued":
-        if (
-            source_credentials.get("reissue_id") == reissue_id
-            and source_credentials.get("reissued_bootstrap_id") == new_bootstrap_id
-        ):
-            existing_reissue_credentials = repository.get_credentials(new_bootstrap_id)
-            if existing_reissue_credentials is None:
-                raise AgentOpsError("CREDENTIAL_REISSUE_TARGET_MISSING", "Reissue source points to a missing replacement credential.")
-            issued_snapshot = _reissued_credential_snapshot(source_credentials) or existing_reissue_credentials
-            return _reissue_response(
-                source_bootstrap_id=source_bootstrap_id,
-                new_bootstrap_id=new_bootstrap_id,
-                reissue_id=reissue_id,
-                requested_by=str(source_credentials.get("reissued_by") or requested_by),
-                reason=str(source_credentials.get("reissue_reason") or reason),
-                issued=issued_snapshot,
-            )
-        raise AgentOpsError("CREDENTIAL_REISSUE_SOURCE_ALREADY_REISSUED", "Source credential has already been reissued.")
-    existing_reissue_credentials = repository.get_credentials(new_bootstrap_id)
-    if existing_reissue_credentials is not None:
-        raise AgentOpsError("CREDENTIAL_REISSUE_TARGET_EXISTS", "Reissue target bootstrap already exists.")
-    if repository.get_bootstrap_session(new_bootstrap_id) is not None:
-        raise AgentOpsError("CREDENTIAL_REISSUE_TARGET_EXISTS", "Reissue target bootstrap already exists.")
+    with repository.credential_reissue_transaction():
+        source_session = repository.get_bootstrap_session(source_bootstrap_id)
+        source_credentials = repository.get_credentials(source_bootstrap_id)
+        if not source_session or not source_credentials:
+            raise AgentOpsError("CREDENTIAL_REISSUE_NOT_FOUND", "Source credential status does not exist for this bootstrap.")
+        if source_credentials.get("status") != "revoked" or source_credentials.get("bootstrap_status") != "revoked":
+            raise AgentOpsError("CREDENTIAL_REISSUE_SOURCE_NOT_REVOKED", "Credential reissue requires a revoked source credential.")
+        if source_credentials.get("revocation_scope") == "installation":
+            raise AgentOpsError("CREDENTIAL_REISSUE_INSTALLATION_REVOKED", "Installation-scoped revocation requires a new installation handoff.")
+        if source_credentials.get("revocation_resolution") == "reissued":
+            if (
+                source_credentials.get("reissue_id") == reissue_id
+                and source_credentials.get("reissued_bootstrap_id") == new_bootstrap_id
+            ):
+                existing_reissue_credentials = repository.get_credentials(new_bootstrap_id)
+                if existing_reissue_credentials is None:
+                    raise AgentOpsError("CREDENTIAL_REISSUE_TARGET_MISSING", "Reissue source points to a missing replacement credential.")
+                issued_snapshot = _reissued_credential_snapshot(source_credentials) or existing_reissue_credentials
+                return _reissue_response(
+                    source_bootstrap_id=source_bootstrap_id,
+                    new_bootstrap_id=new_bootstrap_id,
+                    reissue_id=reissue_id,
+                    requested_by=str(source_credentials.get("reissued_by") or requested_by),
+                    reason=str(source_credentials.get("reissue_reason") or reason),
+                    issued=issued_snapshot,
+                )
+            raise AgentOpsError("CREDENTIAL_REISSUE_SOURCE_ALREADY_REISSUED", "Source credential has already been reissued.")
+        existing_reissue_credentials = repository.get_credentials(new_bootstrap_id)
+        if existing_reissue_credentials is not None:
+            raise AgentOpsError("CREDENTIAL_REISSUE_TARGET_EXISTS", "Reissue target bootstrap already exists.")
+        if repository.get_bootstrap_session(new_bootstrap_id) is not None:
+            raise AgentOpsError("CREDENTIAL_REISSUE_TARGET_EXISTS", "Reissue target bootstrap already exists.")
 
-    new_session = {
-        **source_session,
-        "bootstrap_id": new_bootstrap_id,
-        "status": "authenticated",
-        "bootstrap_status": "authenticated",
-        "credential_id": None,
-        "token_id": None,
-        "device_key_id": None,
-        "reissue_source_bootstrap_id": source_bootstrap_id,
-        "reissue_id": reissue_id,
-        "reissue_requested_by": requested_by,
-        "reissue_reason": reason,
-        "reissue_requested_at": now.isoformat(),
-        "expires_at": new_session_expires_at,
-    }
-    repository.add_bootstrap_session(new_session)
-    try:
-        issued = issue_credentials(handoff, repository, now=now, headers=headers)
-    except AgentOpsError:
-        repository.remove_unissued_bootstrap_session(new_bootstrap_id)
-        raise
-    except (TypeError, ValueError) as exc:
-        repository.remove_unissued_bootstrap_session(new_bootstrap_id)
-        raise AgentOpsError("CREDENTIAL_REISSUE_HANDOFF_INVALID", "Credential reissue handoff is invalid.") from exc
-    issued_snapshot = _reissued_credential_snapshot_from_issued(issued)
-    repository.mark_credentials_reissued(
-        source_bootstrap_id,
-        {
+        new_session = {
+            **source_session,
+            "bootstrap_id": new_bootstrap_id,
+            "status": "authenticated",
+            "bootstrap_status": "authenticated",
+            "credential_id": None,
+            "token_id": None,
+            "device_key_id": None,
+            "reissue_source_bootstrap_id": source_bootstrap_id,
             "reissue_id": reissue_id,
-            "reissued_at": now.isoformat(),
-            "reissued_by": requested_by,
+            "reissue_requested_by": requested_by,
             "reissue_reason": reason,
-            "reissued_bootstrap_id": new_bootstrap_id,
-            "reissued_credential_id": issued["credential_id"],
-            "reissued_token_id": issued["token_id"],
-            "reissued_device_key_id": issued["device_key_id"],
-            "reissued_credential_snapshot": issued_snapshot,
-        },
-    )
-    return _reissue_response(
-        source_bootstrap_id=source_bootstrap_id,
-        new_bootstrap_id=new_bootstrap_id,
-        reissue_id=reissue_id,
-        requested_by=requested_by,
-        reason=reason,
-        issued=issued_snapshot,
-    )
+            "reissue_requested_at": now.isoformat(),
+            "expires_at": new_session_expires_at,
+        }
+        repository.add_bootstrap_session(new_session)
+        try:
+            issued = issue_credentials(handoff, repository, now=now, headers=headers)
+        except AgentOpsError:
+            repository.remove_unissued_bootstrap_session(new_bootstrap_id)
+            raise
+        except (TypeError, ValueError) as exc:
+            repository.remove_unissued_bootstrap_session(new_bootstrap_id)
+            raise AgentOpsError("CREDENTIAL_REISSUE_HANDOFF_INVALID", "Credential reissue handoff is invalid.") from exc
+        issued_snapshot = _reissued_credential_snapshot_from_issued(issued)
+        repository.mark_credentials_reissued(
+            source_bootstrap_id,
+            {
+                "reissue_id": reissue_id,
+                "reissued_at": now.isoformat(),
+                "reissued_by": requested_by,
+                "reissue_reason": reason,
+                "reissued_bootstrap_id": new_bootstrap_id,
+                "reissued_credential_id": issued["credential_id"],
+                "reissued_token_id": issued["token_id"],
+                "reissued_device_key_id": issued["device_key_id"],
+                "reissued_credential_snapshot": issued_snapshot,
+            },
+        )
+        return _reissue_response(
+            source_bootstrap_id=source_bootstrap_id,
+            new_bootstrap_id=new_bootstrap_id,
+            reissue_id=reissue_id,
+            requested_by=requested_by,
+            reason=reason,
+            issued=issued_snapshot,
+        )
 
 
 def _reissue_response(
