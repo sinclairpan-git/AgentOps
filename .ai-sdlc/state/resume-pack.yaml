@@ -9,7 +9,10 @@ working_set_snapshot:
   plan_path: /Users/sinclairpan/project/AgentOps/specs/023-production-runtime-boundary/plan.md
   tasks_path: /Users/sinclairpan/project/AgentOps/specs/023-production-runtime-boundary/tasks.md
   active_files: []
-  context_summary: ''
+  context_summary: 'Goal: AgentOps final archive audit close-out | State: All planned
+    specs 001-029 are closed; program truth audit is ready/fresh with 146/146 mapped
+    sources | Next: No active work item; create 030-* only when a new requirement
+    is approved'
 current_branch: feature/023-production-runtime-boundary-docs
 docs_baseline_ref: ''
 docs_baseline_at: ''
