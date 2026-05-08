@@ -36,7 +36,7 @@ def json_get(server: ThreadingHTTPServer, path: str, *, origin: str | None = Non
         connection.close()
 
 
-def write_l5_run(repository: InMemoryRepository) -> None:
+def write_l5_run(repository: InMemoryRepository, *, include_adapter_state: bool = True) -> None:
     sync_agent_store_metadata(
         repository,
         {
@@ -46,13 +46,16 @@ def write_l5_run(repository: InMemoryRepository) -> None:
         },
     )
     for index, event_type in enumerate(L5_EVENT_TYPES, start=1):
+        event = base_event(
+            event_type,
+            event_id=f"evt_ao22_{event_type}",
+            idempotency_key=f"ao22:{event_type}:run_1",
+            sequence_no=index,
+        )
+        if event_type == "stage_started" and not include_adapter_state:
+            event["payload"].pop("adapter_state", None)
         repository.write_event(
-            base_event(
-                event_type,
-                event_id=f"evt_ao22_{event_type}",
-                idempotency_key=f"ao22:{event_type}:run_1",
-                sequence_no=index,
-            )
+            event
         )
 
 
@@ -116,6 +119,22 @@ def test_ao22_ct_002_http_store_summary_does_not_claim_l5_for_incomplete_run():
     assert summary["confidence"] < 1.0
     assert summary["risk_state"] == "warning"
     assert "verification_result" in summary["missing_evidence"]
+
+
+def test_ao22_ct_002a_http_store_summary_does_not_infer_verified_loaded_when_adapter_state_missing():
+    repository = InMemoryRepository()
+    write_l5_run(repository, include_adapter_state=False)
+    server = start_server(repository)
+    try:
+        response, summary = json_get(server, "/v1/store-summary/agent.ai-sdlc?version=1.0.0&run_id=run_1")
+    finally:
+        server.shutdown()
+
+    assert response.status == 200
+    assert summary["evidence_level"] == "L4"
+    assert summary["confidence"] < 1.0
+    assert summary["risk_state"] == "warning"
+    assert summary["quality_state"]["source_trust"] == "declared"
 
 
 def test_ao22_ct_003_http_store_summary_requires_version_and_run_id():

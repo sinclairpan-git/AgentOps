@@ -143,7 +143,7 @@ def _governance_state(events: list[dict[str, Any]]) -> str:
         payload = event.get("payload")
         if isinstance(payload, dict) and payload.get("adapter_state") not in (None, ""):
             return str(payload["adapter_state"])
-    return "verified_loaded"
+    return "materialized"
 
 
 def _strict_bool(value: Any, *, default: bool) -> bool:

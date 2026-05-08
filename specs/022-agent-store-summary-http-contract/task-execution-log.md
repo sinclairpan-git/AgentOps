@@ -58,6 +58,7 @@
 - 状态边界：summary 只表达 AgentOps 计算结果，不把 display-only 结果提升为 `verified_loaded`、active 或 L5。
 - HTTP 边界：缺少 `version/run_id` 返回 `STORE_SUMMARY_QUERY_REQUIRED`；unsupported schema 和 run target mismatch 均以 contract error 返回。
 - PR #22 Codex review 反馈 1：`/v1/store-summary/{agent_id}` route 接受额外 path segment，会把客户端 URL 错误误报为 run mismatch。已收紧为单 segment path 参数，并补 `test_ao22_ct_003a_http_store_summary_rejects_extra_path_segments`。
+- PR #22 Codex review 反馈 2：HTTP summary helper 在缺少 `adapter_state` 时默认 `verified_loaded`，会把无治理证明的完整事件链误判为 L5/normal。已改为缺失时降级为 `materialized`，并补 `test_ao22_ct_002a_http_store_summary_does_not_infer_verified_loaded_when_adapter_state_missing`。
 
 ## 任务/计划同步状态
 
