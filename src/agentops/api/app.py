@@ -21,4 +21,5 @@ def create_app() -> dict[str, str]:
         "run_audit": "/v1/runs/{run_id}/audit",
         "health": "/v1/health",
         "console_snapshot": "/v1/console/snapshot",
+        "production_auth_boundary": "upstream headers: X-AgentOps-Principal, X-AgentOps-Roles, X-AgentOps-Scopes",
     }

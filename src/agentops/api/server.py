@@ -10,6 +10,7 @@ from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
 from agentops import __version__
+from agentops.api.auth import require_scope
 from agentops.api.console_snapshot import build_console_snapshot
 from agentops.api.credentials import (
     get_credential_status,
@@ -31,6 +32,8 @@ ALLOWED_ORIGINS = {
 
 def create_http_handler(
     repository: InMemoryRepository | None = None,
+    *,
+    require_auth: bool = False,
 ) -> type[BaseHTTPRequestHandler]:
     live_repository = repository or InMemoryRepository()
 
@@ -74,6 +77,10 @@ def create_http_handler(
                 return
 
             if request_path == "/v1/console/snapshot":
+                auth_error = self._require_scope("console.snapshot.read")
+                if auth_error:
+                    self._send_auth_error(auth_error)
+                    return
                 self._send_json(
                     HTTPStatus.OK, build_console_snapshot(repository=live_repository)
                 )
@@ -81,6 +88,10 @@ def create_http_handler(
 
             store_summary_prefix = "/v1/store-summary/"
             if request_path.startswith(store_summary_prefix):
+                auth_error = self._require_scope("store.summary.read")
+                if auth_error:
+                    self._send_auth_error(auth_error)
+                    return
                 agent_id = request_path.removeprefix(store_summary_prefix).strip("/")
                 if not agent_id or "/" in agent_id:
                     self._send_json(
@@ -128,6 +139,10 @@ def create_http_handler(
 
             credential_status_prefix = "/v1/bootstrap/credentials/"
             if request_path.startswith(credential_status_prefix):
+                auth_error = self._require_scope("credential.read")
+                if auth_error:
+                    self._send_auth_error(auth_error)
+                    return
                 bootstrap_id = request_path.removeprefix(credential_status_prefix)
                 try:
                     self._send_json(
@@ -170,6 +185,10 @@ def create_http_handler(
             if request_path.startswith(credential_prefix) and request_path.endswith(
                 reissue_suffix
             ):
+                auth_error = self._require_scope("credential.write")
+                if auth_error:
+                    self._send_auth_error(auth_error)
+                    return
                 bootstrap_id = (
                     request_path.removeprefix(credential_prefix)
                     .removesuffix(reissue_suffix)
@@ -213,6 +232,10 @@ def create_http_handler(
             if request_path.startswith(revoke_prefix) and request_path.endswith(
                 revoke_suffix
             ):
+                auth_error = self._require_scope("credential.write")
+                if auth_error:
+                    self._send_auth_error(auth_error)
+                    return
                 bootstrap_id = (
                     request_path.removeprefix(revoke_prefix)
                     .removesuffix(revoke_suffix)
@@ -250,6 +273,10 @@ def create_http_handler(
                 return
 
             if request_path in {"/v1/events", "/v1/events/batch"}:
+                auth_error = self._require_scope("event.ingest")
+                if auth_error:
+                    self._send_auth_error(auth_error)
+                    return
                 payload = self._read_json()
                 if payload is None:
                     self._send_json(
@@ -322,6 +349,21 @@ def create_http_handler(
             except (UnicodeDecodeError, json.JSONDecodeError, ValueError):
                 return None
 
+        def _require_scope(self, scope: str) -> AgentOpsError | None:
+            try:
+                require_scope(dict(self.headers), scope, auth_required=require_auth)
+            except AgentOpsError as exc:
+                return exc
+            return None
+
+        def _send_auth_error(self, exc: AgentOpsError) -> None:
+            status = (
+                HTTPStatus.UNAUTHORIZED
+                if exc.error_code == "UPSTREAM_IDENTITY_REQUIRED"
+                else HTTPStatus.FORBIDDEN
+            )
+            self._send_json(status, exc.to_response())
+
         def _send_json(self, status: HTTPStatus, payload: dict[str, Any]) -> None:
             body = (
                 b""
@@ -334,9 +376,14 @@ def create_http_handler(
             if origin in ALLOWED_ORIGINS:
                 self.send_header("Access-Control-Allow-Origin", origin)
             self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-            self.send_header(
-                "Access-Control-Allow-Headers", "Content-Type, Idempotency-Key"
-            )
+            allowed_headers = "Content-Type, Idempotency-Key"
+            if require_auth:
+                allowed_headers = (
+                    f"{allowed_headers}, X-AgentOps-Principal, X-AgentOps-Roles, "
+                    "X-AgentOps-Scopes, X-AgentOps-Scope, X-AgentOps-Request-Id, "
+                    "X-AgentOps-Audit-Id"
+                )
+            self.send_header("Access-Control-Allow-Headers", allowed_headers)
             self.send_header("Cache-Control", "no-store")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
@@ -346,8 +393,12 @@ def create_http_handler(
     return AgentOpsRequestHandler
 
 
-def run_server(host: str = "127.0.0.1", port: int = 8765) -> None:
-    httpd = ThreadingHTTPServer((host, port), create_http_handler())
+def run_server(
+    host: str = "127.0.0.1", port: int = 8765, *, require_auth: bool = False
+) -> None:
+    httpd = ThreadingHTTPServer(
+        (host, port), create_http_handler(require_auth=require_auth)
+    )
     print(f"AgentOps API listening on http://{host}:{port}")  # noqa: T201
     httpd.serve_forever()
 
@@ -356,8 +407,13 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Start the local AgentOps API server.")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", default=8765, type=int)
+    parser.add_argument(
+        "--require-auth",
+        action="store_true",
+        help="Require upstream IAM/RBAC headers for sensitive and mutating routes.",
+    )
     args = parser.parse_args()
-    run_server(host=args.host, port=args.port)
+    run_server(host=args.host, port=args.port, require_auth=args.require_auth)
 
 
 if __name__ == "__main__":

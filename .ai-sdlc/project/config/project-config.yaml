@@ -8,7 +8,7 @@ detected_ide: generic
 agent_target: codex
 adapter_applied: codex
 adapter_version: '1'
-adapter_applied_at: '2026-05-08T06:13:25+00:00'
+adapter_applied_at: '2026-05-08T06:39:26+00:00'
 adapter_activation_state: acknowledged
 adapter_support_tier: soft_installed
 agent_target_source: ''
