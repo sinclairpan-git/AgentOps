@@ -527,7 +527,7 @@ def create_http_handler(
                     offset=next_offset,
                     filters=filters,
                 )
-                if has_more
+                if has_more and audit_cursor_secret_bytes is not None
                 else ""
             )
             return {

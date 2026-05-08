@@ -434,7 +434,9 @@ def test_ao27_ct_011_cursor_survives_handler_recreation_with_stable_secret(
     ]
 
 
-def test_ao27_ct_012_missing_cursor_secret_fails_closed(tmp_path: Path):
+def test_ao27_ct_012_missing_cursor_secret_preserves_first_page_reads(
+    tmp_path: Path,
+):
     audit_path = tmp_path / "audit.jsonl"
     audit_log = _audit_log(audit_path)
     server = ThreadingHTTPServer(
@@ -452,6 +454,64 @@ def test_ao27_ct_012_missing_cursor_secret_fails_closed(tmp_path: Path):
             server,
             "GET",
             "/v1/audit/runtime?action=credential.revoke&limit=2",
+            headers=_auth_headers(),
+        )
+    finally:
+        server.shutdown()
+
+    records = JsonlAuditLog(audit_path).records()
+    assert response.status == 200
+    assert [record["audit_id"] for record in payload["records"]] == [
+        "audit_runtime_1",
+        "audit_runtime_2",
+    ]
+    assert payload["page_info"]["has_more"] is True
+    assert payload["page_info"]["next_cursor"] == ""
+    assert records[-1].action == "runtime.audit.read"
+    assert records[-1].outcome == "accepted"
+
+
+def test_ao27_ct_013_missing_cursor_secret_fails_closed_for_cursor_reads(
+    tmp_path: Path,
+):
+    audit_path = tmp_path / "audit.jsonl"
+    audit_log = _audit_log(audit_path)
+    cursor_payload = {
+        "payload": {
+            "end": 5,
+            "filters": {"action": "credential.revoke"},
+            "offset": 2,
+            "v": 1,
+        },
+        "sig": "0" * 64,
+    }
+    cursor = (
+        base64.urlsafe_b64encode(
+            json.dumps(
+                cursor_payload,
+                ensure_ascii=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            ).encode("utf-8")
+        )
+        .decode("ascii")
+        .rstrip("=")
+    )
+    server = ThreadingHTTPServer(
+        ("127.0.0.1", 0),
+        create_http_handler(
+            InMemoryRepository(),
+            require_auth=True,
+            audit_log=audit_log,
+        ),
+    )
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        response, payload = _json_request(
+            server,
+            "GET",
+            f"/v1/audit/runtime?action=credential.revoke&limit=2&cursor={cursor}",
             headers=_auth_headers(),
         )
     finally:

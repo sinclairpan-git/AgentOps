@@ -187,6 +187,22 @@
 - 当前批次 worktree disposition 状态：当前 worktree 继续承载 PR #28 收口。
 - 是否继续下一批：否，本批继续 PR 收口。
 
+### Review Fix 2026-05-08-006 | Codex preserve non-cursor audit reads
+
+#### RF-006 | keep first-page audit reads available without cursor secret
+
+- **验证画像**：code-change
+- **改动范围**：`src/agentops/api/server.py`, `tests/contract/test_ao27_ct_runtime_audit_pagination.py`, `specs/027-runtime-audit-pagination/development-summary.md`, `specs/027-runtime-audit-pagination/task-execution-log.md`, `program-manifest.yaml`
+- 改动内容：无 `cursor` 的首屏 runtime audit 查询在缺少 cursor signing secret 时保持 200 可用，但不签发 `next_cursor`；带 `cursor` 的续页查询仍因无法验证签名而返回 `AUDIT_CURSOR_SECRET_UNCONFIGURED` fail closed。
+- 新增/调整的测试：调整缺少 signing secret 的首屏查询契约为返回 records、`has_more=true`、`next_cursor=""` 且写入 accepted audit；新增带 cursor 且缺少 signing secret 时 503 rejected audit 的契约测试。
+- 执行的命令：`uv run pytest tests/contract/test_ao27_ct_runtime_audit_pagination.py -q`、`uv run pytest tests/contract/test_ao23_ct_production_runtime_boundary.py tests/contract/test_ao24_ct_durable_audit_log.py tests/contract/test_ao25_ct_production_audit_coverage.py tests/contract/test_ao26_ct_runtime_audit_query.py tests/contract/test_ao27_ct_runtime_audit_pagination.py -q`、`uv run ruff check src tests`、`uv run ai-sdlc verify constraints`
+- 测试结果：通过，AO27 13 个测试通过；AO23-AO27 回归 41 个测试通过、1 个既有环境相关测试跳过；ruff 通过；constraints 无 BLOCKER。
+- 是否符合任务目标：是；回应 Codex review 对未配置 cursor secret 时不得破坏非 cursor 首屏审计读取兼容性的要求。
+- **已完成 git 提交**：是，提交后以当前 Git HEAD 作为本次 review fix 提交。
+- **提交哈希**：见当前 Git HEAD。
+- 当前批次 worktree disposition 状态：当前 worktree 继续承载 PR #28 收口。
+- 是否继续下一批：否，本批继续 PR 收口。
+
 ### Review Fix 2026-05-08-002 | Codex stable cursor signing key
 
 #### RF-002 | stabilize cursor signing key across handlers

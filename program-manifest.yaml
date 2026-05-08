@@ -103,13 +103,13 @@ specs:
   path: specs/027-runtime-audit-pagination
   depends_on: []
 truth_snapshot:
-  generated_at: '2026-05-08T10:19:46Z'
+  generated_at: '2026-05-08T10:29:51Z'
   generated_by: ai-sdlc program truth sync
   generator_version: program_truth_snapshot_v1
-  repo_revision: a53bda4
+  repo_revision: 2b51979
   authoring_hash: 5a6ee6eda537b4c5a117985ee93c606521559f8e65e1e13ab5dd15116ebb7041
   source_hashes: {}
-  snapshot_hash: f5f60e80c9194dbebb237b07b482170f85eadeaa947a6936ddc777bef1be2ec1
+  snapshot_hash: a908302b0d8878af4a29b8e9841d1608ba4e1c773e90c4c24cf4bcb34057fbbf
   computed_capabilities: []
   source_inventory:
     state: complete
