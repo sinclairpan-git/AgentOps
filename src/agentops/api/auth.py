@@ -14,6 +14,7 @@ ROLE_SCOPES = {
         "credential.read",
         "credential.write",
         "event.ingest",
+        "runtime.audit.read",
         "store.summary.read",
     },
     "agentops-operator": {
@@ -21,6 +22,7 @@ ROLE_SCOPES = {
         "credential.read",
         "credential.write",
         "event.ingest",
+        "runtime.audit.read",
         "store.summary.read",
     },
     "agentops-viewer": {

@@ -20,6 +20,7 @@ def create_app() -> dict[str, str]:
         "agent_store_discovery": "/v1/agent-store/discovery",
         "run_audit": "/v1/runs/{run_id}/audit",
         "durable_audit_log": "append-only JSONL runtime audit boundary",
+        "runtime_audit_query": "GET /v1/audit/runtime",
         "health": "/v1/health",
         "console_snapshot": "/v1/console/snapshot",
         "production_auth_boundary": "upstream headers: X-AgentOps-Principal, X-AgentOps-Roles, X-AgentOps-Scopes",
