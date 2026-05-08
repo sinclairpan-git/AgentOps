@@ -87,36 +87,39 @@ specs:
   path: specs/022-agent-store-summary-http-contract
   depends_on:
   - 021-credential-reissue-after-revocation
+- id: 023-production-runtime-boundary
+  path: specs/023-production-runtime-boundary
+  depends_on: []
 truth_snapshot:
-  generated_at: '2026-05-08T06:14:32Z'
+  generated_at: '2026-05-08T06:47:40Z'
   generated_by: ai-sdlc program truth sync
   generator_version: program_truth_snapshot_v1
-  repo_revision: b9a4ddf
-  authoring_hash: 7eed661a060cab971a396436dddd82e8bc36276aeb1f145583d447e12cd4098f
+  repo_revision: 80d826c
+  authoring_hash: d8cea9668205b44ebb3b64ecae916a526f422566f89669f867a4b789e0b49024
   source_hashes: {}
-  snapshot_hash: f79dd9e62443cf7c57b90d3a2d4b06f588c7b51abed7ddcf9150801c4308769f
+  snapshot_hash: 392746e442eea9cd23e157a13e1d456c36a84f67b1176c7b54720e7d8d9db1ad
   computed_capabilities: []
   source_inventory:
     state: complete
-    total_sources: 110
-    mapped_sources: 110
+    total_sources: 115
+    mapped_sources: 115
     unmapped_sources: 0
     missing_sources: 2
-    phase_signal_count: 111
-    deferred_signal_count: 143
-    non_goal_signal_count: 28
+    phase_signal_count: 115
+    deferred_signal_count: 148
+    non_goal_signal_count: 30
     layer_totals:
-      spec: 22
-      plan: 22
-      tasks: 22
-      execution: 22
-      close: 22
+      spec: 23
+      plan: 23
+      tasks: 23
+      execution: 23
+      close: 23
     layer_materialized:
-      spec: 22
-      plan: 22
-      tasks: 22
-      execution: 20
-      close: 22
+      spec: 23
+      plan: 23
+      tasks: 23
+      execution: 21
+      close: 23
     entries:
     - path: specs/001-agentops-trusted-loop/spec.md
       source_type: spec_doc
@@ -1107,6 +1110,51 @@ truth_snapshot:
       mapping_ref: 022-agent-store-summary-http-contract
       phase_signal_count: 0
       deferred_signal_count: 0
+      non_goal_signal_count: 0
+    - path: specs/023-production-runtime-boundary/spec.md
+      source_type: spec_doc
+      truth_layer: spec
+      mapped: true
+      exists: true
+      mapping_ref: 023-production-runtime-boundary
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 1
+    - path: specs/023-production-runtime-boundary/plan.md
+      source_type: plan_doc
+      truth_layer: plan
+      mapped: true
+      exists: true
+      mapping_ref: 023-production-runtime-boundary
+      phase_signal_count: 2
+      deferred_signal_count: 2
+      non_goal_signal_count: 1
+    - path: specs/023-production-runtime-boundary/tasks.md
+      source_type: tasks_doc
+      truth_layer: tasks
+      mapped: true
+      exists: true
+      mapping_ref: 023-production-runtime-boundary
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 0
+    - path: specs/023-production-runtime-boundary/task-execution-log.md
+      source_type: execution_log
+      truth_layer: execution
+      mapped: true
+      exists: true
+      mapping_ref: 023-production-runtime-boundary
+      phase_signal_count: 2
+      deferred_signal_count: 2
+      non_goal_signal_count: 0
+    - path: specs/023-production-runtime-boundary/development-summary.md
+      source_type: development_summary
+      truth_layer: close
+      mapped: true
+      exists: true
+      mapping_ref: 023-production-runtime-boundary
+      phase_signal_count: 0
+      deferred_signal_count: 1
       non_goal_signal_count: 0
     unmapped_paths: []
   state: ready

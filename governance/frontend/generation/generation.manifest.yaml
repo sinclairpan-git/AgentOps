@@ -1,8 +1,18 @@
-schema_version: frontend-generation-manifest/v1
-owner: AgentOps
-artifacts:
-  - hard-rules.yaml
-  - token-rules.yaml
-  - policy.yaml
-verification:
-  static_contract_test: apps/agentops-console/tests/console-contract.test.mjs
+work_item_id: "023"
+effective_provider_id: enterprise-vue2
+delivery_entry_id: agentops-console
+component_library_packages:
+  - vue
+  - sxf-er-components
+provider_theme_adapter_id: enterprise-vue2-theme
+page_schema_ids:
+  - credential-status-query
+  - credential-handoff-workbench
+  - evidence-vault-workbench
+execution_order:
+  - contract
+  - recipe
+  - whitelist
+  - hard-rules
+  - token-rules
+  - exceptions
