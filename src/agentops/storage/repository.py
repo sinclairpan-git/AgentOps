@@ -171,6 +171,7 @@ class InMemoryRepository:
                 "reissued_credential_id": reissue["reissued_credential_id"],
                 "reissued_token_id": reissue["reissued_token_id"],
                 "reissued_device_key_id": reissue["reissued_device_key_id"],
+                "reissued_credential_snapshot": deepcopy(reissue["reissued_credential_snapshot"]),
             }
             self.credentials_by_bootstrap[bootstrap_id] = {**credentials, **reissue_fields}
             self.bootstrap_sessions[bootstrap_id] = {**session, **reissue_fields}

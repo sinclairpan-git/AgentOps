@@ -271,13 +271,14 @@ def reissue_credentials(
             existing_reissue_credentials = repository.get_credentials(new_bootstrap_id)
             if existing_reissue_credentials is None:
                 raise AgentOpsError("CREDENTIAL_REISSUE_TARGET_MISSING", "Reissue source points to a missing replacement credential.")
+            issued_snapshot = _reissued_credential_snapshot(source_credentials) or existing_reissue_credentials
             return _reissue_response(
                 source_bootstrap_id=source_bootstrap_id,
                 new_bootstrap_id=new_bootstrap_id,
                 reissue_id=reissue_id,
                 requested_by=str(source_credentials.get("reissued_by") or requested_by),
                 reason=str(source_credentials.get("reissue_reason") or reason),
-                issued=existing_reissue_credentials,
+                issued=issued_snapshot,
             )
         raise AgentOpsError("CREDENTIAL_REISSUE_SOURCE_ALREADY_REISSUED", "Source credential has already been reissued.")
     existing_reissue_credentials = repository.get_credentials(new_bootstrap_id)
@@ -307,9 +308,10 @@ def reissue_credentials(
     except AgentOpsError:
         repository.remove_unissued_bootstrap_session(new_bootstrap_id)
         raise
-    except ValueError as exc:
+    except (TypeError, ValueError) as exc:
         repository.remove_unissued_bootstrap_session(new_bootstrap_id)
         raise AgentOpsError("CREDENTIAL_REISSUE_HANDOFF_INVALID", "Credential reissue handoff is invalid.") from exc
+    issued_snapshot = _reissued_credential_snapshot_from_issued(issued)
     repository.mark_credentials_reissued(
         source_bootstrap_id,
         {
@@ -321,6 +323,7 @@ def reissue_credentials(
             "reissued_credential_id": issued["credential_id"],
             "reissued_token_id": issued["token_id"],
             "reissued_device_key_id": issued["device_key_id"],
+            "reissued_credential_snapshot": issued_snapshot,
         },
     )
     return _reissue_response(
@@ -329,7 +332,7 @@ def reissue_credentials(
         reissue_id=reissue_id,
         requested_by=requested_by,
         reason=reason,
-        issued=issued,
+        issued=issued_snapshot,
     )
 
 
@@ -363,6 +366,27 @@ def _reissue_response(
         "agent_store_consumer_boundary": "display_only_no_active_inference",
         "verified_loaded": "not_asserted",
         "l5_status": "not_asserted",
+    }
+
+
+def _reissued_credential_snapshot(source_credentials: dict[str, Any]) -> dict[str, Any] | None:
+    snapshot = source_credentials.get("reissued_credential_snapshot")
+    if isinstance(snapshot, dict):
+        return dict(snapshot)
+    return None
+
+
+def _reissued_credential_snapshot_from_issued(issued: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "credential_id": issued["credential_id"],
+        "token_id": issued["token_id"],
+        "device_key_id": issued["device_key_id"],
+        "status": issued["status"],
+        "bootstrap_status": issued["bootstrap_status"],
+        "installation_id": issued["installation_id"],
+        "device_id": issued["device_id"],
+        "expires_at": issued["expires_at"],
+        "next_action": issued["next_action"],
     }
 
 

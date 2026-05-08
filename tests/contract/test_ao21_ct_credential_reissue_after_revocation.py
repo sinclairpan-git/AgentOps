@@ -310,6 +310,29 @@ def test_ao21_ct_003c_reissue_bad_handoff_parse_error_rolls_back_session(revoked
     assert revoked_repository.get_bootstrap_session("boot-inst-fixture-r1")["bootstrap_status"] == "credential_issued"
 
 
+def test_ao21_ct_003d_reissue_naive_handoff_time_rolls_back_session(revoked_repository):
+    malformed_handoff = reissue_handoff(issued_at="2026-05-07T12:12:00")
+
+    with pytest.raises(AgentOpsError) as exc:
+        reissue_credentials(
+            reissue_request(credential_handoff=malformed_handoff),
+            revoked_repository,
+            now=REISSUE_NOW,
+            headers={"Idempotency-Key": "idem-reissue-fixture-naive-time"},
+        )
+
+    retry = reissue_credentials(
+        reissue_request(),
+        revoked_repository,
+        now=REISSUE_NOW,
+        headers={"Idempotency-Key": "idem-reissue-fixture"},
+    )
+
+    assert exc.value.error_code == "CREDENTIAL_REISSUE_HANDOFF_INVALID"
+    assert retry["credential_id"] == "cred-fixture-r1"
+    assert revoked_repository.get_bootstrap_session("boot-inst-fixture-r1")["bootstrap_status"] == "credential_issued"
+
+
 def test_ao21_ct_004_reissue_rejects_non_revoked_source(repository):
     issue_fixture_credentials(repository)
 
@@ -326,6 +349,27 @@ def test_ao21_ct_005_reissue_retry_returns_same_result(revoked_repository):
     second = reissue_credentials(request, revoked_repository, now=REISSUE_NOW, headers={"Idempotency-Key": "idem-reissue-fixture"})
 
     assert first == second
+
+
+def test_ao21_ct_005b_reissue_retry_stays_stable_after_replacement_revoked(revoked_repository):
+    request = reissue_request()
+    first = reissue_credentials(request, revoked_repository, now=REISSUE_NOW, headers={"Idempotency-Key": "idem-reissue-fixture"})
+    revoke_credentials(
+        revocation_request(
+            bootstrap_id="boot-inst-fixture-r1",
+            revocation_id="revoke-inst-fixture-r1",
+        ),
+        revoked_repository,
+        now=REISSUE_NOW + timedelta(minutes=2),
+    )
+
+    retry = reissue_credentials(request, revoked_repository, now=REISSUE_NOW, headers={"Idempotency-Key": "idem-reissue-fixture"})
+    replacement_status = get_credential_status(revoked_repository, "boot-inst-fixture-r1")
+
+    assert retry == first
+    assert retry["credential_status"] == "active"
+    assert retry["bootstrap_status"] == "credential_issued"
+    assert replacement_status["credential_status"] == "revoked"
 
 
 def test_ao21_ct_006_http_reissue_route_returns_json_and_cors(revoked_repository):
