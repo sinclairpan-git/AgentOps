@@ -345,6 +345,33 @@ def test_ao32_ct_003_health_summary_window_uses_received_recency_not_attempt_num
     assert summary["success_rate"] == 1.0
 
 
+def test_ao32_ct_003_health_summary_window_treats_invalid_received_at_as_oldest():
+    repository = InMemoryRepository()
+    write_runtime_run(
+        repository,
+        run_id="run_malformed_time",
+        status="failed",
+        terminal_reason="tool_error",
+    )
+    write_runtime_run(
+        repository,
+        run_id="run_recent",
+        status="succeeded",
+        sequence_no=2,
+    )
+    set_runtime_run_received_at(repository, "run_malformed_time", 1, "not-a-time")
+    set_runtime_run_received_at(
+        repository, "run_recent", 1, "2026-05-09T06:00:00+00:00"
+    )
+
+    summary = build_runtime_health_summary(
+        repository, "agent.ai-sdlc", "1.0.0", window_limit=1
+    )
+
+    assert summary["calculation_window"]["run_ids"] == ["run_recent"]
+    assert summary["success_rate"] == 1.0
+
+
 def test_ao32_ct_004_store_summary_returns_runtime_evidence_health_and_ops_link():
     repository = InMemoryRepository()
     register_agent(repository)

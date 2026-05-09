@@ -76,7 +76,7 @@ def _runtime_time_sort_value(value: Any) -> tuple[int, float, str]:
     try:
         parsed = datetime.fromisoformat(raw_value.replace("Z", "+00:00"))
     except ValueError:
-        return (1, 0.0, raw_value)
+        return (-1, 0.0, raw_value)
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=UTC)
     timestamp = parsed.astimezone(UTC).timestamp()
