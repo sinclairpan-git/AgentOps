@@ -17,20 +17,24 @@ def utc_now() -> str:
     return datetime.now(UTC).isoformat()
 
 
-def _runtime_attempt_sort_key(record: dict[str, Any]) -> tuple[float, str]:
-    value = record.get("attempt_no", 0)
+def _runtime_number_sort_value(value: Any) -> float:
     if isinstance(value, bool):
-        attempt_no = -1.0
-    elif isinstance(value, (int, float)):
-        attempt_no = float(value)
-    elif isinstance(value, str):
+        return -1.0
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
         try:
-            attempt_no = float(value)
+            return float(value)
         except ValueError:
-            attempt_no = -1.0
-    else:
-        attempt_no = -1.0
-    return (attempt_no, str(record.get("received_at", "")))
+            return -1.0
+    return -1.0
+
+
+def _runtime_attempt_sort_key(record: dict[str, Any]) -> tuple[float, float, str]:
+    value = record.get("attempt_no", 0)
+    attempt_no = _runtime_number_sort_value(value)
+    sequence_no = _runtime_number_sort_value(record.get("sequence_no", 0))
+    return (attempt_no, sequence_no, str(record.get("received_at", "")))
 
 
 @dataclass
@@ -160,10 +164,16 @@ class InMemoryRepository:
         record = {
             **deepcopy(payload),
             "event_id": event["event_id"],
+            "sequence_no": event.get("sequence_no", 0),
             "received_at": utc_now(),
         }
         key = f"{payload['run_id']}:{payload.get('attempt_no', 1)}"
         with self._lock:
+            existing = self.runtime_runs.get(key)
+            if existing and _runtime_attempt_sort_key(record) <= _runtime_attempt_sort_key(
+                existing
+            ):
+                return
             self.runtime_runs[key] = record
 
     def write_trace_span_fact(

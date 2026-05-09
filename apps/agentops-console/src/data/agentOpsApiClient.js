@@ -20,6 +20,7 @@ const allowedStates = new Set([
   "trace_pending",
   "running",
   "ok",
+  "waiting",
   "error",
   "unset",
   "degraded",

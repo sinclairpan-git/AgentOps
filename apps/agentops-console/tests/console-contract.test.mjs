@@ -229,6 +229,23 @@ assert.equal(
     ...validApiSnapshot,
     consoleData: {
       ...consoleData,
+      runs: consoleData.runs.map((run, index) =>
+        index === 0 ? {
+          ...run,
+          trace_timeline: run.trace_timeline.map((span, spanIndex) =>
+            spanIndex === 0 ? { ...span, status_code: "waiting" } : span
+          )
+        } : run
+      )
+    }
+  }),
+  true
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
       runs: [{
         ...consoleData.runs[0],
         trace_timeline: [{

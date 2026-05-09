@@ -604,6 +604,45 @@ def test_ao31_ct_006_run_detail_selects_latest_mixed_attempt_types():
     assert detail["run"]["status"] == "blocked"
 
 
+def test_ao31_ct_006_run_detail_preserves_latest_sequence_for_attempt():
+    repository = InMemoryRepository()
+    ingest_runtime_events(
+        runtime_batch(
+            [
+                runtime_event(
+                    "evt_run_succeeded",
+                    "runtime_run",
+                    runtime_run_payload(status="succeeded"),
+                    schema_version="runtime_run.v1",
+                    sequence_no=2,
+                    idempotency_key="runtime:run_succeeded",
+                )
+            ]
+        ),
+        repository,
+    )
+    ingest_runtime_events(
+        runtime_batch(
+            [
+                runtime_event(
+                    "evt_run_running_late",
+                    "runtime_run",
+                    runtime_run_payload(status="running"),
+                    schema_version="runtime_run.v1",
+                    sequence_no=1,
+                    idempotency_key="runtime:run_running_late",
+                )
+            ]
+        ),
+        repository,
+    )
+
+    detail = get_runtime_run_detail(repository, "run_1")
+
+    assert detail["run"]["status"] == "succeeded"
+    assert detail["run"]["sequence_no"] == 2
+
+
 def test_ao31_ct_006_run_detail_scope_denied_is_safe():
     repository = InMemoryRepository()
 
