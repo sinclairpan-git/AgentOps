@@ -51,6 +51,13 @@ def _runtime_attempt_matches(actual: Any, expected: Any) -> bool:
     return str(actual) == str(expected)
 
 
+def _runtime_attempt_identity(value: Any) -> str:
+    sort_value = _runtime_number_sort_value(value)
+    if sort_value >= 0:
+        return f"n:{sort_value:g}"
+    return f"s:{value}"
+
+
 def _runtime_time_sort_value(value: Any) -> tuple[int, float, str]:
     raw_value = str(value or "")
     try:
@@ -87,7 +94,7 @@ class InMemoryRepository:
     agent_store_agents: dict[str, dict[str, Any]] = field(default_factory=dict)
     agent_store_skills: dict[str, dict[str, Any]] = field(default_factory=dict)
     runtime_runs: dict[str, dict[str, Any]] = field(default_factory=dict)
-    trace_spans: dict[tuple[str, str, str], dict[str, Any]] = field(
+    trace_spans: dict[tuple[str, str, str, str], dict[str, Any]] = field(
         default_factory=dict
     )
     runtime_idempotency_index: dict[str, dict[str, str]] = field(default_factory=dict)
@@ -220,7 +227,10 @@ class InMemoryRepository:
             "received_at": utc_now(),
         }
         key = self._trace_span_key(
-            payload["run_id"], payload["trace_id"], payload["span_id"]
+            payload["run_id"],
+            payload["trace_id"],
+            payload.get("attempt_no", 1),
+            payload["span_id"],
         )
         with self._lock:
             existing = self.trace_spans.get(key)
@@ -230,9 +240,21 @@ class InMemoryRepository:
                 return
             self.trace_spans[key] = record
 
-    def has_trace_span(self, run_id: str, trace_id: str, span_id: str) -> bool:
+    def has_trace_span(
+        self, run_id: str, trace_id: str, span_id: str, *, attempt_no: Any | None = None
+    ) -> bool:
         with self._lock:
-            return self._trace_span_key(run_id, trace_id, span_id) in self.trace_spans
+            if attempt_no is None:
+                return any(
+                    record.get("run_id") == run_id
+                    and record.get("trace_id") == trace_id
+                    and record.get("span_id") == span_id
+                    for record in self.trace_spans.values()
+                )
+            return (
+                self._trace_span_key(run_id, trace_id, attempt_no, span_id)
+                in self.trace_spans
+            )
 
     def write_runtime_dlq(
         self, event: dict[str, Any], *, error_code: str, message: str
@@ -247,9 +269,14 @@ class InMemoryRepository:
 
     @staticmethod
     def _trace_span_key(
-        run_id: str, trace_id: str, span_id: str
-    ) -> tuple[str, str, str]:
-        return (str(run_id), str(trace_id), str(span_id))
+        run_id: str, trace_id: str, attempt_no: Any, span_id: str
+    ) -> tuple[str, str, str, str]:
+        return (
+            str(run_id),
+            str(trace_id),
+            _runtime_attempt_identity(attempt_no),
+            str(span_id),
+        )
 
     def add_bootstrap_session(self, session: dict[str, Any]) -> None:
         with self._lock:

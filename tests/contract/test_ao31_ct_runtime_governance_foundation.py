@@ -703,6 +703,51 @@ def test_ao31_ct_004_trace_span_identity_is_scoped_by_run_id():
     assert run_2_spans[0]["operation_name"] == "run.two"
 
 
+def test_ao31_ct_004_trace_span_identity_is_scoped_by_attempt_no():
+    repository = InMemoryRepository()
+    outcome = ingest_runtime_events(
+        runtime_batch(
+            [
+                runtime_event(
+                    "evt_span_attempt_1_shared",
+                    "trace_span",
+                    trace_span_payload(
+                        attempt_no=1,
+                        trace_id="trace_shared",
+                        span_id="span_shared",
+                        operation_name="attempt.one",
+                    ),
+                    schema_version="trace_span.v1",
+                    sequence_no=1,
+                    idempotency_key="runtime:span_attempt_1_shared",
+                ),
+                runtime_event(
+                    "evt_span_attempt_2_shared",
+                    "trace_span",
+                    trace_span_payload(
+                        attempt_no="2",
+                        trace_id="trace_shared",
+                        span_id="span_shared",
+                        operation_name="attempt.two",
+                    ),
+                    schema_version="trace_span.v1",
+                    sequence_no=2,
+                    idempotency_key="runtime:span_attempt_2_shared",
+                ),
+            ]
+        ),
+        repository,
+    )
+
+    attempt_1_spans = repository.trace_span_records_for_run("run_1", attempt_no=1)
+    attempt_2_spans = repository.trace_span_records_for_run("run_1", attempt_no=2)
+
+    assert outcome["accepted_count"] == 2
+    assert repository.trace_span_count() == 2
+    assert attempt_1_spans[0]["operation_name"] == "attempt.one"
+    assert attempt_2_spans[0]["operation_name"] == "attempt.two"
+
+
 def test_ao31_ct_005_trace_parent_missing_enters_dlq():
     repository = InMemoryRepository()
     outcome = ingest_runtime_events(
@@ -761,6 +806,47 @@ def test_ao31_ct_005_runtime_events_http_accepts_dlq_only_batch():
     assert body["item_results"][0]["error_code"] == "TRACE_PARENT_MISSING"
     assert repository.trace_span_count() == 0
     assert repository.runtime_dlq_count() == 1
+
+
+def test_ao31_ct_005_trace_parent_presence_is_scoped_by_attempt_no():
+    repository = InMemoryRepository()
+    outcome = ingest_runtime_events(
+        runtime_batch(
+            [
+                runtime_event(
+                    "evt_parent_attempt_1",
+                    "trace_span",
+                    trace_span_payload(
+                        attempt_no=1,
+                        trace_id="trace_shared",
+                        span_id="span_parent",
+                    ),
+                    schema_version="trace_span.v1",
+                    sequence_no=1,
+                    idempotency_key="runtime:span_parent_attempt_1",
+                ),
+                runtime_event(
+                    "evt_child_attempt_2",
+                    "trace_span",
+                    trace_span_payload(
+                        attempt_no=2,
+                        trace_id="trace_shared",
+                        span_id="span_child",
+                        parent_span_id="span_parent",
+                    ),
+                    schema_version="trace_span.v1",
+                    sequence_no=2,
+                    idempotency_key="runtime:span_child_attempt_2",
+                ),
+            ]
+        ),
+        repository,
+    )
+
+    assert outcome["accepted_count"] == 1
+    assert outcome["dlq_count"] == 1
+    assert outcome["item_results"][1]["error_code"] == "TRACE_PARENT_MISSING"
+    assert repository.trace_span_count() == 1
 
 
 def test_ao31_ct_005_trace_parent_presence_is_scoped_by_run_id():
@@ -1103,6 +1189,7 @@ def test_ao31_ct_007_trace_timeline_projection_is_ordered_and_summarized():
         "span_tool",
     ]
     assert timeline["redaction_state"] == "summary_only"
+    assert [span["duration_ms"] for span in timeline["spans"]] == [1000, 1000]
     assert timeline["aggregate"]["token_usage"]["input"] == 24
     assert timeline["aggregate"]["cost_estimate"]["amount"] == 0.02
 

@@ -441,11 +441,32 @@ def _trace_span_projection(span: dict[str, Any]) -> dict[str, Any]:
         "status_code": span.get("status_code"),
         "start_time": span.get("start_time"),
         "end_time": span.get("end_time"),
+        "duration_ms": _trace_duration_ms(span),
         "input_ref": span.get("input_ref"),
         "output_ref": span.get("output_ref"),
         "error_code": span.get("error_code"),
         "retryable": span.get("retryable"),
     }
+
+
+def _trace_duration_ms(span: dict[str, Any]) -> int:
+    start_time = _parse_runtime_timestamp(span.get("start_time"))
+    end_time = _parse_runtime_timestamp(span.get("end_time"))
+    if start_time is None or end_time is None:
+        return 0
+    duration = (end_time - start_time).total_seconds() * 1000
+    return max(0, int(round(duration)))
+
+
+def _parse_runtime_timestamp(value: Any) -> datetime | None:
+    raw_value = str(value or "")
+    try:
+        parsed = datetime.fromisoformat(raw_value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
 
 
 def _timeline_degraded_reason(spans: list[dict[str, Any]]) -> str | None:
