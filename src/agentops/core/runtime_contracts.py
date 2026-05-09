@@ -95,6 +95,7 @@ CONTRACT_REGISTRY: dict[str, ContractRegistryEntry] = {
             "execution_environment": ("local", "managed", "ci", "unknown"),
         },
         state_registry_refs=(
+            "created",
             "running",
             "approval_paused",
             "succeeded",
@@ -368,6 +369,15 @@ def _state(
 
 
 STATE_REGISTRY: dict[str, StateRegistryEntry] = {
+    "created": _state(
+        "created",
+        display_name="已创建",
+        plain_language_explanation="Runtime 已创建运行记录，尚未开始执行。",
+        severity="info",
+        primary_action="查看链路",
+        allowed_next_states=("running", "blocked", "cancelled", "timeout"),
+        owner="Agent Runtime",
+    ),
     "running": _state(
         "running",
         display_name="运行中",

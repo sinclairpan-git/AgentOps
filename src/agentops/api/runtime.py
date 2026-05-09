@@ -12,9 +12,7 @@ from agentops.api.view_models import (
 from agentops.storage.repository import InMemoryRepository
 
 
-def ingest_runtime_events(
-    batch: dict[str, Any], repository: InMemoryRepository
-) -> dict[str, Any]:
+def ingest_runtime_events(batch: Any, repository: InMemoryRepository) -> dict[str, Any]:
     return ingest_runtime_batch(batch, repository)
 
 

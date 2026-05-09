@@ -366,6 +366,7 @@ def build_trace_timeline_projection(
 def _run_display_state(run: dict[str, Any]) -> str:
     status = str(run.get("status") or "degraded")
     if status in {
+        "created",
         "running",
         "approval_paused",
         "succeeded",

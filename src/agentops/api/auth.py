@@ -14,6 +14,8 @@ ROLE_SCOPES = {
         "credential.read",
         "credential.write",
         "event.ingest",
+        "runtime.run.read",
+        "runtime.trace.read",
         "runtime.audit.export",
         "runtime.audit.read",
         "store.summary.read",
@@ -23,6 +25,8 @@ ROLE_SCOPES = {
         "credential.read",
         "credential.write",
         "event.ingest",
+        "runtime.run.read",
+        "runtime.trace.read",
         "runtime.audit.export",
         "runtime.audit.read",
         "store.summary.read",
@@ -30,6 +34,8 @@ ROLE_SCOPES = {
     "agentops-viewer": {
         "console.snapshot.read",
         "credential.read",
+        "runtime.run.read",
+        "runtime.trace.read",
         "store.summary.read",
     },
     "agentops-ingestor": {

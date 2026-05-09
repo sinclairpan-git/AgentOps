@@ -6,6 +6,7 @@ from threading import Thread
 import pytest
 
 from agentops.api.app import create_app
+from agentops.api.auth import require_scope
 from agentops.api.runtime import get_runtime_run_detail, get_runtime_trace_timeline
 from agentops.core.errors import AgentOpsError
 from agentops.api.runtime import ingest_runtime_events
@@ -342,6 +343,16 @@ def test_ao31_ct_002_runtime_ingestion_rejects_missing_batch_id():
 
     with pytest.raises(AgentOpsError) as exc:
         ingest_runtime_events(batch, repository)
+
+    assert exc.value.error_code == "EVENT_SCHEMA_UNSUPPORTED"
+    assert repository.runtime_run_count() == 0
+
+
+def test_ao31_ct_002_runtime_ingestion_rejects_non_object_batch():
+    repository = InMemoryRepository()
+
+    with pytest.raises(AgentOpsError) as exc:
+        ingest_runtime_events([], repository)
 
     assert exc.value.error_code == "EVENT_SCHEMA_UNSUPPORTED"
     assert repository.runtime_run_count() == 0
@@ -723,6 +734,30 @@ def test_ao31_ct_006_run_detail_preserves_latest_sequence_for_attempt():
     assert detail["run"]["sequence_no"] == 2
 
 
+def test_ao31_ct_006_run_detail_preserves_created_display_state():
+    repository = InMemoryRepository()
+    ingest_runtime_events(
+        runtime_batch(
+            [
+                runtime_event(
+                    "evt_run_created",
+                    "runtime_run",
+                    runtime_run_payload(status="created"),
+                    schema_version="runtime_run.v1",
+                    sequence_no=1,
+                    idempotency_key="runtime:run_created",
+                )
+            ]
+        ),
+        repository,
+    )
+
+    detail = get_runtime_run_detail(repository, "run_1")
+
+    assert detail["display_state"]["machine_value"] == "created"
+    assert detail["run"]["status"] == "created"
+
+
 def test_ao31_ct_006_run_detail_scope_denied_is_safe():
     repository = InMemoryRepository()
 
@@ -731,6 +766,16 @@ def test_ao31_ct_006_run_detail_scope_denied_is_safe():
 
     assert exc.value.error_code == "RUN_DETAIL_SCOPE_DENIED"
     assert exc.value.denied_scope == "runtime.run.read"
+
+
+def test_ao31_ct_006_role_scopes_allow_runtime_read_routes():
+    headers = {
+        "X-AgentOps-Principal": "viewer@example.com",
+        "X-AgentOps-Roles": "agentops-viewer",
+    }
+
+    require_scope(headers, "runtime.run.read", auth_required=True)
+    require_scope(headers, "runtime.trace.read", auth_required=True)
 
 
 def test_ao31_ct_007_trace_timeline_projection_is_ordered_and_summarized():

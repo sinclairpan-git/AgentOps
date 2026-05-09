@@ -39,9 +39,7 @@ LEGACY_EVENT_REQUIRED_FIELDS = {
 }
 
 
-def ingest_runtime_batch(
-    batch: dict[str, Any], repository: InMemoryRepository
-) -> dict[str, Any]:
+def ingest_runtime_batch(batch: Any, repository: InMemoryRepository) -> dict[str, Any]:
     _validate_batch(batch)
     incoming_span_ids = _incoming_valid_span_ids(batch["events"], repository)
     item_results: list[dict[str, Any]] = []
@@ -73,7 +71,12 @@ def ingest_runtime_batch(
     }
 
 
-def _validate_batch(batch: dict[str, Any]) -> None:
+def _validate_batch(batch: Any) -> None:
+    if not isinstance(batch, dict):
+        raise AgentOpsError(
+            "EVENT_SCHEMA_UNSUPPORTED",
+            "Runtime ingestion batch must be object.",
+        )
     if batch.get("schema_version") != RUNTIME_BATCH_SCHEMA_VERSION:
         raise AgentOpsError(
             "EVENT_SCHEMA_UNSUPPORTED",
