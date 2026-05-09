@@ -1,3 +1,6 @@
+from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime, timedelta
+
 import pytest
 
 from agentops.api.approvals import decide_approval_request
@@ -11,7 +14,7 @@ from agentops.api.runtime import (
 from agentops.core.errors import AgentOpsError
 from agentops.core.runtime_contracts import get_contract
 from agentops.storage.repository import InMemoryRepository
-from tests.contract.test_ao2_ct_001_policy_check import policy_request
+from tests.contract.test_ao2_ct_001_policy_check import active_grant, policy_request
 from tests.contract.test_ao2_ct_002_approval_lifecycle import (
     create_pending_approval,
     grant_request_from_approval,
@@ -99,6 +102,19 @@ def test_ao33_ct_001_policy_decision_v1_allows_low_risk_without_run_id():
     assert decision["request_id"] == "pcheck_unknown"
 
 
+def test_ao33_ct_001_policy_decision_v1_caps_grant_ttl_by_valid_until():
+    now = datetime(2026, 5, 9, 13, 0, 0, tzinfo=UTC)
+    decision = evaluate_policy_decision_v1(
+        policy_request(),
+        grant=active_grant(expires_at=(now + timedelta(seconds=7)).isoformat()),
+        now=now,
+    )
+
+    assert decision["decision"] == "allow"
+    assert decision["ttl"] == 7
+    assert decision["valid_until"]
+
+
 def test_ao33_ct_002_policy_unavailable_is_not_allowed_for_high_risk_action():
     decision = evaluate_policy_decision_v1(policy_request(), service_available=False)
 
@@ -174,6 +190,39 @@ def test_ao33_ct_004_grant_consumption_decrements_remaining_uses(repository):
         )
 
     assert exc.value.error_code == "GRANT_EXHAUSTED"
+
+
+def test_ao33_ct_004_grant_consumption_is_atomic_for_remaining_uses(repository):
+    grant = approved_grant(repository)
+
+    def consume_once() -> str:
+        try:
+            consume_grant(
+                grant["grant_id"],
+                policy_request(
+                    policy_check_id=grant["policy_check_id"],
+                    version=grant["version"],
+                    artifact_hash=grant["artifact_hash"],
+                    installation_id=grant["installation_id"],
+                    device_id=grant["device_id"],
+                    user_id=grant["user_id"],
+                    session_id=grant["session_id"],
+                    run_id=grant["run_id"],
+                ),
+                repository,
+            )
+        except AgentOpsError as exc:
+            return exc.error_code
+        return "ok"
+
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        outcomes = list(executor.map(lambda _: consume_once(), range(8)))
+
+    stored_grant = repository.get_grant(grant["grant_id"])
+    assert outcomes.count("ok") == 1
+    assert outcomes.count("GRANT_EXHAUSTED") == 7
+    assert stored_grant is not None
+    assert stored_grant["remaining_uses"] == 0
 
 
 def test_ao33_ct_004_grant_consumption_rejects_placeholder_artifact_hash_reuse(

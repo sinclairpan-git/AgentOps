@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import math
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from copy import deepcopy
 from dataclasses import dataclass, field
@@ -677,6 +677,17 @@ class InMemoryRepository:
         with self._lock:
             self.grants[grant["grant_id"]] = dict(grant)
             return dict(grant)
+
+    def consume_grant_atomically(
+        self, grant_id: str, consume: Callable[[dict[str, Any]], dict[str, Any]]
+    ) -> dict[str, Any] | None:
+        with self._lock:
+            grant = self.grants.get(grant_id)
+            if not grant:
+                return None
+            updated_grant = consume(dict(grant))
+            self.grants[grant_id] = dict(updated_grant)
+            return dict(updated_grant)
 
     def store_grant_consumption(self, consumption: dict[str, Any]) -> dict[str, Any]:
         with self._lock:

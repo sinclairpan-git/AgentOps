@@ -78,9 +78,31 @@ def consume_capability_grant(
     now: datetime | None = None,
 ) -> dict[str, Any]:
     now = now or datetime.now(UTC)
-    grant = repository.get_grant(grant_id)
+    grant = repository.consume_grant_atomically(
+        grant_id,
+        lambda stored_grant: _consume_grant_use(stored_grant, policy_request, now),
+    )
     if not grant:
         raise AgentOpsError("GRANT_NOT_FOUND", "Capability Grant does not exist.")
+
+    remaining_uses_after = _remaining_uses(grant.get("remaining_uses", 0))
+    consumption = {
+        "consumption_id": f"consume_{grant_id}_{policy_request.get('run_id', 'run')}",
+        "grant_id": grant_id,
+        "policy_check_id": policy_request.get(
+            "policy_check_id", f"pcheck_{policy_request['run_id']}"
+        ),
+        "consumed_at": now.isoformat(),
+        "resource_scope": dict(policy_request["resource_scope"]),
+        "remaining_uses_after": remaining_uses_after,
+        "audit_id": f"audit_consume_{grant_id}",
+    }
+    return repository.store_grant_consumption(consumption)
+
+
+def _consume_grant_use(
+    grant: dict[str, Any], policy_request: dict[str, Any], now: datetime
+) -> dict[str, Any]:
     if grant["status"] == "revoked":
         raise AgentOpsError(
             "GRANT_REVOKED",
@@ -113,19 +135,7 @@ def consume_capability_grant(
 
     remaining_uses_after = remaining_uses - 1
     grant["remaining_uses"] = remaining_uses_after
-    repository.update_grant(grant)
-    consumption = {
-        "consumption_id": f"consume_{grant_id}_{policy_request.get('run_id', 'run')}",
-        "grant_id": grant_id,
-        "policy_check_id": policy_request.get(
-            "policy_check_id", f"pcheck_{policy_request['run_id']}"
-        ),
-        "consumed_at": now.isoformat(),
-        "resource_scope": dict(policy_request["resource_scope"]),
-        "remaining_uses_after": remaining_uses_after,
-        "audit_id": f"audit_consume_{grant_id}",
-    }
-    return repository.store_grant_consumption(consumption)
+    return grant
 
 
 def revoke_capability_grant(

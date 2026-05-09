@@ -243,3 +243,41 @@
 ### 5.4 结论
 
 - Codex review 最新两条 P2 已修复并纳入合同测试，将同步 Program Truth、close-check、提交推送并触发 PR #34 `@codex review`。
+
+## 6. PR Review Fix 2026-05-09-004 | Grant TTL cap and atomic consumption
+
+### 6.1 触发来源
+
+- 来源：PR #34 Codex Review
+- Reviewed commit：`96d91c0926`
+- 反馈类型：P1 grant valid_until TTL overrun；P1 remaining_uses concurrent consumption race。
+
+### 6.2 修复内容
+
+#### RF-006 | PolicyDecision TTL 不超过 grant valid_until
+
+- 改动范围：`src/agentops/api/policy.py`
+- 改动内容：`evaluate_policy_decision_v1` 在命中 capability grant 时使用 `valid_until` 截断 TTL，避免 Runtime 按固定 900 秒缓存而越过 Grant 过期时间。
+- 新增/调整测试：`test_ao33_ct_001_policy_decision_v1_caps_grant_ttl_by_valid_until`
+- 是否符合任务目标：符合 AO-P0-07/AO-P0-08，授权决策缓存不得扩展 Grant 窗口。
+
+#### RF-007 | Grant remaining_uses 仓储级原子扣减
+
+- 改动范围：`src/agentops/core/grants.py`、`src/agentops/storage/repository.py`
+- 改动内容：新增 `consume_grant_atomically`，在 repository lock 内完成读取、校验、扣减和写回；`consume_capability_grant` 只在原子扣减成功后写入 consumption audit。
+- 新增/调整测试：`test_ao33_ct_004_grant_consumption_is_atomic_for_remaining_uses`
+- 是否符合任务目标：符合 AO-P0-08，`remaining_uses=1` 在并发消费时只能成功一次。
+
+### 6.3 验证记录
+
+- `uv run ai-sdlc run --dry-run`：通过，Stage close PASS。
+- `uv run pytest tests/contract/test_ao33_ct_policy_grant_guardrail_control.py tests/contract/test_ao2_ct_001_policy_check.py tests/contract/test_ao2_ct_003_capability_grant.py tests/unit/test_policy_engine.py tests/unit/test_grant_scope.py -q`：通过，29 tests。
+- `uv run pytest tests/contract/test_ao33_ct_policy_grant_guardrail_control.py tests/contract/test_ao2_ct_001_policy_check.py tests/contract/test_ao2_ct_002_approval_lifecycle.py tests/contract/test_ao2_ct_003_capability_grant.py tests/contract/test_ao2_ct_005_policy_summary.py tests/unit/test_policy_engine.py tests/unit/test_grant_scope.py tests/contract/test_ao31_ct_runtime_governance_foundation.py tests/contract/test_ao32_ct_evidence_health_summary_loop.py -q`：通过，100 tests。
+- `uv run ruff check src/agentops/api/policy.py src/agentops/core/grants.py src/agentops/storage/repository.py tests/contract/test_ao33_ct_policy_grant_guardrail_control.py`：通过。
+- `uv run ruff check src tests`：通过。
+- `uv run ruff format --check src/agentops/api/policy.py src/agentops/core/grants.py src/agentops/storage/repository.py tests/contract/test_ao33_ct_policy_grant_guardrail_control.py`：通过。
+- `uv run ai-sdlc verify constraints`：通过，无 BLOCKER。
+
+### 6.4 结论
+
+- Codex review 最新两条 P1 已修复并纳入合同测试，将同步 Program Truth、close-check、提交推送并触发 PR #34 `@codex review`。

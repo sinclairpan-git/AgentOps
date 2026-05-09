@@ -16,6 +16,7 @@
 - 已修复 PR #34 Codex review 反馈：占位 artifact hash 不再允许携带具体 artifact_hash 的请求跨 artifact 复用；低风险 PolicyDecision 请求未携带 `run_id` 时稳定返回 `pcheck_unknown`。
 - 已修复 PR #34 Codex review 第二轮反馈：AI-SDLC checkpoint 的 `linked_plan_uri` 与 AO33 work item 对齐，避免 resume/close-check 读取 AO32 plan。
 - 已修复 PR #34 Codex review 第三轮反馈：`policy_unavailable` 可生成策略摘要；Run Detail guardrail 摘要保留未解析 result 的 guardrail span。
+- 已修复 PR #34 Codex review 第四轮反馈：PolicyDecision TTL 不超过 Grant `valid_until`；Grant `remaining_uses` 在仓储锁内原子扣减。
 
 ## 尚未执行内容
 

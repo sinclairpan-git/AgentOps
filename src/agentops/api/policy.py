@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Any
 
 from agentops.core.errors import AgentOpsError
@@ -28,6 +29,7 @@ def evaluate_policy_decision_v1(
     )
     p0_decision = _p0_policy_decision(decision)
     ttl = _policy_decision_ttl(p0_decision)
+    ttl = _cap_ttl_by_valid_until(ttl, decision, _decision_now(kwargs))
     return {
         "schema_version": "policy_decision.v1",
         "decision_id": f"decision_{request_id}",
@@ -156,6 +158,32 @@ def _policy_decision_ttl(decision: str) -> int:
     if decision == "warn":
         return 600
     return 900
+
+
+def _cap_ttl_by_valid_until(ttl: int, decision: dict[str, Any], now: datetime) -> int:
+    if not decision.get("grant_id") or not decision.get("valid_until"):
+        return ttl
+    valid_until = _parse_policy_time(decision["valid_until"])
+    if valid_until is None:
+        return ttl
+    remaining_seconds = int((valid_until - now).total_seconds())
+    return max(0, min(ttl, remaining_seconds))
+
+
+def _decision_now(kwargs: dict[str, Any]) -> datetime:
+    now = kwargs.get("now")
+    if isinstance(now, datetime):
+        return now if now.tzinfo is not None else now.replace(tzinfo=UTC)
+    return datetime.now(UTC)
+
+
+def _parse_policy_time(value: Any) -> datetime | None:
+    raw_value = str(value or "")
+    try:
+        parsed = datetime.fromisoformat(raw_value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=UTC)
 
 
 def _policy_reason_code(decision: dict[str, Any], p0_decision: str) -> str:
