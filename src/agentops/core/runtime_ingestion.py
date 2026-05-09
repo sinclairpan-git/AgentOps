@@ -15,6 +15,7 @@ RUNTIME_BATCH_SCHEMA_VERSION = "runtime.ingestion.v1"
 EVENT_TYPE_TO_CONTRACT = {
     "runtime_run": "runtime_run.v1",
     "trace_span": "trace_span.v1",
+    "guardrail_result": "guardrail_result.v1",
 }
 
 CANONICAL_EVENT_REQUIRED_FIELDS = get_contract("event_envelope.v1").required_fields | {
@@ -134,6 +135,8 @@ def _ingest_runtime_event(
                     retryable=True,
                 )
             _write_trace_span(event, repository)
+        elif event_type == "guardrail_result":
+            _write_guardrail_result(event, repository)
         else:
             raise AgentOpsError(
                 "EVENT_SCHEMA_UNSUPPORTED",
@@ -248,6 +251,16 @@ def _write_trace_span(event: dict[str, Any], repository: InMemoryRepository) -> 
     payload = _validated_payload(event, "trace_span.v1", "TRACE_SPAN_INVALID")
     _validate_enum_fields("trace_span.v1", payload)
     repository.write_trace_span_fact(event, payload)
+
+
+def _write_guardrail_result(
+    event: dict[str, Any], repository: InMemoryRepository
+) -> None:
+    payload = _validated_payload(
+        event, "guardrail_result.v1", "GUARDRAIL_RESULT_INVALID"
+    )
+    _validate_enum_fields("guardrail_result.v1", payload)
+    repository.write_guardrail_result_fact(event, payload)
 
 
 def _validated_payload(

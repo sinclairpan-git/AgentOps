@@ -152,6 +152,33 @@ CONTRACT_REGISTRY: dict[str, ContractRegistryEntry] = {
         error_codes=("TRACE_SPAN_INVALID", "TRACE_SPAN_KIND_UNSUPPORTED"),
         contract_tests=("AO31-CT-001", "AO31-CT-004", "AO31-CT-005"),
     ),
+    "guardrail_result.v1": _entry(
+        "guardrail_result.v1",
+        domain_owner="Agent Runtime",
+        producer="Runtime",
+        consumers=("AgentOps", "Agent Store"),
+        schema_version="guardrail_result.v1",
+        required_fields=(
+            "guardrail_result_id",
+            "run_id",
+            "trace_id",
+            "span_id",
+            "attempt_no",
+            "guardrail_id",
+            "status",
+            "severity",
+            "reason_code",
+            "policy_version",
+            "evidence_ref",
+        ),
+        enum_fields={
+            "status": ("passed", "warn", "blocked", "failed"),
+            "severity": ("info", "warning", "critical"),
+        },
+        state_registry_refs=("blocked", "degraded"),
+        error_codes=("GUARDRAIL_RESULT_INVALID",),
+        contract_tests=("AO33-CT-005", "AO33-CT-006"),
+    ),
     "event_envelope.v1": _entry(
         "event_envelope.v1",
         domain_owner="Contract Registry",
@@ -666,5 +693,6 @@ def _is_existing_error(error_code: str) -> bool:
         "HEALTH_",
         "RUNTIME_",
         "TRACE_",
+        "GUARDRAIL_",
     )
     return error_code.startswith(prefixes)

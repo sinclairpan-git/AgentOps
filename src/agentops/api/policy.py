@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Any
 
 from agentops.core.errors import AgentOpsError
@@ -11,6 +12,52 @@ from agentops.models.policy import HIGH_RISK_ACTIONS
 
 def evaluate_policy_check(request: dict[str, Any], **kwargs: Any) -> dict[str, Any]:
     return _evaluate_policy_check(request, **kwargs)
+
+
+def evaluate_policy_decision_v1(
+    request: dict[str, Any], **kwargs: Any
+) -> dict[str, Any]:
+    decision = _evaluate_policy_check(request, **kwargs)
+    policy_version = str(
+        request.get("policy_set_version")
+        or decision.get("policy_version")
+        or request.get("policy_version")
+        or "policy.v1"
+    )
+    request_id = str(
+        request.get("policy_check_id") or f"pcheck_{request.get('run_id', 'unknown')}"
+    )
+    p0_decision = _p0_policy_decision(decision)
+    ttl = _policy_decision_ttl(p0_decision)
+    ttl = _cap_ttl_by_valid_until(ttl, decision, _decision_now(kwargs))
+    return {
+        "schema_version": "policy_decision.v1",
+        "decision_id": f"decision_{request_id}",
+        "request_id": request_id,
+        "subject": {
+            "agent_id": request.get("agent_id"),
+            "version": request.get("version") or request.get("agent_version"),
+            "skill_id": request.get("skill_id"),
+            "requester": request.get("requester"),
+            "session_id": request.get("session_id"),
+            "run_id": request.get("run_id"),
+        },
+        "resource": request.get("resource_scope") or {},
+        "action": request["action"],
+        "decision": p0_decision,
+        "reason_code": _policy_reason_code(decision, p0_decision),
+        "policy_set_version": policy_version,
+        "obligations": _policy_obligations(p0_decision),
+        "constraints": {
+            "raw_payload_access": "forbidden",
+            "agentops_executes_runtime": False,
+        },
+        "ttl": ttl,
+        "fallback_action": str(decision["fallback_action"]),
+        "audit_id": decision["audit_id"],
+        "valid_until": decision.get("valid_until", ""),
+        "denied_scope": decision.get("denied_scope", ""),
+    }
 
 
 def evaluate_policy_decision(
@@ -91,4 +138,76 @@ def _policy_plain_language(decision: str) -> str:
         "warn": "该动作存在风险提示，可以继续但会留下审计记录。",
         "conditional_allow": "该动作已通过限时授权，可以在授权范围内继续。",
         "allow": "该动作已通过策略检查。",
+        "policy_unavailable": "策略服务暂不可用，当前动作需要等待策略检查恢复后重试。",
+    }[decision]
+
+
+def _p0_policy_decision(decision: dict[str, Any]) -> str:
+    if decision["decision"] == "block" and decision.get("policy_state_known") is False:
+        return "policy_unavailable"
+    if decision["decision"] == "conditional_allow":
+        return "allow"
+    return str(decision["decision"])
+
+
+def _policy_decision_ttl(decision: str) -> int:
+    if decision in {"block", "policy_unavailable"}:
+        return 0
+    if decision == "approval_required":
+        return 300
+    if decision == "warn":
+        return 600
+    return 900
+
+
+def _cap_ttl_by_valid_until(ttl: int, decision: dict[str, Any], now: datetime) -> int:
+    if not decision.get("grant_id") or not decision.get("valid_until"):
+        return ttl
+    valid_until = _parse_policy_time(decision["valid_until"])
+    if valid_until is None:
+        return ttl
+    remaining_seconds = int((valid_until - now).total_seconds())
+    return max(0, min(ttl, remaining_seconds))
+
+
+def _decision_now(kwargs: dict[str, Any]) -> datetime:
+    now = kwargs.get("now")
+    if isinstance(now, datetime):
+        return now if now.tzinfo is not None else now.replace(tzinfo=UTC)
+    return datetime.now(UTC)
+
+
+def _parse_policy_time(value: Any) -> datetime | None:
+    raw_value = str(value or "")
+    try:
+        parsed = datetime.fromisoformat(raw_value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=UTC)
+
+
+def _policy_reason_code(decision: dict[str, Any], p0_decision: str) -> str:
+    denied_scope = str(decision.get("denied_scope") or "")
+    if denied_scope == "policy.service_unavailable":
+        return "policy_service_unavailable"
+    if denied_scope:
+        return denied_scope.replace(".", "_")
+    if decision.get("grant_id"):
+        return "grant_matched"
+    return {
+        "allow": "low_risk_allowed",
+        "warn": "policy_check_degraded",
+        "approval_required": "approval_required",
+        "block": "policy_block",
+        "policy_unavailable": "policy_service_unavailable",
+    }[p0_decision]
+
+
+def _policy_obligations(decision: str) -> list[str]:
+    return {
+        "allow": [],
+        "warn": ["record_audit"],
+        "approval_required": ["create_approval"],
+        "block": ["stop_execution"],
+        "policy_unavailable": ["retry_policy_check"],
     }[decision]

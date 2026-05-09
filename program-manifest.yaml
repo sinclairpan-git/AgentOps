@@ -118,36 +118,39 @@ specs:
 - id: 032-evidence-health-summary-loop
   path: specs/032-evidence-health-summary-loop
   depends_on: []
+- id: 033-policy-grant-approval-minimum-control
+  path: specs/033-policy-grant-approval-minimum-control
+  depends_on: []
 truth_snapshot:
-  generated_at: '2026-05-09T12:08:10Z'
+  generated_at: '2026-05-09T14:04:54Z'
   generated_by: ai-sdlc program truth sync
   generator_version: program_truth_snapshot_v1
-  repo_revision: 0f37bf2
-  authoring_hash: fdb73a061bc2abc1fac6be459355057e27dae38320259435e9d15d5e5acbfbff
+  repo_revision: '2733095'
+  authoring_hash: 14004651b4c017646f2fc3847aed20e75e4ed914aaa124bb21b1f00daf03e439
   source_hashes: {}
-  snapshot_hash: bf4fac8208c9d56831aff6e61bf523fc6e32bb75f1bd55bce1e5bf70f0c4af14
+  snapshot_hash: 13f551a7d2fc892805920e3edb816097be96eca3899373797a879fa28cc74cbc
   computed_capabilities: []
   source_inventory:
     state: complete
-    total_sources: 160
-    mapped_sources: 160
+    total_sources: 165
+    mapped_sources: 165
     unmapped_sources: 0
     missing_sources: 0
-    phase_signal_count: 191
-    deferred_signal_count: 307
-    non_goal_signal_count: 55
+    phase_signal_count: 217
+    deferred_signal_count: 340
+    non_goal_signal_count: 56
     layer_totals:
-      spec: 32
-      plan: 32
-      tasks: 32
-      execution: 32
-      close: 32
+      spec: 33
+      plan: 33
+      tasks: 33
+      execution: 33
+      close: 33
     layer_materialized:
-      spec: 32
-      plan: 32
-      tasks: 32
-      execution: 32
-      close: 32
+      spec: 33
+      plan: 33
+      tasks: 33
+      execution: 33
+      close: 33
     entries:
     - path: specs/001-agentops-trusted-loop/spec.md
       source_type: spec_doc
@@ -1589,5 +1592,50 @@ truth_snapshot:
       phase_signal_count: 0
       deferred_signal_count: 0
       non_goal_signal_count: 0
+    - path: specs/033-policy-grant-approval-minimum-control/spec.md
+      source_type: spec_doc
+      truth_layer: spec
+      mapped: true
+      exists: true
+      mapping_ref: 033-policy-grant-approval-minimum-control
+      phase_signal_count: 1
+      deferred_signal_count: 1
+      non_goal_signal_count: 0
+    - path: specs/033-policy-grant-approval-minimum-control/plan.md
+      source_type: plan_doc
+      truth_layer: plan
+      mapped: true
+      exists: true
+      mapping_ref: 033-policy-grant-approval-minimum-control
+      phase_signal_count: 6
+      deferred_signal_count: 7
+      non_goal_signal_count: 0
+    - path: specs/033-policy-grant-approval-minimum-control/tasks.md
+      source_type: tasks_doc
+      truth_layer: tasks
+      mapped: true
+      exists: true
+      mapping_ref: 033-policy-grant-approval-minimum-control
+      phase_signal_count: 2
+      deferred_signal_count: 2
+      non_goal_signal_count: 0
+    - path: specs/033-policy-grant-approval-minimum-control/task-execution-log.md
+      source_type: execution_log
+      truth_layer: execution
+      mapped: true
+      exists: true
+      mapping_ref: 033-policy-grant-approval-minimum-control
+      phase_signal_count: 17
+      deferred_signal_count: 23
+      non_goal_signal_count: 0
+    - path: specs/033-policy-grant-approval-minimum-control/development-summary.md
+      source_type: development_summary
+      truth_layer: close
+      mapped: true
+      exists: true
+      mapping_ref: 033-policy-grant-approval-minimum-control
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 1
     unmapped_paths: []
   state: ready
