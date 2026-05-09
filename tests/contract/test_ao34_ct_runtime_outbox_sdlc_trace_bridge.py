@@ -186,6 +186,57 @@ def test_ao34_ct_003_rejected_events_persist_summary_only_diagnostics():
         assert diagnostic["payload_hash"].startswith("sha256:")
 
 
+def test_ao34_ct_003_rejected_and_dlq_batch_keeps_retryable_outbox_state():
+    repository = InMemoryRepository()
+    missing_signature = canonical_runtime_event(
+        "evt_signature_missing_mixed",
+        "runtime_run",
+        runtime_run_payload(),
+        event_type_version="runtime_run.v1",
+        sequence_no=1,
+        idempotency_key="runtime:mixed_signature_missing",
+    )
+    missing_signature["signature"] = ""
+    missing_parent_span = runtime_event(
+        "evt_span_missing_parent_mixed",
+        "trace_span",
+        {
+            "trace_id": "trace_1",
+            "span_id": "span_child",
+            "parent_span_id": "span_missing",
+            "run_id": "run_1",
+            "span_kind": "tool",
+            "operation_name": "tool.call",
+            "status_code": "waiting",
+            "start_time": "2026-05-09T05:00:00+00:00",
+            "end_time": "2026-05-09T05:00:01+00:00",
+            "attempt_no": 1,
+            "input_ref": "sha256:input",
+            "output_ref": "sha256:output",
+            "token_usage": {},
+            "cost_estimate": {},
+            "grant_id": "",
+            "guardrail_result_refs": [],
+            "error_code": "",
+            "retryable": True,
+        },
+        schema_version="trace_span.v1",
+        sequence_no=2,
+        idempotency_key="runtime:mixed_missing_parent",
+    )
+
+    outcome = ingest_runtime_events(
+        runtime_batch([missing_signature, missing_parent_span]), repository
+    )
+
+    assert outcome["accepted_count"] == 0
+    assert outcome["rejected_count"] == 1
+    assert outcome["dlq_count"] == 1
+    assert outcome["outbox_state"] == "delivered_with_diagnostics"
+    assert outcome["item_results"][1]["status"] == "dlq"
+    assert outcome["item_results"][1]["retryable"] is True
+
+
 def test_ao34_ct_004_sdlc_trace_event_maps_to_trace_spans_and_evidence_inputs():
     repository = InMemoryRepository()
     events = [

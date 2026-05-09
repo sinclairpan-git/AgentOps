@@ -533,7 +533,9 @@ def _outbox_state(
     rejected_count: int,
     dlq_count: int,
 ) -> str:
-    if rejected_count and not (accepted_count or deduplicated_count or stale_count):
+    if rejected_count and not (
+        accepted_count or deduplicated_count or stale_count or dlq_count
+    ):
         return "rejected"
     if rejected_count or dlq_count or stale_count:
         return "delivered_with_diagnostics"

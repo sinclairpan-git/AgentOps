@@ -133,3 +133,20 @@
 - 当前批次 branch disposition 状态：dev 分支待 PR 合入；docs 分支待最终收口
 - 当前批次 worktree disposition 状态：待最终收口
 - 是否继续下一批：否，本批进入提交与 PR 收口
+
+### Review Fix 2026-05-09-001 | Codex outbox state feedback
+
+#### RF-001 | mixed rejected and DLQ receipt state
+
+- **验证画像**：code-change
+- 反馈来源：PR #35 Codex Review。
+- 改动范围：`src/agentops/core/runtime_ingestion.py`、`tests/contract/test_ao34_ct_runtime_outbox_sdlc_trace_bridge.py`、`specs/034-runtime-outbox-sdlc-trace-bridge/task-execution-log.md`
+- 改动内容：当 batch 同时包含 hard rejected 与 retryable DLQ item 且没有 accepted/deduplicated/stale item 时，`outbox_state` 返回 `delivered_with_diagnostics`，避免与 HTTP 202/DLQ retryable 语义冲突。
+- 新增/调整的测试：新增 AO34 mixed rejected + DLQ receipt 测试，断言 `outbox_state=delivered_with_diagnostics` 且 DLQ item 保持 retryable。
+- 执行的命令：`uv run pytest tests/contract/test_ao34_ct_runtime_outbox_sdlc_trace_bridge.py -q`、`uv run pytest tests/contract/test_ao31_ct_runtime_governance_foundation.py tests/contract/test_ao32_ct_evidence_health_summary_loop.py tests/contract/test_ao33_ct_policy_grant_guardrail_control.py tests/contract/test_ao34_ct_runtime_outbox_sdlc_trace_bridge.py -q`、`uv run ruff check src tests`
+- 测试结果：AO34 6 个测试通过；AO31-AO34 定向回归通过；ruff check 通过；AI-SDLC constraints 无 BLOCKER。
+- 是否符合任务目标：是；回应 Codex review 对 mixed rejected + DLQ outbox state 的 P2 反馈。
+- **已完成 git 提交**：是，提交后以当前 Git HEAD 作为本次 review fix 提交。
+- **提交哈希**：见当前 Git HEAD。
+- 当前批次 worktree disposition 状态：当前 worktree 继续承载 PR #35 收口。
+- 是否继续下一批：否，本批继续 PR 收口。

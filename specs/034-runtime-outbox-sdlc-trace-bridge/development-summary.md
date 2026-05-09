@@ -13,6 +13,7 @@
 - 已实现 summary-only rejection diagnostics：signature/schema/idempotency 等 rejection 和 DLQ 不保存 raw event payload，只保留 event id、schema、sequence、idempotency、payload hash/ref、state、error_code、retryable 和 received_at。
 - 已新增 `sdlc_trace_event.v1` contract，并仅允许 canonical `event_envelope.v1` + `integration_mode=enterprise_managed` 进入 SDLC bridge。
 - 已将 Ai_AutoSDLC stage/gate/verification/artifact/violation 事件映射为 summary-only TraceSpan，供 Run Detail、Trace Timeline 和 EvidenceSummary 消费。
+- 已修复 PR #35 Codex review 反馈：mixed rejected + retryable DLQ batch 的 `outbox_state` 返回 `delivered_with_diagnostics`，避免与 HTTP 202 和 item-level retryable 语义冲突。
 
 ## 验证记录
 
@@ -20,6 +21,7 @@
 - `uv run pytest tests/contract/test_ao31_ct_runtime_governance_foundation.py tests/contract/test_ao32_ct_evidence_health_summary_loop.py tests/contract/test_ao33_ct_policy_grant_guardrail_control.py tests/contract/test_ao34_ct_runtime_outbox_sdlc_trace_bridge.py -q`：通过。
 - `uv run ruff check src tests`：All checks passed。
 - `uv run ai-sdlc verify constraints`：no BLOCKERs。
+- Review fix：`uv run pytest tests/contract/test_ao34_ct_runtime_outbox_sdlc_trace_bridge.py -q`：6 passed；AO31-AO34 定向回归通过；`uv run ruff check src tests`：All checks passed；`uv run ai-sdlc verify constraints`：no BLOCKERs。
 
 ## 尚未执行内容
 
