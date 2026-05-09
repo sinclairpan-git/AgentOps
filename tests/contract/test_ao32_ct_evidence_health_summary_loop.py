@@ -408,6 +408,7 @@ def test_ao32_ct_005_store_summary_marks_expired_summary_as_expired():
 
     assert summary["summary_state"] == "expired"
     assert summary["recommended_action"] == "expired"
+    assert summary["valid_until"] == expired_at.isoformat()
     assert summary["health_summary"]["recommended_action"] == "expired"
 
 

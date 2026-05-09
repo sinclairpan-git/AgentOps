@@ -16,6 +16,7 @@
 - 已接入 manifest 声明的 runtime evidence/health summary HTTP routes。
 - 已修复 PR #33 Codex review 反馈：未注册 runtime run 的 Store run_audit 标为 suspected；HealthSummary 证据完整度按具体 attempt 计算；最近运行窗口按 received_at/sequence 排序。
 - 已修复 PR #33 Codex review 第二轮反馈：HealthSummary 的 zero window 显式返回空窗口，避免 `[-0:]` 误取全量历史。
+- 已修复 PR #33 Codex review 第三轮反馈：Store runtime summary 顶层 `valid_until` 与 runtime evidence/health summary 最早过期时间对齐。
 
 ## 尚未执行内容
 

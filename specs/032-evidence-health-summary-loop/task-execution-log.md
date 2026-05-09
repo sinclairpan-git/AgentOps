@@ -200,3 +200,20 @@
 - **提交哈希**：见当前 Git HEAD。
 - 当前批次 worktree disposition 状态：当前 worktree 继续承载 PR #33 收口。
 - 是否继续下一批：否，本批继续 PR 收口。
+
+### Review Fix 2026-05-09-003 | Codex runtime summary validity alignment
+
+#### RF-003 | align top-level Store validity with runtime summaries
+
+- **验证画像**：code-change
+- 反馈来源：PR #33 Codex Review 第三轮。
+- 改动范围：`src/agentops/api/store_summary.py`、`tests/contract/test_ao32_ct_evidence_health_summary_loop.py`、`specs/032-evidence-health-summary-loop/task-execution-log.md`、`development-summary.md`
+- 改动内容：Runtime Store summary 顶层 `calculated_at` / `valid_until` 不再继承 legacy echo 的 30 天窗口，而是与 runtime evidence/health summary 对齐；`valid_until` 取两者最早过期时间，避免 `summary_state=expired` 但顶层仍显示长期 fresh。
+- 新增/调整的测试：扩展 expired Store summary 测试，断言顶层 `valid_until` 与 runtime summary 过期时间一致。
+- 执行的命令：`uv run pytest tests/contract/test_ao32_ct_evidence_health_summary_loop.py tests/contract/test_ao31_ct_runtime_governance_foundation.py tests/contract/test_ao22_ct_agent_store_summary_http_contract.py -q`、`uv run ruff check src tests`、`uv run ruff format --check src/agentops/api/store_summary.py tests/contract/test_ao32_ct_evidence_health_summary_loop.py`
+- 测试结果：AO22/AO31/AO32 定向 71 条 tests 通过；ruff check 通过；本次触碰文件 format check 通过。
+- 是否符合任务目标：是；回应 Codex review 对 runtime summary 顶层有效期一致性的要求。
+- **已完成 git 提交**：是，本批实现与归档将在当前 review fix 提交中一并提交。
+- **提交哈希**：见当前 Git HEAD。
+- 当前批次 worktree disposition 状态：当前 worktree 继续承载 PR #33 收口。
+- 是否继续下一批：否，本批继续 PR 收口。

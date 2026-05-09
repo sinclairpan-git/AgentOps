@@ -179,6 +179,10 @@ def _runtime_agent_store_summary(
     )
     return {
         **echo_summary,
+        "calculated_at": _runtime_summary_calculated_at(
+            evidence_summary, health_summary
+        ),
+        "valid_until": _runtime_summary_valid_until(evidence_summary, health_summary),
         "evidence_summary": evidence_summary,
         "health_summary": {
             **health_summary,
@@ -242,6 +246,30 @@ def _runtime_run_audit(
 def _runtime_agent_gap_id(agent_id: str) -> str:
     slug = "".join(char if char.isalnum() else "_" for char in agent_id).strip("_")
     return f"gap_runtime_agent_{slug or 'unknown'}"
+
+
+def _runtime_summary_calculated_at(
+    evidence_summary: dict[str, Any],
+    health_summary: dict[str, Any],
+) -> str:
+    candidates = [
+        str(summary.get("calculated_at") or "")
+        for summary in (evidence_summary, health_summary)
+        if summary.get("calculated_at")
+    ]
+    return max(candidates) if candidates else ""
+
+
+def _runtime_summary_valid_until(
+    evidence_summary: dict[str, Any],
+    health_summary: dict[str, Any],
+) -> str:
+    candidates = [
+        str(summary.get("valid_until") or "")
+        for summary in (evidence_summary, health_summary)
+        if summary.get("valid_until")
+    ]
+    return min(candidates) if candidates else ""
 
 
 def _events_for_run(
