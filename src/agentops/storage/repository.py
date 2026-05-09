@@ -67,7 +67,9 @@ class InMemoryRepository:
     agent_store_agents: dict[str, dict[str, Any]] = field(default_factory=dict)
     agent_store_skills: dict[str, dict[str, Any]] = field(default_factory=dict)
     runtime_runs: dict[str, dict[str, Any]] = field(default_factory=dict)
-    trace_spans: dict[tuple[str, str], dict[str, Any]] = field(default_factory=dict)
+    trace_spans: dict[tuple[str, str, str], dict[str, Any]] = field(
+        default_factory=dict
+    )
     runtime_idempotency_index: dict[str, dict[str, str]] = field(default_factory=dict)
     runtime_dlq: dict[str, dict[str, Any]] = field(default_factory=dict)
 
@@ -188,15 +190,23 @@ class InMemoryRepository:
         record = {
             **deepcopy(payload),
             "event_id": event["event_id"],
+            "sequence_no": event.get("sequence_no", 0),
             "received_at": utc_now(),
         }
-        key = self._trace_span_key(payload["trace_id"], payload["span_id"])
+        key = self._trace_span_key(
+            payload["run_id"], payload["trace_id"], payload["span_id"]
+        )
         with self._lock:
+            existing = self.trace_spans.get(key)
+            if existing and _runtime_number_sort_value(
+                record.get("sequence_no", 0)
+            ) <= _runtime_number_sort_value(existing.get("sequence_no", 0)):
+                return
             self.trace_spans[key] = record
 
-    def has_trace_span(self, trace_id: str, span_id: str) -> bool:
+    def has_trace_span(self, run_id: str, trace_id: str, span_id: str) -> bool:
         with self._lock:
-            return self._trace_span_key(trace_id, span_id) in self.trace_spans
+            return self._trace_span_key(run_id, trace_id, span_id) in self.trace_spans
 
     def write_runtime_dlq(
         self, event: dict[str, Any], *, error_code: str, message: str
@@ -210,8 +220,10 @@ class InMemoryRepository:
             }
 
     @staticmethod
-    def _trace_span_key(trace_id: str, span_id: str) -> tuple[str, str]:
-        return (str(trace_id), str(span_id))
+    def _trace_span_key(
+        run_id: str, trace_id: str, span_id: str
+    ) -> tuple[str, str, str]:
+        return (str(run_id), str(trace_id), str(span_id))
 
     def add_bootstrap_session(self, session: dict[str, Any]) -> None:
         with self._lock:

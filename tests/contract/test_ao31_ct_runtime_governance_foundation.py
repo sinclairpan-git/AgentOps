@@ -571,6 +571,51 @@ def test_ao31_ct_004_trace_span_identity_does_not_collide_on_colon_values():
     }
 
 
+def test_ao31_ct_004_trace_span_identity_is_scoped_by_run_id():
+    repository = InMemoryRepository()
+    outcome = ingest_runtime_events(
+        runtime_batch(
+            [
+                runtime_event(
+                    "evt_span_run_1",
+                    "trace_span",
+                    trace_span_payload(
+                        run_id="run_1",
+                        trace_id="trace_shared",
+                        span_id="span_shared",
+                        operation_name="run.one",
+                    ),
+                    schema_version="trace_span.v1",
+                    sequence_no=1,
+                    idempotency_key="runtime:span_run_1",
+                ),
+                runtime_event(
+                    "evt_span_run_2",
+                    "trace_span",
+                    trace_span_payload(
+                        run_id="run_2",
+                        trace_id="trace_shared",
+                        span_id="span_shared",
+                        operation_name="run.two",
+                    ),
+                    schema_version="trace_span.v1",
+                    sequence_no=2,
+                    idempotency_key="runtime:span_run_2",
+                ),
+            ]
+        ),
+        repository,
+    )
+
+    run_1_spans = repository.trace_span_records_for_run("run_1")
+    run_2_spans = repository.trace_span_records_for_run("run_2")
+
+    assert outcome["accepted_count"] == 2
+    assert repository.trace_span_count() == 2
+    assert run_1_spans[0]["operation_name"] == "run.one"
+    assert run_2_spans[0]["operation_name"] == "run.two"
+
+
 def test_ao31_ct_005_trace_parent_missing_enters_dlq():
     repository = InMemoryRepository()
     outcome = ingest_runtime_events(
@@ -594,6 +639,47 @@ def test_ao31_ct_005_trace_parent_missing_enters_dlq():
     assert outcome["dlq_count"] == 1
     assert outcome["item_results"][0]["error_code"] == "TRACE_PARENT_MISSING"
     assert repository.trace_span_count() == 0
+
+
+def test_ao31_ct_005_trace_parent_presence_is_scoped_by_run_id():
+    repository = InMemoryRepository()
+    outcome = ingest_runtime_events(
+        runtime_batch(
+            [
+                runtime_event(
+                    "evt_parent_other_run",
+                    "trace_span",
+                    trace_span_payload(
+                        run_id="run_1",
+                        trace_id="trace_shared",
+                        span_id="span_parent",
+                    ),
+                    schema_version="trace_span.v1",
+                    sequence_no=1,
+                    idempotency_key="runtime:span_parent_other_run",
+                ),
+                runtime_event(
+                    "evt_child_run_2",
+                    "trace_span",
+                    trace_span_payload(
+                        run_id="run_2",
+                        trace_id="trace_shared",
+                        span_id="span_child",
+                        parent_span_id="span_parent",
+                    ),
+                    schema_version="trace_span.v1",
+                    sequence_no=2,
+                    idempotency_key="runtime:span_child_run_2",
+                ),
+            ]
+        ),
+        repository,
+    )
+
+    assert outcome["accepted_count"] == 1
+    assert outcome["dlq_count"] == 1
+    assert outcome["item_results"][1]["error_code"] == "TRACE_PARENT_MISSING"
+    assert repository.trace_span_count() == 1
 
 
 def test_ao31_ct_005_invalid_incoming_parent_does_not_accept_child_span():
@@ -835,6 +921,59 @@ def test_ao31_ct_007_trace_timeline_projection_is_ordered_and_summarized():
     assert timeline["redaction_state"] == "summary_only"
     assert timeline["aggregate"]["token_usage"]["input"] == 24
     assert timeline["aggregate"]["cost_estimate"]["amount"] == 0.02
+
+
+def test_ao31_ct_007_trace_span_replay_cannot_regress_newer_sequence():
+    repository = InMemoryRepository()
+    ingest_runtime_events(
+        runtime_batch(
+            [
+                runtime_event(
+                    "evt_run_timeline",
+                    "runtime_run",
+                    runtime_run_payload(),
+                    schema_version="runtime_run.v1",
+                    sequence_no=1,
+                    idempotency_key="runtime:run_timeline",
+                ),
+                runtime_event(
+                    "evt_span_newer",
+                    "trace_span",
+                    trace_span_payload(status_code="ok", operation_name="new.state"),
+                    schema_version="trace_span.v1",
+                    sequence_no=3,
+                    idempotency_key="runtime:span_newer",
+                ),
+            ]
+        ),
+        repository,
+    )
+    ingest_runtime_events(
+        runtime_batch(
+            [
+                runtime_event(
+                    "evt_span_stale",
+                    "trace_span",
+                    trace_span_payload(
+                        status_code="error",
+                        operation_name="stale.replay",
+                        error_code="OLDER_STATE",
+                    ),
+                    schema_version="trace_span.v1",
+                    sequence_no=2,
+                    idempotency_key="runtime:span_stale",
+                )
+            ],
+            batch_id="batch_2",
+        ),
+        repository,
+    )
+
+    timeline = get_runtime_trace_timeline(repository, "run_1")
+
+    assert timeline["spans"][0]["status_code"] == "ok"
+    assert timeline["spans"][0]["operation_name"] == "new.state"
+    assert repository.trace_span_count() == 1
 
 
 def test_ao31_ct_007_trace_timeline_ignores_malformed_numeric_aggregate_values():

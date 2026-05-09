@@ -98,7 +98,7 @@ def _validate_batch(batch: Any) -> None:
 def _ingest_runtime_event(
     event: Any,
     repository: InMemoryRepository,
-    incoming_span_ids: set[tuple[str, str]],
+    incoming_span_ids: set[tuple[str, str, str]],
 ) -> dict[str, Any]:
     event_id = (
         event.get("event_id", "unknown") if isinstance(event, dict) else "unknown"
@@ -274,23 +274,24 @@ def _validate_enum_fields(contract_id: str, payload: dict[str, Any]) -> None:
 def _trace_parent_missing(
     event: dict[str, Any],
     repository: InMemoryRepository,
-    incoming_span_ids: set[tuple[str, str]],
+    incoming_span_ids: set[tuple[str, str, str]],
 ) -> bool:
     payload = _validated_payload(event, "trace_span.v1", "TRACE_SPAN_INVALID")
     _validate_enum_fields("trace_span.v1", payload)
     parent_span_id = str(payload.get("parent_span_id") or "").strip()
     if not parent_span_id:
         return False
-    trace_id = payload["trace_id"]
-    if repository.has_trace_span(trace_id, parent_span_id):
+    run_id = str(payload["run_id"])
+    trace_id = str(payload["trace_id"])
+    if repository.has_trace_span(run_id, trace_id, parent_span_id):
         return False
-    return (trace_id, parent_span_id) not in incoming_span_ids
+    return (run_id, trace_id, parent_span_id) not in incoming_span_ids
 
 
 def _incoming_valid_span_ids(
     events: list[dict[str, Any]], repository: InMemoryRepository
-) -> set[tuple[str, str]]:
-    candidates: dict[tuple[str, str], dict[str, Any]] = {}
+) -> set[tuple[str, str, str]]:
+    candidates: dict[tuple[str, str, str], dict[str, Any]] = {}
     for event in events:
         if not isinstance(event, dict) or event.get("event_type") != "trace_span":
             continue
@@ -300,24 +301,26 @@ def _incoming_valid_span_ids(
             _validate_enum_fields("trace_span.v1", payload)
         except AgentOpsError:
             continue
+        run_id = payload.get("run_id")
         trace_id = payload.get("trace_id")
         span_id = payload.get("span_id")
-        if trace_id and span_id:
-            candidates[(str(trace_id), str(span_id))] = payload
+        if run_id and trace_id and span_id:
+            candidates[(str(run_id), str(trace_id), str(span_id))] = payload
 
-    span_ids: set[tuple[str, str]] = set()
+    span_ids: set[tuple[str, str, str]] = set()
     changed = True
     while changed:
         changed = False
         for span_key, payload in candidates.items():
             if span_key in span_ids:
                 continue
+            run_id = str(payload["run_id"])
             trace_id = str(payload["trace_id"])
             parent_span_id = str(payload.get("parent_span_id") or "").strip()
             if (
                 not parent_span_id
-                or repository.has_trace_span(trace_id, parent_span_id)
-                or (trace_id, parent_span_id) in span_ids
+                or repository.has_trace_span(run_id, trace_id, parent_span_id)
+                or (run_id, trace_id, parent_span_id) in span_ids
             ):
                 span_ids.add(span_key)
                 changed = True
