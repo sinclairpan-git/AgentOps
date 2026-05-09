@@ -312,6 +312,9 @@ def build_runtime_run_detail_projection(
     spans = repository.trace_span_records_for_run(
         run_id, attempt_no=run.get("attempt_no")
     )
+    guardrail_results = repository.guardrail_result_records_for_run(
+        run_id, attempt_no=run.get("attempt_no")
+    )
     trace_state = "complete" if spans else "pending"
     return {
         "run": run,
@@ -319,7 +322,7 @@ def build_runtime_run_detail_projection(
         "next_action": state.primary_action,
         "policy_summary": _runtime_policy_summary(run),
         "approval_summary": _runtime_approval_summary(run),
-        "guardrail_summary": _runtime_guardrail_summary(spans),
+        "guardrail_summary": _runtime_guardrail_summary(spans, guardrail_results),
         "artifact_refs": _runtime_artifact_refs(spans),
         "outbox_state": "delivered" if spans else "pending",
         "trace_state": trace_state,
@@ -355,12 +358,17 @@ def build_trace_timeline_projection(
     spans = list(
         repository.trace_span_records_for_run(run_id, attempt_no=run.get("attempt_no"))
     )
+    guardrail_results = list(
+        repository.guardrail_result_records_for_run(
+            run_id, attempt_no=run.get("attempt_no")
+        )
+    )
     trace_id = str(spans[0].get("trace_id")) if spans else ""
     degraded_reason = _timeline_degraded_reason(spans)
     return {
         "trace_id": trace_id,
         "run_id": run_id,
-        "spans": [_trace_span_projection(span) for span in spans],
+        "spans": [_trace_span_projection(span, guardrail_results) for span in spans],
         "degraded": bool(degraded_reason),
         "degraded_reason": degraded_reason,
         "redaction_state": "raw" if raw_access_allowed else "summary_only",
@@ -408,7 +416,10 @@ def _runtime_approval_summary(run: dict[str, Any]) -> dict[str, str] | None:
 
 def _runtime_guardrail_summary(
     spans: tuple[dict[str, Any], ...],
+    guardrail_results: tuple[dict[str, Any], ...],
 ) -> list[dict[str, str]]:
+    if guardrail_results:
+        return [_guardrail_result_summary(result) for result in guardrail_results]
     return [
         {
             "span_id": str(span.get("span_id")),
@@ -431,7 +442,11 @@ def _runtime_artifact_refs(spans: tuple[dict[str, Any], ...]) -> list[dict[str, 
     ]
 
 
-def _trace_span_projection(span: dict[str, Any]) -> dict[str, Any]:
+def _trace_span_projection(
+    span: dict[str, Any],
+    guardrail_results: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    guardrail_results = guardrail_results or []
     return {
         "trace_id": span.get("trace_id"),
         "span_id": span.get("span_id"),
@@ -446,6 +461,33 @@ def _trace_span_projection(span: dict[str, Any]) -> dict[str, Any]:
         "output_ref": span.get("output_ref"),
         "error_code": span.get("error_code"),
         "retryable": span.get("retryable"),
+        "guardrail_result_refs": list(span.get("guardrail_result_refs") or []),
+        "guardrail_results": _span_guardrail_results(span, guardrail_results),
+    }
+
+
+def _span_guardrail_results(
+    span: dict[str, Any], guardrail_results: list[dict[str, Any]]
+) -> list[dict[str, str]]:
+    refs = {str(ref) for ref in span.get("guardrail_result_refs") or []}
+    if not refs:
+        return []
+    return [
+        _guardrail_result_summary(result)
+        for result in guardrail_results
+        if str(result.get("guardrail_result_id")) in refs
+    ]
+
+
+def _guardrail_result_summary(result: dict[str, Any]) -> dict[str, str]:
+    return {
+        "guardrail_result_id": str(result.get("guardrail_result_id")),
+        "span_id": str(result.get("span_id")),
+        "guardrail_id": str(result.get("guardrail_id")),
+        "status": str(result.get("status")),
+        "severity": str(result.get("severity")),
+        "reason_code": str(result.get("reason_code")),
+        "evidence_ref": str(result.get("evidence_ref") or ""),
     }
 
 

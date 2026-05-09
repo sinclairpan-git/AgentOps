@@ -11,3 +11,13 @@ GRANT_BINDING_FIELDS = (
     "resource_scope",
     "policy_version",
 )
+
+GRANT_CONTEXT_FIELDS = (
+    "version",
+    "artifact_hash",
+    "installation_id",
+    "device_id",
+    "user_id",
+    "session_id",
+    "run_id",
+)

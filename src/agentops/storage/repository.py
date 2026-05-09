@@ -110,6 +110,9 @@ class InMemoryRepository:
     trace_spans: dict[tuple[str, str, str, str], dict[str, Any]] = field(
         default_factory=dict
     )
+    guardrail_results: dict[tuple[str, str, str], dict[str, Any]] = field(
+        default_factory=dict
+    )
     runtime_idempotency_index: dict[str, dict[str, str]] = field(default_factory=dict)
     runtime_dlq: dict[str, dict[str, Any]] = field(default_factory=dict)
 
@@ -152,6 +155,10 @@ class InMemoryRepository:
     def trace_span_count(self) -> int:
         with self._lock:
             return len(self.trace_spans)
+
+    def guardrail_result_count(self) -> int:
+        with self._lock:
+            return len(self.guardrail_results)
 
     def runtime_dlq_count(self) -> int:
         with self._lock:
@@ -269,6 +276,52 @@ class InMemoryRepository:
             ) <= _runtime_number_sort_value(existing.get("sequence_no", 0)):
                 return
             self.trace_spans[key] = record
+
+    def write_guardrail_result_fact(
+        self, event: dict[str, Any], payload: dict[str, Any]
+    ) -> None:
+        record = {
+            **deepcopy(payload),
+            "event_id": event["event_id"],
+            "sequence_no": event.get("sequence_no", 0),
+            "received_at": utc_now(),
+        }
+        key = (
+            str(payload["run_id"]),
+            _runtime_attempt_identity(payload.get("attempt_no", 1)),
+            str(payload["guardrail_result_id"]),
+        )
+        with self._lock:
+            existing = self.guardrail_results.get(key)
+            if existing and _runtime_number_sort_value(
+                record.get("sequence_no", 0)
+            ) <= _runtime_number_sort_value(existing.get("sequence_no", 0)):
+                return
+            self.guardrail_results[key] = record
+
+    def guardrail_result_records_for_run(
+        self, run_id: str, *, attempt_no: Any | None = None
+    ) -> tuple[dict[str, Any], ...]:
+        with self._lock:
+            records = [
+                deepcopy(record)
+                for record in self.guardrail_results.values()
+                if record.get("run_id") == run_id
+                and (
+                    attempt_no is None
+                    or _runtime_attempt_matches(record.get("attempt_no"), attempt_no)
+                )
+            ]
+            return tuple(
+                sorted(
+                    records,
+                    key=lambda item: (
+                        _runtime_time_sort_value(item.get("received_at")),
+                        _runtime_number_sort_value(item.get("sequence_no", 0)),
+                        str(item.get("guardrail_result_id", "")),
+                    ),
+                )
+            )
 
     def has_trace_span(
         self, run_id: str, trace_id: str, span_id: str, *, attempt_no: Any | None = None

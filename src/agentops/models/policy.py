@@ -10,5 +10,12 @@ POLICY_PRIORITY_DENIES = [
     "policy_block",
 ]
 
-POLICY_DECISIONS = {"block", "approval_required", "warn", "conditional_allow", "allow"}
+POLICY_DECISIONS = {
+    "block",
+    "approval_required",
+    "warn",
+    "conditional_allow",
+    "allow",
+    "policy_unavailable",
+}
 FALLBACK_ACTIONS = {"allow", "warn", "require_online", "block"}
