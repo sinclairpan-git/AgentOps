@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from datetime import datetime
 from typing import Any
 
 from agentops.core.agent_store import (
@@ -13,6 +14,11 @@ from agentops.core.agent_store import (
 from agentops.core.evidence import build_evidence_summary
 from agentops.core.errors import AgentOpsError
 from agentops.core.l5_gate import evaluate_l5_gate
+from agentops.core.runtime_summary import (
+    build_runtime_evidence_summary,
+    build_runtime_health_summary,
+    summary_is_expired,
+)
 from agentops.storage.repository import InMemoryRepository
 
 
@@ -96,7 +102,22 @@ def get_agent_store_summary_for_run(
     run_id: str,
     *,
     consumer_schema_version: str = "1.0",
+    now: datetime | None = None,
+    summary_valid_until: datetime | None = None,
 ) -> dict[str, Any]:
+    runtime_run = repository.get_runtime_run_fact(run_id)
+    if runtime_run is not None:
+        return _runtime_agent_store_summary(
+            repository,
+            agent_id,
+            version,
+            run_id,
+            runtime_run,
+            consumer_schema_version=consumer_schema_version,
+            now=now,
+            summary_valid_until=summary_valid_until,
+        )
+
     events = _events_for_run(repository, run_id)
     if not events:
         raise AgentOpsError("RUN_NOT_FOUND", "Run audit source events were not found.")
@@ -108,6 +129,147 @@ def get_agent_store_summary_for_run(
         evidence_summary,
         consumer_schema_version=consumer_schema_version,
     )
+
+
+def _runtime_agent_store_summary(
+    repository: InMemoryRepository,
+    agent_id: str,
+    version: str,
+    run_id: str,
+    runtime_run: dict[str, Any],
+    *,
+    consumer_schema_version: str,
+    now: datetime | None,
+    summary_valid_until: datetime | None,
+) -> dict[str, Any]:
+    if runtime_run.get("agent_id") != agent_id or runtime_run.get("version") != version:
+        raise AgentOpsError(
+            "STORE_SUMMARY_RUN_MISMATCH",
+            "Runtime run fact does not match the requested Agent Store summary target.",
+        )
+
+    evidence_summary = build_runtime_evidence_summary(
+        repository,
+        run_id,
+        now=now,
+        valid_until=summary_valid_until,
+    )
+    health_summary = build_runtime_health_summary(
+        repository,
+        agent_id,
+        version,
+        now=now,
+        valid_until=summary_valid_until,
+    )
+    run_audit = _runtime_run_audit(repository, runtime_run, evidence_summary)
+    echo_summary = build_agent_store_echo_summary(
+        repository,
+        agent_id,
+        version,
+        _runtime_evidence_for_legacy_echo(evidence_summary),
+        consumer_schema_version=consumer_schema_version,
+        run_audit=run_audit,
+        discovery_gaps=[],
+    )
+    expired = summary_is_expired(evidence_summary, now=now) or summary_is_expired(
+        health_summary, now=now
+    )
+    recommended_action = (
+        "expired" if expired else str(health_summary["recommended_action"])
+    )
+    return {
+        **echo_summary,
+        "calculated_at": _runtime_summary_calculated_at(
+            evidence_summary, health_summary
+        ),
+        "valid_until": _runtime_summary_valid_until(evidence_summary, health_summary),
+        "evidence_summary": evidence_summary,
+        "health_summary": {
+            **health_summary,
+            "recommended_action": recommended_action,
+        },
+        "recommended_action": recommended_action,
+        "ops_detail_url": f"/agentops/runtime/runs/{run_id}",
+        "summary_state": "expired"
+        if expired
+        else "degraded"
+        if evidence_summary.get("degraded_reason")
+        else "fresh",
+    }
+
+
+def _runtime_evidence_for_legacy_echo(
+    evidence_summary: dict[str, Any],
+) -> dict[str, Any]:
+    return {
+        **evidence_summary,
+        "missing_evidence": list(evidence_summary.get("missing_dimensions", [])),
+    }
+
+
+def _runtime_run_audit(
+    repository: InMemoryRepository,
+    runtime_run: dict[str, Any],
+    evidence_summary: dict[str, Any],
+) -> dict[str, Any]:
+    run_id = str(runtime_run["run_id"])
+    agent_id = str(runtime_run["agent_id"])
+    version = str(runtime_run["version"])
+    registered = repository.get_agent_store_metadata(agent_id, version) is not None
+    discovery_gap_ids = [] if registered else [_runtime_agent_gap_id(agent_id)]
+    return {
+        "audit_id": f"audit_run_{run_id}",
+        "run_id": run_id,
+        "agent_id": agent_id,
+        "version": version,
+        "registration_state": "governed" if registered else "suspected",
+        "event_count": len(evidence_summary.get("source_event_ids", [])),
+        "event_ids": list(evidence_summary.get("source_event_ids", [])),
+        "raw_access_state": "summary_only",
+        "discovery_gap_ids": discovery_gap_ids,
+        "related_agent_versions": [f"{agent_id}@{version}"],
+        "deep_links": {
+            "agent_id": agent_id,
+            "version": version,
+            "session_id": str(runtime_run.get("session_id") or f"sess_{run_id}"),
+            "run_id": run_id,
+            "installation_id": str(
+                runtime_run.get("installation_id") or "unknown_installation"
+            ),
+            "trace_id": str(evidence_summary.get("trace_id") or f"trace_{run_id}"),
+            "audit_id": f"audit_run_{run_id}",
+            "return_url": f"/agent-store/agents/{agent_id}/runs/{run_id}",
+        },
+    }
+
+
+def _runtime_agent_gap_id(agent_id: str) -> str:
+    slug = "".join(char if char.isalnum() else "_" for char in agent_id).strip("_")
+    return f"gap_runtime_agent_{slug or 'unknown'}"
+
+
+def _runtime_summary_calculated_at(
+    evidence_summary: dict[str, Any],
+    health_summary: dict[str, Any],
+) -> str:
+    candidates = [
+        str(summary.get("calculated_at") or "")
+        for summary in (evidence_summary, health_summary)
+        if summary.get("calculated_at")
+    ]
+    return max(candidates) if candidates else ""
+
+
+def _runtime_summary_valid_until(
+    evidence_summary: dict[str, Any],
+    health_summary: dict[str, Any],
+) -> str:
+    candidates = [
+        str(summary.get("valid_until") or "")
+        for summary in (evidence_summary, health_summary)
+        if summary.get("valid_until")
+    ]
+    return min(candidates) if candidates else ""
 
 
 def _events_for_run(

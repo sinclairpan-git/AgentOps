@@ -115,36 +115,39 @@ specs:
 - id: 031-agentops-runtime-governance-foundation
   path: specs/031-agentops-runtime-governance-foundation
   depends_on: []
+- id: 032-evidence-health-summary-loop
+  path: specs/032-evidence-health-summary-loop
+  depends_on: []
 truth_snapshot:
-  generated_at: '2026-05-09T06:18:16Z'
+  generated_at: '2026-05-09T12:08:10Z'
   generated_by: ai-sdlc program truth sync
   generator_version: program_truth_snapshot_v1
-  repo_revision: 39d5670
-  authoring_hash: f64a02de35fd0e15838c9af18dc183a66e60146a64144733fdc23442d12897f1
+  repo_revision: 0f37bf2
+  authoring_hash: fdb73a061bc2abc1fac6be459355057e27dae38320259435e9d15d5e5acbfbff
   source_hashes: {}
-  snapshot_hash: ec2c99e249e5f4c1ce0a50a02e0488b72f34ca8be2037541f619fd44900e4b5b
+  snapshot_hash: bf4fac8208c9d56831aff6e61bf523fc6e32bb75f1bd55bce1e5bf70f0c4af14
   computed_capabilities: []
   source_inventory:
     state: complete
-    total_sources: 155
-    mapped_sources: 155
+    total_sources: 160
+    mapped_sources: 160
     unmapped_sources: 0
     missing_sources: 0
-    phase_signal_count: 184
-    deferred_signal_count: 296
+    phase_signal_count: 191
+    deferred_signal_count: 307
     non_goal_signal_count: 55
     layer_totals:
-      spec: 31
-      plan: 31
-      tasks: 31
-      execution: 31
-      close: 31
+      spec: 32
+      plan: 32
+      tasks: 32
+      execution: 32
+      close: 32
     layer_materialized:
-      spec: 31
-      plan: 31
-      tasks: 31
-      execution: 31
-      close: 31
+      spec: 32
+      plan: 32
+      tasks: 32
+      execution: 32
+      close: 32
     entries:
     - path: specs/001-agentops-trusted-loop/spec.md
       source_type: spec_doc
@@ -1540,6 +1543,51 @@ truth_snapshot:
       mapping_ref: 031-agentops-runtime-governance-foundation
       phase_signal_count: 3
       deferred_signal_count: 4
+      non_goal_signal_count: 0
+    - path: specs/032-evidence-health-summary-loop/spec.md
+      source_type: spec_doc
+      truth_layer: spec
+      mapped: true
+      exists: true
+      mapping_ref: 032-evidence-health-summary-loop
+      phase_signal_count: 3
+      deferred_signal_count: 3
+      non_goal_signal_count: 0
+    - path: specs/032-evidence-health-summary-loop/plan.md
+      source_type: plan_doc
+      truth_layer: plan
+      mapped: true
+      exists: true
+      mapping_ref: 032-evidence-health-summary-loop
+      phase_signal_count: 4
+      deferred_signal_count: 4
+      non_goal_signal_count: 0
+    - path: specs/032-evidence-health-summary-loop/tasks.md
+      source_type: tasks_doc
+      truth_layer: tasks
+      mapped: true
+      exists: true
+      mapping_ref: 032-evidence-health-summary-loop
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 0
+    - path: specs/032-evidence-health-summary-loop/task-execution-log.md
+      source_type: execution_log
+      truth_layer: execution
+      mapped: true
+      exists: true
+      mapping_ref: 032-evidence-health-summary-loop
+      phase_signal_count: 0
+      deferred_signal_count: 4
+      non_goal_signal_count: 0
+    - path: specs/032-evidence-health-summary-loop/development-summary.md
+      source_type: development_summary
+      truth_layer: close
+      mapped: true
+      exists: true
+      mapping_ref: 032-evidence-health-summary-loop
+      phase_signal_count: 0
+      deferred_signal_count: 0
       non_goal_signal_count: 0
     unmapped_paths: []
   state: ready

@@ -24,6 +24,8 @@ from agentops.api.credentials import (
 )
 from agentops.api.ingestion import ingest_events_batch
 from agentops.api.runtime import (
+    get_runtime_evidence_summary,
+    get_runtime_health_summary,
     get_runtime_run_detail,
     get_runtime_trace_timeline,
     ingest_runtime_events,
@@ -216,6 +218,52 @@ def create_http_handler(
             runtime_trace_prefix = "/v1/runtime/runs/"
             if request_path.startswith(runtime_trace_prefix):
                 suffix = request_path.removeprefix(runtime_trace_prefix).strip("/")
+                if suffix.endswith("/evidence-summary"):
+                    run_id = suffix.removesuffix("/evidence-summary").strip("/")
+                    if not run_id or "/" in run_id:
+                        self._send_json(
+                            HTTPStatus.NOT_FOUND,
+                            {
+                                "error_code": "NOT_FOUND",
+                                "message": "未找到请求的 AgentOps API 路径。",
+                            },
+                        )
+                        return
+                    auth_error = self._require_scope("runtime.evidence.read")
+                    if auth_error:
+                        self._send_auth_error(
+                            auth_error,
+                            action="runtime.evidence.read",
+                            resource=request_path,
+                        )
+                        return
+                    try:
+                        response = get_runtime_evidence_summary(
+                            live_repository,
+                            run_id,
+                            request_raw=False,
+                            raw_access_allowed=False,
+                        )
+                    except AgentOpsError as exc:
+                        self._append_audit_record(
+                            action="runtime.evidence.read",
+                            outcome="rejected",
+                            resource=request_path,
+                            error_code=exc.error_code,
+                        )
+                        self._send_json(
+                            HTTPStatus.NOT_FOUND,
+                            exc.to_response(),
+                        )
+                        return
+                    self._append_audit_record(
+                        action="runtime.evidence.read",
+                        outcome="accepted",
+                        resource=request_path,
+                    )
+                    self._send_json(HTTPStatus.OK, response)
+                    return
+
                 if suffix.endswith("/trace"):
                     run_id = suffix.removesuffix("/trace").strip("/")
                     if not run_id or "/" in run_id:
@@ -304,6 +352,47 @@ def create_http_handler(
                     return
                 self._append_audit_record(
                     action="runtime.run.read",
+                    outcome="accepted",
+                    resource=request_path,
+                )
+                self._send_json(HTTPStatus.OK, response)
+                return
+
+            runtime_health_prefix = "/v1/runtime/agents/"
+            runtime_health_suffix = "/health-summary"
+            if request_path.startswith(runtime_health_prefix) and request_path.endswith(
+                runtime_health_suffix
+            ):
+                identity = (
+                    request_path.removeprefix(runtime_health_prefix)
+                    .removesuffix(runtime_health_suffix)
+                    .strip("/")
+                )
+                parts = identity.split("/")
+                if len(parts) != 3 or parts[1] != "versions":
+                    self._send_json(
+                        HTTPStatus.NOT_FOUND,
+                        {
+                            "error_code": "NOT_FOUND",
+                            "message": "未找到请求的 AgentOps API 路径。",
+                        },
+                    )
+                    return
+                agent_id = parts[0]
+                version = parts[2]
+                auth_error = self._require_scope("runtime.health.read")
+                if auth_error:
+                    self._send_auth_error(
+                        auth_error,
+                        action="runtime.health.read",
+                        resource=request_path,
+                    )
+                    return
+                response = get_runtime_health_summary(
+                    live_repository, agent_id, version
+                )
+                self._append_audit_record(
+                    action="runtime.health.read",
                     outcome="accepted",
                     resource=request_path,
                 )

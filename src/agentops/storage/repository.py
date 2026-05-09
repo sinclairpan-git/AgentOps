@@ -43,6 +43,19 @@ def _runtime_attempt_sort_key(record: dict[str, Any]) -> tuple[float, float, str
     return (attempt_no, sequence_no, str(record.get("received_at", "")))
 
 
+def _runtime_recency_sort_key(
+    record: dict[str, Any],
+) -> tuple[tuple[int, float, str], float, float, str]:
+    sequence_no = _runtime_number_sort_value(record.get("sequence_no", 0))
+    attempt_no = _runtime_number_sort_value(record.get("attempt_no", 0))
+    return (
+        _runtime_time_sort_value(record.get("received_at")),
+        sequence_no,
+        attempt_no,
+        str(record.get("run_id", "")),
+    )
+
+
 def _runtime_attempt_matches(actual: Any, expected: Any) -> bool:
     actual_sort_value = _runtime_number_sort_value(actual)
     expected_sort_value = _runtime_number_sort_value(expected)
@@ -63,7 +76,7 @@ def _runtime_time_sort_value(value: Any) -> tuple[int, float, str]:
     try:
         parsed = datetime.fromisoformat(raw_value.replace("Z", "+00:00"))
     except ValueError:
-        return (1, 0.0, raw_value)
+        return (-1, 0.0, raw_value)
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=UTC)
     timestamp = parsed.astimezone(UTC).timestamp()
@@ -155,6 +168,23 @@ class InMemoryRepository:
                 return None
             latest = sorted(candidates, key=_runtime_attempt_sort_key)[-1]
             return deepcopy(latest)
+
+    def runtime_run_records_for_agent_version(
+        self, agent_id: str, version: str, *, limit: int | None = None
+    ) -> tuple[dict[str, Any], ...]:
+        with self._lock:
+            records = [
+                deepcopy(record)
+                for record in self.runtime_runs.values()
+                if record.get("agent_id") == agent_id
+                and record.get("version") == version
+            ]
+            sorted_records = sorted(records, key=_runtime_recency_sort_key)
+            if limit == 0:
+                return ()
+            if limit is not None and limit > 0:
+                sorted_records = sorted_records[-limit:]
+            return tuple(sorted_records)
 
     def trace_span_records_for_run(
         self, run_id: str, *, attempt_no: Any | None = None
