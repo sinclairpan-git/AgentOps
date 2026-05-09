@@ -23,7 +23,11 @@ from agentops.api.credentials import (
     revoke_credentials,
 )
 from agentops.api.ingestion import ingest_events_batch
-from agentops.api.runtime import ingest_runtime_events
+from agentops.api.runtime import (
+    get_runtime_run_detail,
+    get_runtime_trace_timeline,
+    ingest_runtime_events,
+)
 from agentops.api.store_summary import get_agent_store_summary_for_run
 from agentops.core.errors import AgentOpsError
 from agentops.storage.audit import AuditRecord, JsonlAuditLog
@@ -203,6 +207,103 @@ def create_http_handler(
                     return
                 self._append_audit_record(
                     action="runtime.audit.export",
+                    outcome="accepted",
+                    resource=request_path,
+                )
+                self._send_json(HTTPStatus.OK, response)
+                return
+
+            runtime_trace_prefix = "/v1/runtime/runs/"
+            if request_path.startswith(runtime_trace_prefix):
+                suffix = request_path.removeprefix(runtime_trace_prefix).strip("/")
+                if suffix.endswith("/trace"):
+                    run_id = suffix.removesuffix("/trace").strip("/")
+                    if not run_id or "/" in run_id:
+                        self._send_json(
+                            HTTPStatus.NOT_FOUND,
+                            {
+                                "error_code": "NOT_FOUND",
+                                "message": "未找到请求的 AgentOps API 路径。",
+                            },
+                        )
+                        return
+                    auth_error = self._require_scope("runtime.trace.read")
+                    if auth_error:
+                        self._send_auth_error(
+                            auth_error,
+                            action="runtime.trace.read",
+                            resource=request_path,
+                        )
+                        return
+                    try:
+                        response = get_runtime_trace_timeline(
+                            live_repository,
+                            run_id,
+                            request_raw=False,
+                            raw_access_allowed=False,
+                        )
+                    except AgentOpsError as exc:
+                        self._append_audit_record(
+                            action="runtime.trace.read",
+                            outcome="rejected",
+                            resource=request_path,
+                            error_code=exc.error_code,
+                        )
+                        self._send_json(
+                            HTTPStatus.NOT_FOUND,
+                            {
+                                "error_code": exc.error_code,
+                                "message": exc.message,
+                                "retryable": exc.retryable,
+                            },
+                        )
+                        return
+                    self._append_audit_record(
+                        action="runtime.trace.read",
+                        outcome="accepted",
+                        resource=request_path,
+                    )
+                    self._send_json(HTTPStatus.OK, response)
+                    return
+
+                run_id = suffix
+                if not run_id or "/" in run_id:
+                    self._send_json(
+                        HTTPStatus.NOT_FOUND,
+                        {
+                            "error_code": "NOT_FOUND",
+                            "message": "未找到请求的 AgentOps API 路径。",
+                        },
+                    )
+                    return
+                auth_error = self._require_scope("runtime.run.read")
+                if auth_error:
+                    self._send_auth_error(
+                        auth_error,
+                        action="runtime.run.read",
+                        resource=request_path,
+                    )
+                    return
+                try:
+                    response = get_runtime_run_detail(live_repository, run_id)
+                except AgentOpsError as exc:
+                    self._append_audit_record(
+                        action="runtime.run.read",
+                        outcome="rejected",
+                        resource=request_path,
+                        error_code=exc.error_code,
+                    )
+                    self._send_json(
+                        HTTPStatus.NOT_FOUND,
+                        {
+                            "error_code": exc.error_code,
+                            "message": exc.message,
+                            "retryable": exc.retryable,
+                        },
+                    )
+                    return
+                self._append_audit_record(
+                    action="runtime.run.read",
                     outcome="accepted",
                     resource=request_path,
                 )

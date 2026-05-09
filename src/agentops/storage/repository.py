@@ -17,6 +17,22 @@ def utc_now() -> str:
     return datetime.now(UTC).isoformat()
 
 
+def _runtime_attempt_sort_key(record: dict[str, Any]) -> tuple[float, str]:
+    value = record.get("attempt_no", 0)
+    if isinstance(value, bool):
+        attempt_no = -1.0
+    elif isinstance(value, (int, float)):
+        attempt_no = float(value)
+    elif isinstance(value, str):
+        try:
+            attempt_no = float(value)
+        except ValueError:
+            attempt_no = -1.0
+    else:
+        attempt_no = -1.0
+    return (attempt_no, str(record.get("received_at", "")))
+
+
 @dataclass
 class InMemoryRepository:
     _lock: RLock = field(default_factory=RLock, repr=False)
@@ -98,7 +114,7 @@ class InMemoryRepository:
             ]
             if not candidates:
                 return None
-            latest = sorted(candidates, key=lambda item: item.get("attempt_no", 0))[-1]
+            latest = sorted(candidates, key=_runtime_attempt_sort_key)[-1]
             return deepcopy(latest)
 
     def trace_span_records_for_run(self, run_id: str) -> tuple[dict[str, Any], ...]:

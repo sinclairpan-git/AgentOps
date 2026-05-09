@@ -451,10 +451,10 @@ def _trace_aggregate(spans: list[dict[str, Any]]) -> dict[str, Any]:
     currency = "unknown"
     for span in spans:
         token_usage = span.get("token_usage") or {}
-        input_tokens += int(token_usage.get("input") or 0)
-        output_tokens += int(token_usage.get("output") or 0)
+        input_tokens += _safe_int(token_usage.get("input"))
+        output_tokens += _safe_int(token_usage.get("output"))
         cost_estimate = span.get("cost_estimate") or {}
-        cost_amount += float(cost_estimate.get("amount") or 0)
+        cost_amount += _safe_float(cost_estimate.get("amount"))
         if cost_estimate.get("currency"):
             currency = str(cost_estimate["currency"])
     return {
@@ -462,3 +462,31 @@ def _trace_aggregate(spans: list[dict[str, Any]]) -> dict[str, Any]:
         "token_usage": {"input": input_tokens, "output": output_tokens},
         "cost_estimate": {"amount": round(cost_amount, 6), "currency": currency},
     }
+
+
+def _safe_int(value: Any) -> int:
+    if isinstance(value, bool):
+        return 0
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if isinstance(value, str):
+        try:
+            return int(float(value))
+        except ValueError:
+            return 0
+    return 0
+
+
+def _safe_float(value: Any) -> float:
+    if isinstance(value, bool):
+        return 0.0
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return float(value)
+        except ValueError:
+            return 0.0
+    return 0.0

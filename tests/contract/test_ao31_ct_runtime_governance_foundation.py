@@ -1,9 +1,15 @@
+import json
+from http.client import HTTPConnection
+from http.server import ThreadingHTTPServer
+from threading import Thread
+
 import pytest
 
 from agentops.api.app import create_app
 from agentops.api.runtime import get_runtime_run_detail, get_runtime_trace_timeline
 from agentops.core.errors import AgentOpsError
 from agentops.api.runtime import ingest_runtime_events
+from agentops.api.server import create_http_handler
 from agentops.core.runtime_contracts import (
     CONTRACT_REGISTRY,
     STATE_REGISTRY,
@@ -101,6 +107,28 @@ def runtime_batch(events, **overrides):
     }
     batch.update(overrides)
     return batch
+
+
+def _json_get(server: ThreadingHTTPServer, path: str):
+    connection = HTTPConnection(
+        server.server_address[0], server.server_address[1], timeout=5
+    )
+    try:
+        connection.request("GET", path)
+        response = connection.getresponse()
+        body = response.read().decode("utf-8")
+        return response, json.loads(body) if body else {}
+    finally:
+        connection.close()
+
+
+def _serve_repository(repository: InMemoryRepository):
+    server = ThreadingHTTPServer(
+        ("127.0.0.1", 0), create_http_handler(repository=repository)
+    )
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    return server, thread
 
 
 def test_ao31_ct_001_contract_registry_has_required_runtime_governance_entries():
@@ -430,6 +458,38 @@ def test_ao31_ct_006_run_detail_projection_explains_blocked_and_trace_pending():
     assert detail["audit_id"] == "audit_runtime_run_run_1"
 
 
+def test_ao31_ct_006_run_detail_selects_latest_mixed_attempt_types():
+    repository = InMemoryRepository()
+    ingest_runtime_events(
+        runtime_batch(
+            [
+                runtime_event(
+                    "evt_run_attempt_1",
+                    "runtime_run",
+                    runtime_run_payload(attempt_no=1, status="running"),
+                    schema_version="runtime_run.v1",
+                    sequence_no=1,
+                    idempotency_key="runtime:run_attempt_1",
+                ),
+                runtime_event(
+                    "evt_run_attempt_2",
+                    "runtime_run",
+                    runtime_run_payload(attempt_no="2", status="blocked"),
+                    schema_version="runtime_run.v1",
+                    sequence_no=2,
+                    idempotency_key="runtime:run_attempt_2",
+                ),
+            ]
+        ),
+        repository,
+    )
+
+    detail = get_runtime_run_detail(repository, "run_1")
+
+    assert detail["run"]["attempt_no"] == "2"
+    assert detail["run"]["status"] == "blocked"
+
+
 def test_ao31_ct_006_run_detail_scope_denied_is_safe():
     repository = InMemoryRepository()
 
@@ -497,6 +557,85 @@ def test_ao31_ct_007_trace_timeline_projection_is_ordered_and_summarized():
     assert timeline["redaction_state"] == "summary_only"
     assert timeline["aggregate"]["token_usage"]["input"] == 24
     assert timeline["aggregate"]["cost_estimate"]["amount"] == 0.02
+
+
+def test_ao31_ct_007_trace_timeline_ignores_malformed_numeric_aggregate_values():
+    repository = InMemoryRepository()
+    ingest_runtime_events(
+        runtime_batch(
+            [
+                runtime_event(
+                    "evt_run_timeline",
+                    "runtime_run",
+                    runtime_run_payload(),
+                    schema_version="runtime_run.v1",
+                    sequence_no=1,
+                    idempotency_key="runtime:run_timeline",
+                ),
+                runtime_event(
+                    "evt_span_bad_numbers",
+                    "trace_span",
+                    trace_span_payload(
+                        token_usage={"input": "abc", "output": "5"},
+                        cost_estimate={"amount": "bad", "currency": "USD"},
+                    ),
+                    schema_version="trace_span.v1",
+                    sequence_no=2,
+                    idempotency_key="runtime:span_bad_numbers",
+                ),
+            ]
+        ),
+        repository,
+    )
+
+    timeline = get_runtime_trace_timeline(repository, "run_1")
+
+    assert timeline["aggregate"]["token_usage"] == {"input": 0, "output": 5}
+    assert timeline["aggregate"]["cost_estimate"] == {
+        "amount": 0.0,
+        "currency": "USD",
+    }
+
+
+def test_ao31_ct_007_runtime_detail_and_trace_http_routes_match_manifest():
+    repository = InMemoryRepository()
+    ingest_runtime_events(
+        runtime_batch(
+            [
+                runtime_event(
+                    "evt_run_http",
+                    "runtime_run",
+                    runtime_run_payload(),
+                    schema_version="runtime_run.v1",
+                    sequence_no=1,
+                    idempotency_key="runtime:run_http",
+                ),
+                runtime_event(
+                    "evt_span_http",
+                    "trace_span",
+                    trace_span_payload(),
+                    schema_version="trace_span.v1",
+                    sequence_no=2,
+                    idempotency_key="runtime:span_http",
+                ),
+            ]
+        ),
+        repository,
+    )
+    server, thread = _serve_repository(repository)
+    try:
+        detail_response, detail = _json_get(server, "/v1/runtime/runs/run_1")
+        trace_response, trace = _json_get(server, "/v1/runtime/runs/run_1/trace")
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+    assert detail_response.status == 200
+    assert detail["run"]["run_id"] == "run_1"
+    assert trace_response.status == 200
+    assert trace["run_id"] == "run_1"
+    assert trace["spans"][0]["span_id"] == "span_root"
 
 
 def test_ao31_ct_007_trace_timeline_raw_access_requires_permission():
