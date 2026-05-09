@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from datetime import UTC, datetime
 from typing import Any
 
@@ -475,15 +476,18 @@ def _trace_aggregate(spans: list[dict[str, Any]]) -> dict[str, Any]:
 def _safe_int(value: Any) -> int:
     if isinstance(value, bool):
         return 0
-    if isinstance(value, int):
-        return value
-    if isinstance(value, float):
-        return int(value)
+    if isinstance(value, (int, float)):
+        try:
+            numeric_value = float(value)
+        except OverflowError:
+            return 0
+        return int(numeric_value) if math.isfinite(numeric_value) else 0
     if isinstance(value, str):
         try:
-            return int(float(value))
-        except ValueError:
+            numeric_value = float(value)
+        except (OverflowError, ValueError):
             return 0
+        return int(numeric_value) if math.isfinite(numeric_value) else 0
     return 0
 
 
@@ -491,10 +495,15 @@ def _safe_float(value: Any) -> float:
     if isinstance(value, bool):
         return 0.0
     if isinstance(value, (int, float)):
-        return float(value)
+        try:
+            numeric_value = float(value)
+        except OverflowError:
+            return 0.0
+        return numeric_value if math.isfinite(numeric_value) else 0.0
     if isinstance(value, str):
         try:
-            return float(value)
-        except ValueError:
+            numeric_value = float(value)
+        except (OverflowError, ValueError):
             return 0.0
+        return numeric_value if math.isfinite(numeric_value) else 0.0
     return 0.0

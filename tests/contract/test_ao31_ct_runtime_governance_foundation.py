@@ -830,6 +830,44 @@ def test_ao31_ct_007_trace_timeline_ignores_malformed_numeric_aggregate_values()
     }
 
 
+def test_ao31_ct_007_trace_timeline_ignores_non_finite_aggregate_values():
+    repository = InMemoryRepository()
+    ingest_runtime_events(
+        runtime_batch(
+            [
+                runtime_event(
+                    "evt_run_timeline",
+                    "runtime_run",
+                    runtime_run_payload(),
+                    schema_version="runtime_run.v1",
+                    sequence_no=1,
+                    idempotency_key="runtime:run_timeline",
+                ),
+                runtime_event(
+                    "evt_span_non_finite_numbers",
+                    "trace_span",
+                    trace_span_payload(
+                        token_usage={"input": "1e309", "output": float("inf")},
+                        cost_estimate={"amount": "1e309", "currency": "USD"},
+                    ),
+                    schema_version="trace_span.v1",
+                    sequence_no=2,
+                    idempotency_key="runtime:span_non_finite_numbers",
+                ),
+            ]
+        ),
+        repository,
+    )
+
+    timeline = get_runtime_trace_timeline(repository, "run_1")
+
+    assert timeline["aggregate"]["token_usage"] == {"input": 0, "output": 0}
+    assert timeline["aggregate"]["cost_estimate"] == {
+        "amount": 0.0,
+        "currency": "USD",
+    }
+
+
 def test_ao31_ct_007_runtime_detail_and_trace_http_routes_match_manifest():
     repository = InMemoryRepository()
     ingest_runtime_events(
