@@ -272,3 +272,77 @@ Runtime Ingestion API v1 已具备最小可用接入能力。当前还未实现 
 #### 5.7 批次结论
 
 Run Detail 和 Trace Timeline projection 已具备后端最小能力。当前还未完成 Console mock/API client 和页面承接。
+
+### Batch 2026-05-09-005 | T31-41 - T31-43
+
+#### 6.1 批次范围
+
+- 覆盖任务：`T31-41`、`T31-42`、`T31-43`
+- 覆盖阶段：execute / Batch 5
+- **验证画像**：code-change
+- 预读范围：
+  - `specs/031-agentops-runtime-governance-foundation/spec.md`
+  - `specs/031-agentops-runtime-governance-foundation/plan.md`
+  - `specs/031-agentops-runtime-governance-foundation/tasks.md`
+
+#### 6.2 改动范围
+
+- `apps/agentops-console/src/data/mockAgentOpsData.js`
+- `apps/agentops-console/src/data/agentOpsApiClient.js`
+- `apps/agentops-console/src/components/StatusBadge.js`
+- `apps/agentops-console/src/views/RunsView.js`
+- `apps/agentops-console/src/views/OverviewView.js`
+- `apps/agentops-console/src/styles.css`
+- `apps/agentops-console/tests/console-contract.test.mjs`
+- `specs/031-agentops-runtime-governance-foundation/tasks.md`
+- `specs/031-agentops-runtime-governance-foundation/development-summary.md`
+- `specs/031-agentops-runtime-governance-foundation/task-execution-log.md`
+
+#### 6.3 改动内容
+
+- Console mock 运行记录新增 `succeeded`、`blocked`、`approval_paused`、`trace_pending`、`degraded` 五类 Runtime 运行状态。
+- API client 状态白名单新增 Runtime 状态、span status code 和 runtime run 安全校验。
+- RunsView 新增运行时状态列、轨迹状态列、运行时详情卡和轨迹摘要卡；缺失轨迹显示 `trace_pending` 空态。
+- OverviewView 新增运行时运行态聚合卡，可直接跳转运行记录。
+- StatusBadge 新增 Runtime 状态中文标签和 tone 映射。
+- Console 契约测试新增未知 Runtime 状态与 raw trace 输入反例，继续确保页面不展示原始输入输出。
+
+#### 6.4 统一验证命令
+
+- `npm test`
+  - 结果：PASS，Console 契约测试通过。
+- `npm run build`
+  - 结果：PASS，Vite production build 通过。
+- `uv run pytest tests -q`
+  - 结果：PASS，全量 Python 测试通过。
+- `uv run ruff check src tests`
+  - 结果：PASS。
+- `uv run ruff format --check src/agentops/api/runtime.py src/agentops/api/view_models.py src/agentops/storage/repository.py src/agentops/api/app.py src/agentops/api/server.py src/agentops/models/runtime.py src/agentops/core/runtime_contracts.py src/agentops/core/runtime_ingestion.py tests/unit/test_runtime_contracts.py tests/contract/test_ao31_ct_runtime_governance_foundation.py tests/unit/test_admin_view_models.py`
+  - 结果：PASS，本工作项触达 Python 文件格式通过。
+- `uv run ai-sdlc verify constraints`
+  - 结果：PASS，无 BLOCKER。
+- `uv run ai-sdlc run --dry-run`
+  - 结果：close 阶段 RETRY，原因是最终 close-out 元数据尚未完成；代码、测试、构建已通过。
+- `uv run ai-sdlc program truth sync --execute --yes`
+  - 结果：PASS，truth snapshot ready，155/155 sources mapped，missing sources = 0。
+
+#### 6.5 代码审查结论
+
+- 宪章/规格对齐：符合。Console 只消费 AgentOps 输出的治理摘要，不从前端推导 Runtime 事实。
+- 代码质量：运行时状态统一进入 API client 白名单与 StatusBadge 显示层，避免每页各自解释状态。
+- 测试质量：覆盖正向快照、未知状态拒绝、raw trace 输入拒绝、中文文案约束和生产构建。
+- 结论：Batch 5 可收口，后续进入最终 AI-SDLC gate / dry-run 和提交。
+
+#### 6.6 任务/计划同步状态
+
+- `tasks.md` 同步状态：T31-41、T31-42、T31-43 已完成。
+- `related_plan` 同步状态：Batch 5 与 `plan.md` Phase 4 对齐。
+- 当前批次 branch disposition 状态：retained（dev 分支等待最终收口后统一 PR）
+- 当前批次 worktree disposition 状态：retained（当前工作树等待最终收口验证）
+- **已完成 git 提交**：是，本批实现与归档将在当前 close-out 提交中一并提交。
+- **提交哈希**：见当前批次最终 Git 提交。
+- 是否继续下一批：否，本批进入 PR 收口。
+
+#### 6.7 批次结论
+
+Runtime Governance Foundation 的后端接入、投影和 Console 承接已完成最小闭环。剩余工作是最终 AI-SDLC 约束验证、dry-run、提交、推送和 PR 收口。

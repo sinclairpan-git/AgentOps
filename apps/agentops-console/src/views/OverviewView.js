@@ -10,6 +10,23 @@ export const OverviewView = {
   props: {
     data: { type: Object, required: true }
   },
+  computed: {
+    runtimeSummary() {
+      const runs = Array.isArray(this.data.runs) ? this.data.runs : [];
+      const counts = runs.reduce((acc, run) => {
+        const status = run.runtime_status || "unknown";
+        acc[status] = (acc[status] || 0) + 1;
+        return acc;
+      }, {});
+      return [
+        { status: "succeeded", label: "成功", value: counts.succeeded || 0, detail: "完整轨迹摘要" },
+        { status: "blocked", label: "阻断", value: counts.blocked || 0, detail: "策略或安全边界阻断" },
+        { status: "approval_paused", label: "审批暂停", value: counts.approval_paused || 0, detail: "等待人工 Grant" },
+        { status: "trace_pending", label: "轨迹待补齐", value: counts.trace_pending || 0, detail: "运行事实早于轨迹片段到达" },
+        { status: "degraded", label: "降级", value: counts.degraded || 0, detail: "仅展示安全摘要" }
+      ];
+    }
+  },
   template: `
     <div class="view-stack">
       <section class="page-heading">
@@ -70,6 +87,29 @@ export const OverviewView = {
               <div><dt>证明来源</dt><dd>{{ data.summary.adapter.proof_source }}</dd></div>
               <div><dt>采集时间</dt><dd>{{ data.summary.adapter.captured_at }}</dd></div>
             </dl>
+          </div>
+        </ent-card>
+
+        <ent-card>
+          <div class="section-title">
+            <h4>运行时运行态</h4>
+            <ent-button tone="ghost" @click="$emit('navigate', 'runs')">查看运行记录</ent-button>
+          </div>
+          <div class="runtime-status-grid">
+            <button
+              v-for="item in runtimeSummary"
+              :key="item.status"
+              class="runtime-status-card"
+              type="button"
+              @click="$emit('navigate', 'runs')"
+            >
+              <span>
+                <strong>{{ item.value }}</strong>
+                <small>{{ item.label }}</small>
+              </span>
+              <status-badge :status="item.status" />
+              <em>{{ item.detail }}</em>
+            </button>
           </div>
         </ent-card>
       </section>

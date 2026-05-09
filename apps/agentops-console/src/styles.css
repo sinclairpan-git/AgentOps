@@ -601,7 +601,12 @@ button {
 
 .quality-insight-card,
 .quality-chain,
-.quality-segment {
+.quality-segment,
+.runtime-run-grid,
+.runtime-run-card,
+.runtime-trace-panel,
+.runtime-status-grid,
+.runtime-status-card {
   display: grid;
   gap: 12px;
 }
@@ -815,6 +820,81 @@ button {
   line-height: 1.45;
 }
 
+.runtime-run-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.runtime-run-head,
+.runtime-status-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.runtime-run-head h4 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.runtime-detail-list {
+  border-block: 1px solid #e8edf5;
+  padding-block: 10px;
+}
+
+.runtime-trace-panel {
+  border: 1px solid #dbe3ef;
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 12px;
+}
+
+.runtime-trace-panel .section-title small {
+  color: #5c6b80;
+}
+
+.runtime-span-node small {
+  overflow-wrap: anywhere;
+}
+
+.runtime-status-grid {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.runtime-status-card {
+  border: 1px solid #dbe3ef;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #152033;
+  padding: 12px;
+  text-align: left;
+}
+
+.runtime-status-card:hover {
+  border-color: #2f6fed;
+  background: #eef4ff;
+}
+
+.runtime-status-card span {
+  display: grid;
+  gap: 2px;
+}
+
+.runtime-status-card strong {
+  font-size: 22px;
+}
+
+.runtime-status-card small,
+.runtime-status-card em {
+  color: #5c6b80;
+}
+
+.runtime-status-card em {
+  flex-basis: 100%;
+  font-size: 12px;
+  font-style: normal;
+}
+
 .risk-row,
 .risk-card,
 .audit-card {
@@ -967,6 +1047,7 @@ dd {
 
   .metric-grid,
   .card-grid,
+  .runtime-run-grid,
   .split-grid,
   .panel-grid.three,
   .panel-grid.two {

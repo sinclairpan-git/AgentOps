@@ -150,6 +150,9 @@ for (const expectedChineseText of [
   "回显摘要",
   "连接器状态",
   "连接器健康工作台",
+  "运行时运行态",
+  "轨迹摘要",
+  "轨迹待补齐",
   "健康与限流",
   "DLQ 与 Outbox Replay",
   "同步轨迹",
@@ -196,6 +199,36 @@ const validApiSnapshot = {
 };
 
 assert.equal(validateSnapshot(validApiSnapshot), true);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      runs: [{
+        ...consoleData.runs[0],
+        runtime_status: "invented_runtime_state"
+      }]
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      runs: [{
+        ...consoleData.runs[0],
+        trace_timeline: [{
+          span_id: "span_unsafe",
+          status_code: "ok",
+          raw_input: "prompt text must not be exposed"
+        }]
+      }]
+    }
+  }),
+  false
+);
 const healthyConnectorWarningRateLimit = {
   ...consoleData,
   connectors: consoleData.connectors.map((connector) =>

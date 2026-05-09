@@ -8,7 +8,7 @@ related_doc:
 
 **编号**：`031-agentops-runtime-governance-foundation` | **日期**：2026-05-09  
 **来源**：`spec.md` + `research.md` + `data-model.md` + `plan.md`  
-**当前阶段**：decompose 完成，等待 execute 授权
+**当前阶段**：execute Batch 5 已完成，等待统一收口/PR
 
 ## 分批策略
 
@@ -131,7 +131,7 @@ Batch 5: Console contract integration and verification
 
 ### Task 5.1 更新 Console mock/API client 契约
 
-- **状态**：待执行
+- **状态**：已完成
 - **优先级**：P1
 - **依赖**：T31-31、T31-32
 - **文件**：`apps/agentops-console/src/data/mockAgentOpsData.js`、`apps/agentops-console/src/data/agentOpsApiClient.js`
@@ -140,7 +140,7 @@ Batch 5: Console contract integration and verification
 
 ### Task 5.2 更新 RunsView / OverviewView 展示承接
 
-- **状态**：待执行
+- **状态**：已完成
 - **优先级**：P1
 - **依赖**：T31-41
 - **文件**：`apps/agentops-console/src/views/RunsView.js`、`apps/agentops-console/src/views/OverviewView.js`、`apps/agentops-console/src/styles.css`
@@ -149,7 +149,7 @@ Batch 5: Console contract integration and verification
 
 ### Task 5.3 执行验证与归档
 
-- **状态**：待执行
+- **状态**：已完成
 - **优先级**：P0
 - **依赖**：T31-12、T31-23、T31-33、T31-42
 - **文件**：`task-execution-log.md`、`development-summary.md`
