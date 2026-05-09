@@ -174,3 +174,33 @@
 
 - Codex review 两条 actionable feedback 已修复并纳入合同测试。
 - 本修复将提交、推送，并重新触发 PR #34 `@codex review`。
+
+## 4. PR Review Fix 2026-05-09-002 | AI-SDLC checkpoint metadata alignment
+
+### 4.1 触发来源
+
+- 来源：PR #34 Codex Review
+- Reviewed commit：`9fc45f6d5a`
+- 反馈类型：P2 checkpoint metadata drift。
+
+### 4.2 修复内容
+
+#### RF-003 | linked_plan_uri 与 033 work item 对齐
+
+- 改动范围：`.ai-sdlc/state/checkpoint.yml`、`.ai-sdlc/state/checkpoint.yml.bak`、`.ai-sdlc/state/resume-pack.yaml`、`.ai-sdlc/work-items/033-policy-grant-approval-minimum-control/resume-pack.yaml`
+- 改动内容：在 `linked_wi_id` 已切到 `033-policy-grant-approval-minimum-control` 后，将 `linked_plan_uri` 从 AO32 plan 修正为 AO33 plan，并通过 AI-SDLC recover/reconcile 重新生成 close 阶段 resume-pack 指纹。
+- 新增/调整测试：无代码测试；由 AI-SDLC dry-run、constraints、workitem close-check 覆盖治理状态。
+- 是否符合任务目标：符合 AI-SDLC 框架约束，避免后续 resume/close-check 读取错误计划。
+
+### 4.3 验证记录
+
+- `uv run ai-sdlc run --dry-run`：进入状态诊断，提示 checkpoint 需 reconcile 到 close。
+- `uv run ai-sdlc recover --reconcile`：通过，checkpoint 对齐到 AO33 close。
+- `uv run ai-sdlc run --dry-run`：通过，Stage close PASS。
+- `uv run ai-sdlc verify constraints`：通过，无 BLOCKER。
+- `uv run ai-sdlc program truth sync --execute --yes`：通过，snapshot hash `f54988eaad99d038bef40ccc053882e3930eaba5c8751261d499da1b0a07c070`。
+- `uv run ai-sdlc workitem close-check --wi specs/033-policy-grant-approval-minimum-control`：除当前待提交导致的 git closure 外，其余门禁通过；提交后复跑。
+
+### 4.4 结论
+
+- Codex review 最新 P2 metadata drift 已修复，将重新验证、提交、推送并触发 PR #34 `@codex review`。
