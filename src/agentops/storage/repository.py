@@ -180,7 +180,9 @@ class InMemoryRepository:
                 and record.get("version") == version
             ]
             sorted_records = sorted(records, key=_runtime_recency_sort_key)
-            if limit is not None and limit >= 0:
+            if limit == 0:
+                return ()
+            if limit is not None and limit > 0:
                 sorted_records = sorted_records[-limit:]
             return tuple(sorted_records)
 

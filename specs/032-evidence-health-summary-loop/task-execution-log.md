@@ -183,3 +183,20 @@
 - **提交哈希**：见当前 Git HEAD。
 - 当前批次 worktree disposition 状态：当前 worktree 继续承载 PR #33 收口。
 - 是否继续下一批：否，本批继续 PR 收口。
+
+### Review Fix 2026-05-09-002 | Codex zero-window health summary hardening
+
+#### RF-002 | treat zero health window as empty
+
+- **验证画像**：code-change
+- 反馈来源：PR #33 Codex Review 第二轮。
+- 改动范围：`src/agentops/storage/repository.py`、`tests/contract/test_ao32_ct_evidence_health_summary_loop.py`、`specs/032-evidence-health-summary-loop/task-execution-log.md`、`development-summary.md`
+- 改动内容：`runtime_run_records_for_agent_version(..., limit=0)` 显式返回空 tuple，避免 Python `[-0:]` 将零窗口误解释为全量历史窗口。
+- 新增/调整的测试：新增 `test_ao32_ct_003_health_summary_zero_window_is_empty`，验证 zero window 的 sample_size、run_ids 和 recommended_action。
+- 执行的命令：`uv run pytest tests/contract/test_ao32_ct_evidence_health_summary_loop.py tests/contract/test_ao31_ct_runtime_governance_foundation.py tests/contract/test_ao22_ct_agent_store_summary_http_contract.py -q`、`uv run ruff check src tests`、`uv run ruff format --check src/agentops/storage/repository.py tests/contract/test_ao32_ct_evidence_health_summary_loop.py`
+- 测试结果：AO22/AO31/AO32 定向 71 条 tests 通过；ruff check 通过；本次触碰文件 format check 通过。
+- 是否符合任务目标：是；回应 Codex review 对 zero window 的要求。
+- **已完成 git 提交**：是，本批实现与归档将在当前 review fix 提交中一并提交。
+- **提交哈希**：见当前 Git HEAD。
+- 当前批次 worktree disposition 状态：当前 worktree 继续承载 PR #33 收口。
+- 是否继续下一批：否，本批继续 PR 收口。

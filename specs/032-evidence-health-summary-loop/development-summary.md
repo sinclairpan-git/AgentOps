@@ -15,6 +15,7 @@
 - 已新增 AO32 可运行 contract tests，覆盖 EvidenceSummary、HealthSummary、Store 回显、过期语义和 P0 端到端。
 - 已接入 manifest 声明的 runtime evidence/health summary HTTP routes。
 - 已修复 PR #33 Codex review 反馈：未注册 runtime run 的 Store run_audit 标为 suspected；HealthSummary 证据完整度按具体 attempt 计算；最近运行窗口按 received_at/sequence 排序。
+- 已修复 PR #33 Codex review 第二轮反馈：HealthSummary 的 zero window 显式返回空窗口，避免 `[-0:]` 误取全量历史。
 
 ## 尚未执行内容
 

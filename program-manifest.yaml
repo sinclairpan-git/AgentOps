@@ -119,13 +119,13 @@ specs:
   path: specs/032-evidence-health-summary-loop
   depends_on: []
 truth_snapshot:
-  generated_at: '2026-05-09T11:39:55Z'
+  generated_at: '2026-05-09T11:48:14Z'
   generated_by: ai-sdlc program truth sync
   generator_version: program_truth_snapshot_v1
-  repo_revision: e381eb2
+  repo_revision: '7589460'
   authoring_hash: fdb73a061bc2abc1fac6be459355057e27dae38320259435e9d15d5e5acbfbff
   source_hashes: {}
-  snapshot_hash: 026f8ff547ee377d583277f442bca6aa0fb1a626f42d66ab110e2ccea84a701d
+  snapshot_hash: ed7a1d3b50efc435f2432673f8047063ff87cfe99004a66e0d37d9fd5b82cc68
   computed_capabilities: []
   source_inventory:
     state: complete

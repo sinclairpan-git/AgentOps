@@ -284,6 +284,19 @@ def test_ao32_ct_003_health_summary_handles_empty_sample_without_dividing_by_zer
     assert summary["recommended_action"] == "watching"
 
 
+def test_ao32_ct_003_health_summary_zero_window_is_empty():
+    repository = InMemoryRepository()
+    write_runtime_run(repository, run_id="run_success", status="succeeded")
+
+    summary = build_runtime_health_summary(
+        repository, "agent.ai-sdlc", "1.0.0", window_limit=0
+    )
+
+    assert summary["sample_size"] == 0
+    assert summary["calculation_window"]["run_ids"] == []
+    assert summary["recommended_action"] == "watching"
+
+
 def test_ao32_ct_003_health_summary_scores_each_run_attempt_independently():
     repository = InMemoryRepository()
     write_runtime_run(
