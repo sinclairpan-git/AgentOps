@@ -418,17 +418,19 @@ def _runtime_guardrail_summary(
     spans: tuple[dict[str, Any], ...],
     guardrail_results: tuple[dict[str, Any], ...],
 ) -> list[dict[str, str]]:
-    if guardrail_results:
-        return [_guardrail_result_summary(result) for result in guardrail_results]
-    return [
-        {
-            "span_id": str(span.get("span_id")),
-            "operation_name": str(span.get("operation_name")),
-            "status_code": str(span.get("status_code")),
-        }
+    summaries = [_guardrail_result_summary(result) for result in guardrail_results]
+    resolved_span_ids = {
+        str(result.get("span_id"))
+        for result in guardrail_results
+        if result.get("span_id") not in (None, "")
+    }
+    summaries.extend(
+        _guardrail_span_summary(span)
         for span in spans
         if span.get("span_kind") == "guardrail"
-    ]
+        and str(span.get("span_id")) not in resolved_span_ids
+    )
+    return summaries
 
 
 def _runtime_artifact_refs(spans: tuple[dict[str, Any], ...]) -> list[dict[str, str]]:
@@ -488,6 +490,14 @@ def _guardrail_result_summary(result: dict[str, Any]) -> dict[str, str]:
         "severity": str(result.get("severity")),
         "reason_code": str(result.get("reason_code")),
         "evidence_ref": str(result.get("evidence_ref") or ""),
+    }
+
+
+def _guardrail_span_summary(span: dict[str, Any]) -> dict[str, str]:
+    return {
+        "span_id": str(span.get("span_id")),
+        "operation_name": str(span.get("operation_name")),
+        "status_code": str(span.get("status_code")),
     }
 
 

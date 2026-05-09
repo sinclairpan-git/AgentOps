@@ -45,6 +45,23 @@ def test_warn_policy_summary_can_be_ignored():
     assert summary["can_ignore"] is True
 
 
+def test_policy_unavailable_summary_has_plain_language():
+    summary = build_policy_requirement_summary(
+        {
+            "decision": "policy_unavailable",
+            "policy_version": "policy.v2",
+            "audit_id": "audit_policy_unavailable",
+        },
+        affected_actions=["deploy"],
+    )
+
+    assert summary["can_ignore"] is False
+    assert (
+        summary["plain_language"]
+        == "策略服务暂不可用，当前动作需要等待策略检查恢复后重试。"
+    )
+
+
 def test_policy_summary_schema_unsupported_returns_contract_error():
     with pytest.raises(AgentOpsError) as exc:
         build_policy_requirement_summary(

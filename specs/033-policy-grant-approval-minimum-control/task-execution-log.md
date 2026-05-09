@@ -204,3 +204,42 @@
 ### 4.4 结论
 
 - Codex review 最新 P2 metadata drift 已修复，将重新验证、提交、推送并触发 PR #34 `@codex review`。
+
+## 5. PR Review Fix 2026-05-09-003 | Policy summary and partial guardrail projection
+
+### 5.1 触发来源
+
+- 来源：PR #34 Codex Review
+- Reviewed commit：`8f8aa0334b`
+- 反馈类型：P2 policy summary rendering gap；P2 partial guardrail result projection gap。
+
+### 5.2 修复内容
+
+#### RF-004 | policy_unavailable 可生成用户摘要
+
+- 改动范围：`src/agentops/api/policy.py`
+- 改动内容：为 `_policy_plain_language` 增加 `policy_unavailable` 中文文案，避免 degraded-policy 场景在生成 requirement summary 时抛出 `KeyError`。
+- 新增/调整测试：`test_policy_unavailable_summary_has_plain_language`
+- 是否符合任务目标：符合 AO-P0-07 PolicyDecision 降级路径稳定可解释要求。
+
+#### RF-005 | guardrail summary 保留未解析 span
+
+- 改动范围：`src/agentops/api/view_models.py`
+- 改动内容：Run Detail 的 `guardrail_summary` 不再在存在任意 `guardrail_result` 时短路返回结果列表，而是同时追加尚未匹配到 result 的 guardrail span 摘要，避免部分 ingestion 场景隐藏治理证据缺口。
+- 新增/调整测试：`test_ao33_ct_006_runtime_views_include_guardrail_summary_without_raw_payload`
+- 是否符合任务目标：符合 AO-P0-09 Guardrail result 只读摘要和 evidence gap 可见要求。
+
+### 5.3 验证记录
+
+- `uv run ai-sdlc run --dry-run`：通过，Stage close PASS。
+- `uv run pytest tests/contract/test_ao2_ct_005_policy_summary.py tests/contract/test_ao33_ct_policy_grant_guardrail_control.py tests/contract/test_ao31_ct_runtime_governance_foundation.py -q`：通过，61 tests。
+- `uv run pytest tests/contract/test_ao2_ct_001_policy_check.py tests/contract/test_ao2_ct_005_policy_summary.py tests/contract/test_ao31_ct_runtime_governance_foundation.py tests/contract/test_ao32_ct_evidence_health_summary_loop.py tests/contract/test_ao33_ct_policy_grant_guardrail_control.py tests/unit/test_policy_engine.py -q`：通过，85 tests。
+- `uv run ruff check src/agentops/api/policy.py src/agentops/api/view_models.py tests/contract/test_ao2_ct_005_policy_summary.py tests/contract/test_ao33_ct_policy_grant_guardrail_control.py`：通过。
+- `uv run ruff check src tests`：通过。
+- `uv run ruff format --check src/agentops/api/policy.py src/agentops/api/view_models.py tests/contract/test_ao2_ct_005_policy_summary.py tests/contract/test_ao33_ct_policy_grant_guardrail_control.py`：通过。
+- `uv run ai-sdlc verify constraints`：通过，无 BLOCKER。
+- `uv run ai-sdlc program truth sync --execute --yes`：通过，Program Truth snapshot 已刷新。
+
+### 5.4 结论
+
+- Codex review 最新两条 P2 已修复并纳入合同测试，将同步 Program Truth、close-check、提交推送并触发 PR #34 `@codex review`。

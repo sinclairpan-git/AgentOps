@@ -273,6 +273,20 @@ def test_ao33_ct_006_runtime_views_include_guardrail_summary_without_raw_payload
                     sequence_no=3,
                     idempotency_key="runtime:guardrail:gr_1",
                 ),
+                runtime_event(
+                    "evt_span_guardrail_pending",
+                    "trace_span",
+                    trace_span_payload(
+                        span_id="span_guardrail_pending",
+                        span_kind="guardrail",
+                        operation_name="guardrail.toxicity",
+                        guardrail_result_refs=["gr_pending"],
+                        status_code="waiting",
+                    ),
+                    schema_version="trace_span.v1",
+                    sequence_no=4,
+                    idempotency_key="runtime:span_guardrail_pending",
+                ),
             ]
         ),
         repository,
@@ -290,8 +304,14 @@ def test_ao33_ct_006_runtime_views_include_guardrail_summary_without_raw_payload
             "severity": "warning",
             "reason_code": "pii_clear",
             "evidence_ref": "vault://guardrail/gr_1",
-        }
+        },
+        {
+            "span_id": "span_guardrail_pending",
+            "operation_name": "guardrail.toxicity",
+            "status_code": "waiting",
+        },
     ]
     assert "payload" not in detail["guardrail_summary"][0]
+    assert "payload" not in detail["guardrail_summary"][1]
     assert timeline["spans"][0]["guardrail_results"][0]["status"] == "warn"
     assert "payload" not in timeline["spans"][0]["guardrail_results"][0]

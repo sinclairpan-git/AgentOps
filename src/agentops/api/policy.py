@@ -136,6 +136,7 @@ def _policy_plain_language(decision: str) -> str:
         "warn": "该动作存在风险提示，可以继续但会留下审计记录。",
         "conditional_allow": "该动作已通过限时授权，可以在授权范围内继续。",
         "allow": "该动作已通过策略检查。",
+        "policy_unavailable": "策略服务暂不可用，当前动作需要等待策略检查恢复后重试。",
     }[decision]
 
 

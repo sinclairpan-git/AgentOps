@@ -122,13 +122,13 @@ specs:
   path: specs/033-policy-grant-approval-minimum-control
   depends_on: []
 truth_snapshot:
-  generated_at: '2026-05-09T13:30:39Z'
+  generated_at: '2026-05-09T13:43:26Z'
   generated_by: ai-sdlc program truth sync
   generator_version: program_truth_snapshot_v1
-  repo_revision: 9fc45f6
+  repo_revision: 8f8aa03
   authoring_hash: 14004651b4c017646f2fc3847aed20e75e4ed914aaa124bb21b1f00daf03e439
   source_hashes: {}
-  snapshot_hash: f54988eaad99d038bef40ccc053882e3930eaba5c8751261d499da1b0a07c070
+  snapshot_hash: 05f0f0e459bc3c8ad61d7e8c8adb91129638d8691df9b14db935d6d73591b753
   computed_capabilities: []
   source_inventory:
     state: complete
@@ -136,8 +136,8 @@ truth_snapshot:
     mapped_sources: 165
     unmapped_sources: 0
     missing_sources: 0
-    phase_signal_count: 207
-    deferred_signal_count: 329
+    phase_signal_count: 210
+    deferred_signal_count: 332
     non_goal_signal_count: 55
     layer_totals:
       spec: 33
@@ -1625,8 +1625,8 @@ truth_snapshot:
       mapped: true
       exists: true
       mapping_ref: 033-policy-grant-approval-minimum-control
-      phase_signal_count: 7
-      deferred_signal_count: 12
+      phase_signal_count: 10
+      deferred_signal_count: 15
       non_goal_signal_count: 0
     - path: specs/033-policy-grant-approval-minimum-control/development-summary.md
       source_type: development_summary
