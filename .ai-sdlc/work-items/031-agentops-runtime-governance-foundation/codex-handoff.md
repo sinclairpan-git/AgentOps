@@ -1,24 +1,30 @@
 # Continuity Handoff
 
-- Updated: 2026-05-09T05:42:46+00:00
-- Reason: Refresh stale continuity handoff after creating work item 031
-- Goal: Split AgentOps AO-P0-01 to AO-P0-04 into AI-SDLC work item 031
-- State: 031 formal docs, research, data model, plan, tasks, contract tests are committed on feature/031-agentops-runtime-governance-foundation-docs
+- Updated: 2026-05-09T05:57:52+00:00
+- Reason: Record execute Batch 2 progress and branch disposition
+- Goal: Implement AgentOps 031 Batch 2 runtime governance registry
+- State: Runtime Contract/Schema/State/Error Registry implemented with AO31-CT-001 and AO31-CT-008 tests passing on feature/031-agentops-runtime-governance-foundation-dev
 - Stage: close
 - Work Item: 031-agentops-runtime-governance-foundation
-- Branch: feature/031-agentops-runtime-governance-foundation-docs
+- Branch: feature/031-agentops-runtime-governance-foundation-dev
 
 ## Changed Files
-- none
+- M specs/031-agentops-runtime-governance-foundation/development-summary.md
+- M specs/031-agentops-runtime-governance-foundation/task-execution-log.md
+- M specs/031-agentops-runtime-governance-foundation/tasks.md
+- ?? src/agentops/core/runtime_contracts.py
+- ?? src/agentops/models/runtime.py
+- ?? tests/contract/test_ao31_ct_runtime_governance_foundation.py
+- ?? tests/unit/test_runtime_contracts.py
 
 ## Key Decisions
-- AO-P0-01 to AO-P0-04 stay in one foundation work item; EvidenceSummary/HealthSummary/Approval full flows remain later work items
+- Docs branch is superseded by dev branch; dev branch will continue Batch 3-5 and own final PR
 
 ## Commands / Tests
-- adapter status PASS; refine/design/decompose gates PASS; program truth sync 155/155 mapped; verify constraints no BLOCKER; run --dry-run reaches close RETRY because code execute/final tests are intentionally not complete
+- Targeted AO31 tests PASS; full uv pytest tests -q PASS; ruff check PASS; scoped ruff format check PASS; full ruff format check still has unrelated historical files
 
 ## Blockers / Risks
 - none
 
 ## Exact Next Steps
-- Start execute Batch 2 with AO31-CT-001/AO31-CT-008 and runtime registry implementation, or open PR for docs-only split if requested
+- Commit Batch 2, then start Batch 3 Runtime Ingestion API v1

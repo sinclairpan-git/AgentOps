@@ -53,7 +53,7 @@ Batch 5: Console contract integration and verification
 
 ### Task 2.1 实现 Runtime 契约 Registry
 
-- **状态**：待执行
+- **状态**：已完成
 - **优先级**：P0
 - **依赖**：T31-02
 - **文件**：`src/agentops/core/runtime_contracts.py`、`src/agentops/models/runtime.py`
@@ -62,7 +62,7 @@ Batch 5: Console contract integration and verification
 
 ### Task 2.2 增加 Registry 单元测试与契约测试
 
-- **状态**：待执行
+- **状态**：已完成
 - **优先级**：P0
 - **依赖**：T31-11
 - **文件**：`tests/unit/test_runtime_contracts.py`、`tests/contract/test_ao31_ct_runtime_governance_foundation.py`

@@ -14,13 +14,14 @@
 - 已通过 `ai-sdlc gate refine`、`ai-sdlc gate design`、`ai-sdlc gate decompose`。
 - 已通过 `ai-sdlc verify constraints`，无 BLOCKER。
 - 已执行 `ai-sdlc run --dry-run`；close 阶段因尚未执行代码和最终测试而 RETRY，符合当前“等待执行阶段”的状态。
+- 已完成 Batch 2：Runtime Contract / Schema / State / Error Registry 最小实现。
+- 已新增 AO31-CT-001 / AO31-CT-008 的可运行 contract tests 与 registry 单元测试。
 
 ## 尚未执行内容
 
-- 尚未修改 `src/`、`tests/`、`apps/agentops-console/` 代码。
-- 尚未将 AO31 contract tests 转换为可运行 pytest。
+- 尚未实现 Runtime Ingestion API v1、Run Detail、Trace Timeline 和 Console 承接。
 - 尚未提交或推送本工作项。
 
 ## 下一步
 
-进入 execute 阶段时，先实现 Batch 2：Contract / Schema / State / Error Registry，并把 AO31-CT-001 / AO31-CT-008 转为可运行测试。
+进入 Batch 3：实现 Runtime Ingestion API v1，并把 AO31-CT-002 到 AO31-CT-005 转为可运行测试。

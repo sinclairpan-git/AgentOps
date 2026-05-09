@@ -90,3 +90,64 @@
 #### 2.8 结论
 
 本批只做 AI-SDLC formal docs 和 contract test 草案，不改代码、不触碰既有生产逻辑。
+
+### Batch 2026-05-09-002 | T31-11 - T31-12
+
+#### 3.1 批次范围
+
+- 覆盖任务：`T31-11`、`T31-12`
+- 覆盖阶段：execute / Batch 2
+- 预读范围：
+  - `specs/031-agentops-runtime-governance-foundation/spec.md`
+  - `specs/031-agentops-runtime-governance-foundation/plan.md`
+  - `specs/031-agentops-runtime-governance-foundation/tasks.md`
+  - `.ai-sdlc/memory/constitution.md`
+
+#### 3.2 改动范围
+
+- `src/agentops/models/runtime.py`
+- `src/agentops/core/runtime_contracts.py`
+- `tests/unit/test_runtime_contracts.py`
+- `tests/contract/test_ao31_ct_runtime_governance_foundation.py`
+- `specs/031-agentops-runtime-governance-foundation/tasks.md`
+- `specs/031-agentops-runtime-governance-foundation/development-summary.md`
+- `specs/031-agentops-runtime-governance-foundation/task-execution-log.md`
+
+#### 3.3 改动内容
+
+- 新增 Runtime 契约模型：`ContractRegistryEntry`、`StateRegistryEntry`、`ErrorCodeDefinition`。
+- 新增 Runtime governance registry：`CONTRACT_REGISTRY`、`STATE_REGISTRY`、`ERROR_CODE_REGISTRY`。
+- 覆盖 P0 契约：`RuntimeRun`、`TraceSpan`、`EventEnvelope`、`PolicyDecision`、`CapabilityGrant`、`Approval`、`EvidenceSummary`、`HealthSummary`。
+- 新增 registry 校验函数：owner/producer/consumer、必填字段、contract tests、枚举值、状态展示一致性、稳定 hash。
+- 将 AO31-CT-001 与 AO31-CT-008 转为可运行 pytest。
+
+#### 3.4 统一验证命令
+
+- `uv run pytest tests/unit/test_runtime_contracts.py tests/contract/test_ao31_ct_runtime_governance_foundation.py -q`
+  - 结果：PASS，12 passed。
+- `uv run pytest tests -q`
+  - 结果：PASS，全量 Python 测试通过。
+- `uv run ruff check src tests`
+  - 结果：PASS。
+- `uv run ruff format --check src/agentops/models/runtime.py src/agentops/core/runtime_contracts.py tests/unit/test_runtime_contracts.py tests/contract/test_ao31_ct_runtime_governance_foundation.py`
+  - 结果：PASS，本批文件格式通过。
+- `uv run ruff format --check src tests`
+  - 结果：RETRY，发现 4 个历史文件和 1 个新增文件需格式化；已仅格式化本批新增测试文件，历史文件未纳入本批改动。
+
+#### 3.5 代码审查结论
+
+- 宪章/规格对齐：符合。先写红灯测试，再实现最小 registry；实现范围限定在 Batch 2。
+- 代码质量：registry 使用不可变 dataclass 和稳定 hash，避免运行期误改；错误码复用 `AgentOpsError`。
+- 测试质量：覆盖 AO31-CT-001 / AO31-CT-008 正例、反例、幂等/稳定 hash 与状态展示冲突。
+- 结论：Batch 2 可收口，后续进入 Batch 3 Runtime Ingestion API。
+
+#### 3.6 任务/计划同步状态
+
+- `tasks.md` 同步状态：T31-11、T31-12 已完成。
+- `related_plan` 同步状态：Batch 2 与 `plan.md` Phase 1 对齐。
+- branch disposition：`feature/031-agentops-runtime-governance-foundation-docs` 已被 `feature/031-agentops-runtime-governance-foundation-dev` 承接，后续无需单独 PR；最终由 dev 分支统一提交和收口。
+- branch disposition：`feature/031-agentops-runtime-governance-foundation-dev` 是 031 当前执行分支，后续继续 Batch 3-5，完成后提交 PR 并按 AgentOps PR 收口固定规则处理。
+
+#### 3.7 批次结论
+
+Runtime Contract / Schema / State / Error Registry 的最小治理基础已落地；AO31 后续可以基于这些 registry 实现 Runtime Ingestion 和 Run/Trace 投影。
