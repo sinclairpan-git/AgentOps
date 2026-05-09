@@ -364,6 +364,23 @@ Runtime Governance Foundation 的后端接入、投影和 Console 承接已完�
 - 当前批次 worktree disposition 状态：当前 worktree 继续承载 PR #32 收口。
 - 是否继续下一批：否，本批继续 PR 收口。
 
+### Review Fix 2026-05-09-003 | Codex envelope contract and trace not-found hardening
+
+#### RF-003 | accept registered event envelope and reject unknown trace runs
+
+- **验证画像**：code-change
+- 反馈来源：PR #32 Codex Review。
+- 改动范围：`src/agentops/core/runtime_ingestion.py`、`src/agentops/api/view_models.py`、`tests/contract/test_ao31_ct_runtime_governance_foundation.py`、`specs/031-agentops-runtime-governance-foundation/task-execution-log.md`
+- 改动内容：Runtime ingestion 支持并校验注册的 `event_envelope.v1` 信封字段（`integration_mode`、`enterprise_state`、`signature`、`event_type_version`），同时保留 legacy 信封兼容；Trace Timeline projection 在 run fact 不存在时返回 `RUNTIME_RUN_NOT_FOUND`，HTTP route 不再对未知 run 返回 200 空 timeline。
+- 新增/调整的测试：新增 canonical `event_envelope.v1` 接入测试；新增未知 run trace projection not found 测试；新增未知 run trace HTTP 404 测试。
+- 执行的命令：`uv run pytest tests/contract/test_ao31_ct_runtime_governance_foundation.py -q`、`uv run pytest tests -q`、`uv run ruff check src tests`、`uv run ruff format src/agentops/core/runtime_ingestion.py src/agentops/api/view_models.py tests/contract/test_ao31_ct_runtime_governance_foundation.py`、`npm test`、`npm run build`
+- 测试结果：AO31 25 个测试通过；全量 Python 测试通过；ruff check 通过；ruff format 无变更；Console 契约测试通过；Vite production build 通过。
+- 是否符合任务目标：是；回应 Codex review 对 event envelope registry drift 和 unknown trace run HTTP 语义的要求。
+- **已完成 git 提交**：是，提交后以当前 Git HEAD 作为本次 review fix 提交。
+- **提交哈希**：见当前 Git HEAD。
+- 当前批次 worktree disposition 状态：当前 worktree 继续承载 PR #32 收口。
+- 是否继续下一批：否，本批继续 PR 收口。
+
 ### Review Fix 2026-05-09-002 | Codex projection and HTTP route hardening
 
 #### RF-002 | normalize projections and implement advertised runtime routes

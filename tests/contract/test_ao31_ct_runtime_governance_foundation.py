@@ -95,6 +95,38 @@ def runtime_event(
     }
 
 
+def canonical_runtime_event(
+    event_id,
+    event_type,
+    payload,
+    *,
+    event_type_version,
+    sequence_no,
+    idempotency_key,
+    payload_hash=None,
+):
+    event = runtime_event(
+        event_id,
+        event_type,
+        payload,
+        schema_version=event_type_version,
+        sequence_no=sequence_no,
+        idempotency_key=idempotency_key,
+        payload_hash=payload_hash,
+    )
+    event.update(
+        {
+            "schema_version": "event_envelope.v1",
+            "event_type_version": event_type_version,
+            "integration_mode": "standalone",
+            "enterprise_state": "not_detected",
+            "signature": f"sig_{event_id}",
+        }
+    )
+    event.pop("signature_state", None)
+    return event
+
+
 def runtime_batch(events, **overrides):
     batch = {
         "batch_id": "batch_1",
@@ -224,6 +256,38 @@ def test_ao31_ct_002_runtime_ingestion_batch_accepts_run_and_span():
 
     assert outcome["accepted_count"] == 2
     assert outcome["deduplicated_count"] == 0
+    assert outcome["rejected_count"] == 0
+    assert repository.runtime_run_count() == 1
+    assert repository.trace_span_count() == 1
+
+
+def test_ao31_ct_002_runtime_ingestion_accepts_registered_event_envelope():
+    repository = InMemoryRepository()
+    outcome = ingest_runtime_events(
+        runtime_batch(
+            [
+                canonical_runtime_event(
+                    "evt_run_canonical",
+                    "runtime_run",
+                    runtime_run_payload(),
+                    event_type_version="runtime_run.v1",
+                    sequence_no=1,
+                    idempotency_key="runtime:run_canonical",
+                ),
+                canonical_runtime_event(
+                    "evt_span_canonical",
+                    "trace_span",
+                    trace_span_payload(),
+                    event_type_version="trace_span.v1",
+                    sequence_no=2,
+                    idempotency_key="runtime:span_canonical",
+                ),
+            ]
+        ),
+        repository,
+    )
+
+    assert outcome["accepted_count"] == 2
     assert outcome["rejected_count"] == 0
     assert repository.runtime_run_count() == 1
     assert repository.trace_span_count() == 1
@@ -636,6 +700,28 @@ def test_ao31_ct_007_runtime_detail_and_trace_http_routes_match_manifest():
     assert trace_response.status == 200
     assert trace["run_id"] == "run_1"
     assert trace["spans"][0]["span_id"] == "span_root"
+
+
+def test_ao31_ct_007_trace_timeline_unknown_run_is_not_found():
+    repository = InMemoryRepository()
+
+    with pytest.raises(AgentOpsError) as exc:
+        get_runtime_trace_timeline(repository, "missing_run")
+
+    assert exc.value.error_code == "RUNTIME_RUN_NOT_FOUND"
+
+
+def test_ao31_ct_007_trace_timeline_http_route_returns_not_found_for_unknown_run():
+    server, thread = _serve_repository(InMemoryRepository())
+    try:
+        trace_response, trace = _json_get(server, "/v1/runtime/runs/missing_run/trace")
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+    assert trace_response.status == 404
+    assert trace["error_code"] == "RUNTIME_RUN_NOT_FOUND"
 
 
 def test_ao31_ct_007_trace_timeline_raw_access_requires_permission():

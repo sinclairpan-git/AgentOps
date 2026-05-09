@@ -16,7 +16,11 @@ EVENT_TYPE_TO_CONTRACT = {
     "trace_span": "trace_span.v1",
 }
 
-EVENT_REQUIRED_FIELDS = {
+CANONICAL_EVENT_REQUIRED_FIELDS = get_contract("event_envelope.v1").required_fields | {
+    "payload"
+}
+
+LEGACY_EVENT_REQUIRED_FIELDS = {
     "event_id",
     "schema_version",
     "event_type",
@@ -145,12 +149,49 @@ def _validate_event_envelope(event: dict[str, Any]) -> None:
             "EVENT_SCHEMA_UNSUPPORTED",
             "Runtime event envelope must be object.",
         )
-    missing = EVENT_REQUIRED_FIELDS - set(event)
+    canonical_missing = CANONICAL_EVENT_REQUIRED_FIELDS - set(event)
+    legacy_missing = LEGACY_EVENT_REQUIRED_FIELDS - set(event)
+    if not canonical_missing:
+        _validate_canonical_event_envelope(event)
+        return
+    if not legacy_missing:
+        _validate_legacy_event_envelope(event)
+        return
+    missing = canonical_missing
     if missing:
         raise AgentOpsError(
             "EVENT_SCHEMA_UNSUPPORTED",
             f"Runtime event is missing envelope fields: {sorted(missing)}",
         )
+
+
+def _validate_canonical_event_envelope(event: dict[str, Any]) -> None:
+    sequence_no = event.get("sequence_no")
+    if not _sequence_no_is_numeric(sequence_no):
+        raise AgentOpsError(
+            "EVENT_SCHEMA_UNSUPPORTED",
+            "Runtime event sequence_no must be numeric.",
+        )
+    _validate_envelope_enum_fields(event)
+    if event.get("schema_version") != "event_envelope.v1":
+        raise AgentOpsError(
+            "EVENT_SCHEMA_UNSUPPORTED",
+            "Runtime event envelope schema_version must be event_envelope.v1.",
+        )
+    if not str(event.get("signature") or "").strip():
+        raise AgentOpsError(
+            "EVENT_SIGNATURE_INVALID",
+            "Runtime event signature is required.",
+        )
+    expected_contract = EVENT_TYPE_TO_CONTRACT.get(event["event_type"])
+    if expected_contract is None or event["event_type_version"] != expected_contract:
+        raise AgentOpsError(
+            "EVENT_SCHEMA_UNSUPPORTED",
+            "Runtime event event_type_version does not match event_type.",
+        )
+
+
+def _validate_legacy_event_envelope(event: dict[str, Any]) -> None:
     sequence_no = event.get("sequence_no")
     if not _sequence_no_is_numeric(sequence_no):
         raise AgentOpsError(
@@ -168,6 +209,13 @@ def _validate_event_envelope(event: dict[str, Any]) -> None:
             "EVENT_SCHEMA_UNSUPPORTED",
             "Runtime event schema_version does not match event_type.",
         )
+
+
+def _validate_envelope_enum_fields(event: dict[str, Any]) -> None:
+    entry = get_contract("event_envelope.v1")
+    for field_name in entry.enum_fields:
+        if field_name in event:
+            validate_contract_value("event_envelope.v1", field_name, event[field_name])
 
 
 def _write_runtime_run(event: dict[str, Any], repository: InMemoryRepository) -> None:

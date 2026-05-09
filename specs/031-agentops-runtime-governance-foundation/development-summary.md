@@ -25,6 +25,7 @@
 - 已补充 Console 契约测试，拒绝未知 Runtime 状态和 raw trace 输入/输出。
 - 已修复 PR #32 Codex review 反馈：非数字 `sequence_no` 不再导致 ingestion 排序崩溃；无效 incoming parent span 不再让 child span 错误 accepted。
 - 已修复第二轮 PR #32 Codex review 反馈：Run Detail latest attempt 选择安全归一；Trace Timeline 聚合坏数值安全降级；HTTP server 已接入 manifest 宣告的 runtime run detail / trace route。
+- 已修复第三轮 PR #32 Codex review 反馈：Runtime ingestion 支持注册的 `event_envelope.v1` 信封；未知 run 的 Trace Timeline projection / HTTP route 返回 not found。
 
 ## 尚未执行内容
 
