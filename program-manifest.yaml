@@ -121,36 +121,39 @@ specs:
 - id: 033-policy-grant-approval-minimum-control
   path: specs/033-policy-grant-approval-minimum-control
   depends_on: []
+- id: 034-runtime-outbox-sdlc-trace-bridge
+  path: specs/034-runtime-outbox-sdlc-trace-bridge
+  depends_on: []
 truth_snapshot:
-  generated_at: '2026-05-09T14:04:54Z'
+  generated_at: '2026-05-09T15:15:41Z'
   generated_by: ai-sdlc program truth sync
   generator_version: program_truth_snapshot_v1
-  repo_revision: '2733095'
-  authoring_hash: 14004651b4c017646f2fc3847aed20e75e4ed914aaa124bb21b1f00daf03e439
+  repo_revision: dc67d80
+  authoring_hash: 5681729b4a39357b31abdb1b767b42b0f89d6b66f7b48eb4852354d10fc9a0a9
   source_hashes: {}
-  snapshot_hash: 13f551a7d2fc892805920e3edb816097be96eca3899373797a879fa28cc74cbc
+  snapshot_hash: 5b6aa25a194ea54ebc4b545a5588d2ea849f900aa0121aeef313497571e2856c
   computed_capabilities: []
   source_inventory:
     state: complete
-    total_sources: 165
-    mapped_sources: 165
+    total_sources: 170
+    mapped_sources: 170
     unmapped_sources: 0
     missing_sources: 0
-    phase_signal_count: 217
-    deferred_signal_count: 340
-    non_goal_signal_count: 56
+    phase_signal_count: 224
+    deferred_signal_count: 353
+    non_goal_signal_count: 62
     layer_totals:
-      spec: 33
-      plan: 33
-      tasks: 33
-      execution: 33
-      close: 33
+      spec: 34
+      plan: 34
+      tasks: 34
+      execution: 34
+      close: 34
     layer_materialized:
-      spec: 33
-      plan: 33
-      tasks: 33
-      execution: 33
-      close: 33
+      spec: 34
+      plan: 34
+      tasks: 34
+      execution: 34
+      close: 34
     entries:
     - path: specs/001-agentops-trusted-loop/spec.md
       source_type: spec_doc
@@ -1634,6 +1637,51 @@ truth_snapshot:
       mapped: true
       exists: true
       mapping_ref: 033-policy-grant-approval-minimum-control
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 1
+    - path: specs/034-runtime-outbox-sdlc-trace-bridge/spec.md
+      source_type: spec_doc
+      truth_layer: spec
+      mapped: true
+      exists: true
+      mapping_ref: 034-runtime-outbox-sdlc-trace-bridge
+      phase_signal_count: 1
+      deferred_signal_count: 2
+      non_goal_signal_count: 1
+    - path: specs/034-runtime-outbox-sdlc-trace-bridge/plan.md
+      source_type: plan_doc
+      truth_layer: plan
+      mapped: true
+      exists: true
+      mapping_ref: 034-runtime-outbox-sdlc-trace-bridge
+      phase_signal_count: 4
+      deferred_signal_count: 4
+      non_goal_signal_count: 1
+    - path: specs/034-runtime-outbox-sdlc-trace-bridge/tasks.md
+      source_type: tasks_doc
+      truth_layer: tasks
+      mapped: true
+      exists: true
+      mapping_ref: 034-runtime-outbox-sdlc-trace-bridge
+      phase_signal_count: 1
+      deferred_signal_count: 2
+      non_goal_signal_count: 2
+    - path: specs/034-runtime-outbox-sdlc-trace-bridge/task-execution-log.md
+      source_type: execution_log
+      truth_layer: execution
+      mapped: true
+      exists: true
+      mapping_ref: 034-runtime-outbox-sdlc-trace-bridge
+      phase_signal_count: 1
+      deferred_signal_count: 5
+      non_goal_signal_count: 1
+    - path: specs/034-runtime-outbox-sdlc-trace-bridge/development-summary.md
+      source_type: development_summary
+      truth_layer: close
+      mapped: true
+      exists: true
+      mapping_ref: 034-runtime-outbox-sdlc-trace-bridge
       phase_signal_count: 0
       deferred_signal_count: 0
       non_goal_signal_count: 1

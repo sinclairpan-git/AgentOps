@@ -818,6 +818,7 @@ def create_http_handler(
                     if (
                         outcome["accepted_count"]
                         or outcome["deduplicated_count"]
+                        or outcome["stale_count"]
                         or outcome["dlq_count"]
                     )
                     else HTTPStatus.BAD_REQUEST
