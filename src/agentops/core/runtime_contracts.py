@@ -615,6 +615,11 @@ def validate_contract_value(contract_id: str, field_name: str, value: str) -> No
             "CONTRACT_ENUM_UNREGISTERED",
             f"{field_name} is not a registered enum field.",
         )
+    if not isinstance(value, str):
+        raise AgentOpsError(
+            "CONTRACT_ENUM_UNREGISTERED",
+            f"{contract_id}.{field_name} must be a registered string enum value.",
+        )
     if value not in allowed:
         raise AgentOpsError(
             "CONTRACT_ENUM_UNREGISTERED",

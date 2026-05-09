@@ -226,6 +226,13 @@ def test_ao31_ct_001_unknown_policy_decision_enum_is_rejected():
     assert exc.value.error_code == "CONTRACT_ENUM_UNREGISTERED"
 
 
+def test_ao31_ct_001_unhashable_policy_decision_enum_is_rejected():
+    with pytest.raises(AgentOpsError) as exc:
+        validate_contract_value("policy_decision.v1", "decision", ["allow"])
+
+    assert exc.value.error_code == "CONTRACT_ENUM_UNREGISTERED"
+
+
 def test_ao31_ct_008_state_registry_has_plain_language_actions():
     validate_state_registry(STATE_REGISTRY)
 
@@ -323,6 +330,25 @@ def test_ao31_ct_002_legacy_envelope_rejects_invalid_source_trust():
         idempotency_key="runtime:run_bad_source_trust",
     )
     event["source_trust"] = "arbitrary"
+
+    outcome = ingest_runtime_events(runtime_batch([event]), repository)
+
+    assert outcome["rejected_count"] == 1
+    assert outcome["item_results"][0]["error_code"] == "CONTRACT_ENUM_UNREGISTERED"
+    assert repository.runtime_run_count() == 0
+
+
+def test_ao31_ct_002_legacy_envelope_rejects_unhashable_source_trust():
+    repository = InMemoryRepository()
+    event = runtime_event(
+        "evt_run_unhashable_source_trust",
+        "runtime_run",
+        runtime_run_payload(),
+        schema_version="runtime_run.v1",
+        sequence_no=1,
+        idempotency_key="runtime:run_unhashable_source_trust",
+    )
+    event["source_trust"] = ["verified"]
 
     outcome = ingest_runtime_events(runtime_batch([event]), repository)
 
