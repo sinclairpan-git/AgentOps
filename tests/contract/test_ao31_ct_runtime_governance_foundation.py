@@ -294,6 +294,49 @@ def test_ao31_ct_002_runtime_ingestion_accepts_registered_event_envelope():
     assert repository.trace_span_count() == 1
 
 
+def test_ao31_ct_002_legacy_envelope_rejects_invalid_source_trust():
+    repository = InMemoryRepository()
+    event = runtime_event(
+        "evt_run_bad_source_trust",
+        "runtime_run",
+        runtime_run_payload(),
+        schema_version="runtime_run.v1",
+        sequence_no=1,
+        idempotency_key="runtime:run_bad_source_trust",
+    )
+    event["source_trust"] = "arbitrary"
+
+    outcome = ingest_runtime_events(runtime_batch([event]), repository)
+
+    assert outcome["rejected_count"] == 1
+    assert outcome["item_results"][0]["error_code"] == "CONTRACT_ENUM_UNREGISTERED"
+    assert repository.runtime_run_count() == 0
+
+
+def test_ao31_ct_002_legacy_envelope_routes_by_schema_version_during_transition():
+    repository = InMemoryRepository()
+    event = runtime_event(
+        "evt_run_legacy_with_canonical_fields",
+        "runtime_run",
+        runtime_run_payload(),
+        schema_version="runtime_run.v1",
+        sequence_no=1,
+        idempotency_key="runtime:run_legacy_with_canonical_fields",
+    )
+    event.update(
+        {
+            "integration_mode": "standalone",
+            "enterprise_state": "not_detected",
+            "signature": "sig_legacy_transition",
+        }
+    )
+
+    outcome = ingest_runtime_events(runtime_batch([event]), repository)
+
+    assert outcome["accepted_count"] == 1
+    assert repository.runtime_run_count() == 1
+
+
 def test_ao31_ct_002_runtime_ingestion_api_manifest_is_exposed():
     manifest = create_app()
 

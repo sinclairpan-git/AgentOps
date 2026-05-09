@@ -159,20 +159,29 @@ def _validate_event_envelope(event: dict[str, Any]) -> None:
             "EVENT_SCHEMA_UNSUPPORTED",
             "Runtime event envelope must be object.",
         )
+    schema_version = event.get("schema_version")
     canonical_missing = CANONICAL_EVENT_REQUIRED_FIELDS - set(event)
     legacy_missing = LEGACY_EVENT_REQUIRED_FIELDS - set(event)
-    if not canonical_missing:
+    if schema_version == "event_envelope.v1":
+        if canonical_missing:
+            raise AgentOpsError(
+                "EVENT_SCHEMA_UNSUPPORTED",
+                f"Runtime event is missing envelope fields: {sorted(canonical_missing)}",
+            )
         _validate_canonical_event_envelope(event)
         return
-    if not legacy_missing:
+    if schema_version in EVENT_TYPE_TO_CONTRACT.values():
+        if legacy_missing:
+            raise AgentOpsError(
+                "EVENT_SCHEMA_UNSUPPORTED",
+                f"Runtime event is missing envelope fields: {sorted(legacy_missing)}",
+            )
         _validate_legacy_event_envelope(event)
         return
-    missing = canonical_missing
-    if missing:
-        raise AgentOpsError(
-            "EVENT_SCHEMA_UNSUPPORTED",
-            f"Runtime event is missing envelope fields: {sorted(missing)}",
-        )
+    raise AgentOpsError(
+        "EVENT_SCHEMA_UNSUPPORTED",
+        "Runtime event schema_version is not supported.",
+    )
 
 
 def _validate_canonical_event_envelope(event: dict[str, Any]) -> None:
@@ -208,6 +217,7 @@ def _validate_legacy_event_envelope(event: dict[str, Any]) -> None:
             "EVENT_SCHEMA_UNSUPPORTED",
             "Runtime event sequence_no must be numeric.",
         )
+    validate_contract_value("event_envelope.v1", "source_trust", event["source_trust"])
     if event.get("signature_state") != "valid":
         raise AgentOpsError(
             "EVENT_SIGNATURE_INVALID",
