@@ -5,6 +5,18 @@ const labels = {
   warn: "警告",
   approval_required: "需审批",
   block: "阻断",
+  blocked: "已阻断",
+  created: "已创建",
+  succeeded: "成功",
+  failed: "失败",
+  cancelled: "已取消",
+  timeout: "超时",
+  approval_paused: "审批暂停",
+  trace_pending: "轨迹待补齐",
+  running: "运行中",
+  ok: "成功",
+  error: "错误",
+  unset: "未设置",
   degraded: "降级",
   unknown: "未知",
   empty: "暂无数据",
@@ -49,9 +61,9 @@ export const StatusBadge = {
       return labels[this.status] || this.status;
     },
     tone() {
-      if (["healthy", "allow", "approved", "verified_loaded", "governed", "registered", "normal"].includes(this.status)) return "good";
-      if (["block", "rejected", "revoked", "redaction_failed", "permission_denied"].includes(this.status)) return "bad";
-      if (["degraded", "unknown", "expired", "unsupported", "unverified", "suspected", "unregistered", "warning", "not_asserted"].includes(this.status)) return "warn";
+      if (["healthy", "allow", "approved", "verified_loaded", "governed", "registered", "normal", "succeeded", "ok"].includes(this.status)) return "good";
+      if (["block", "blocked", "failed", "timeout", "error", "rejected", "revoked", "redaction_failed", "permission_denied"].includes(this.status)) return "bad";
+      if (["degraded", "unknown", "expired", "unsupported", "unverified", "suspected", "unregistered", "warning", "not_asserted", "cancelled"].includes(this.status)) return "warn";
       return "info";
     }
   },

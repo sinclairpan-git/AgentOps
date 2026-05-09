@@ -112,36 +112,39 @@ specs:
 - id: 030-frontend-adversarial-remediation
   path: specs/030-frontend-adversarial-remediation
   depends_on: []
+- id: 031-agentops-runtime-governance-foundation
+  path: specs/031-agentops-runtime-governance-foundation
+  depends_on: []
 truth_snapshot:
-  generated_at: '2026-05-08T17:27:05Z'
+  generated_at: '2026-05-09T06:18:16Z'
   generated_by: ai-sdlc program truth sync
   generator_version: program_truth_snapshot_v1
-  repo_revision: 7e73944
-  authoring_hash: 3072b46238dc77a85ea38c977b8831af70a22fab2d25b9e0e272e8bc87ec1479
+  repo_revision: 39d5670
+  authoring_hash: f64a02de35fd0e15838c9af18dc183a66e60146a64144733fdc23442d12897f1
   source_hashes: {}
-  snapshot_hash: 3dde4c214cd4e483e9c5492604c4d03d4e0d06bccfb2c51714b659247883ecd1
+  snapshot_hash: ec2c99e249e5f4c1ce0a50a02e0488b72f34ca8be2037541f619fd44900e4b5b
   computed_capabilities: []
   source_inventory:
     state: complete
-    total_sources: 150
-    mapped_sources: 150
+    total_sources: 155
+    mapped_sources: 155
     unmapped_sources: 0
     missing_sources: 0
-    phase_signal_count: 157
-    deferred_signal_count: 244
+    phase_signal_count: 184
+    deferred_signal_count: 296
     non_goal_signal_count: 55
     layer_totals:
-      spec: 30
-      plan: 30
-      tasks: 30
-      execution: 30
-      close: 30
+      spec: 31
+      plan: 31
+      tasks: 31
+      execution: 31
+      close: 31
     layer_materialized:
-      spec: 30
-      plan: 30
-      tasks: 30
-      execution: 30
-      close: 30
+      spec: 31
+      plan: 31
+      tasks: 31
+      execution: 31
+      close: 31
     entries:
     - path: specs/001-agentops-trusted-loop/spec.md
       source_type: spec_doc
@@ -1491,6 +1494,51 @@ truth_snapshot:
       exists: true
       mapping_ref: 030-frontend-adversarial-remediation
       phase_signal_count: 4
+      deferred_signal_count: 4
+      non_goal_signal_count: 0
+    - path: specs/031-agentops-runtime-governance-foundation/spec.md
+      source_type: spec_doc
+      truth_layer: spec
+      mapped: true
+      exists: true
+      mapping_ref: 031-agentops-runtime-governance-foundation
+      phase_signal_count: 6
+      deferred_signal_count: 12
+      non_goal_signal_count: 0
+    - path: specs/031-agentops-runtime-governance-foundation/plan.md
+      source_type: plan_doc
+      truth_layer: plan
+      mapped: true
+      exists: true
+      mapping_ref: 031-agentops-runtime-governance-foundation
+      phase_signal_count: 5
+      deferred_signal_count: 6
+      non_goal_signal_count: 0
+    - path: specs/031-agentops-runtime-governance-foundation/tasks.md
+      source_type: tasks_doc
+      truth_layer: tasks
+      mapped: true
+      exists: true
+      mapping_ref: 031-agentops-runtime-governance-foundation
+      phase_signal_count: 7
+      deferred_signal_count: 9
+      non_goal_signal_count: 0
+    - path: specs/031-agentops-runtime-governance-foundation/task-execution-log.md
+      source_type: execution_log
+      truth_layer: execution
+      mapped: true
+      exists: true
+      mapping_ref: 031-agentops-runtime-governance-foundation
+      phase_signal_count: 6
+      deferred_signal_count: 21
+      non_goal_signal_count: 0
+    - path: specs/031-agentops-runtime-governance-foundation/development-summary.md
+      source_type: development_summary
+      truth_layer: close
+      mapped: true
+      exists: true
+      mapping_ref: 031-agentops-runtime-governance-foundation
+      phase_signal_count: 3
       deferred_signal_count: 4
       non_goal_signal_count: 0
     unmapped_paths: []

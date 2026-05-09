@@ -1,12 +1,12 @@
 pipeline_started_at: '2026-05-04T06:14:47+00:00'
-pipeline_last_updated: '2026-05-08T14:05:50+00:00'
+pipeline_last_updated: '2026-05-09T05:38:01+00:00'
 current_stage: close
 feature:
-  id: 023-production-runtime-boundary
-  spec_dir: specs/023-production-runtime-boundary
-  design_branch: design/023-production-runtime-boundary-docs
-  feature_branch: feature/023-production-runtime-boundary-dev
-  current_branch: feature/023-production-runtime-boundary-docs
+  id: 031-agentops-runtime-governance-foundation
+  spec_dir: specs/031-agentops-runtime-governance-foundation
+  design_branch: design/031-agentops-runtime-governance-foundation-docs
+  feature_branch: feature/031-agentops-runtime-governance-foundation-dev
+  current_branch: feature/031-agentops-runtime-governance-foundation-docs
   docs_baseline_ref: ''
   docs_baseline_at: ''
 multi_agent:
@@ -16,42 +16,35 @@ multi_agent:
 prd_source: /Users/sinclairpan/project/AI-Native底座开发文档/AgentOps_项目_PRD.md
 completed_stages:
 - stage: init
-  completed_at: '2026-05-08T06:37:56+00:00'
+  completed_at: '2026-05-09T05:38:01+00:00'
   artifacts: []
 - stage: refine
-  completed_at: '2026-05-08T06:37:56+00:00'
+  completed_at: '2026-05-09T05:38:01+00:00'
   artifacts:
   - spec.md
 - stage: design
-  completed_at: '2026-05-08T06:37:56+00:00'
+  completed_at: '2026-05-09T05:38:01+00:00'
   artifacts:
+  - data-model.md
   - plan.md
+  - research.md
 - stage: decompose
-  completed_at: '2026-05-08T06:37:56+00:00'
+  completed_at: '2026-05-09T05:38:01+00:00'
   artifacts:
   - tasks.md
 - stage: verify
-  completed_at: '2026-05-08T06:37:56+00:00'
+  completed_at: '2026-05-09T05:38:01+00:00'
   artifacts:
   - task-execution-log.md
   - tasks.md
 - stage: execute
-  completed_at: '2026-05-08T06:37:56+00:00'
+  completed_at: '2026-05-09T05:38:01+00:00'
   artifacts:
   - development-summary.md
   - task-execution-log.md
-- stage: close
-  completed_at: '2026-05-08T06:38:39+00:00'
-  artifacts: []
-- stage: close
-  completed_at: '2026-05-08T13:47:57+00:00'
-  artifacts: []
-- stage: close
-  completed_at: '2026-05-08T14:05:50+00:00'
-  artifacts: []
 execute_progress: null
 ai_decisions_count: 0
 execution_mode: auto
-linked_wi_id: 023-production-runtime-boundary
-linked_plan_uri: specs/023-production-runtime-boundary/plan.md
-last_synced_at: '2026-05-08T03:34:41+00:00'
+linked_wi_id: 031-agentops-runtime-governance-foundation
+linked_plan_uri: specs/031-agentops-runtime-governance-foundation/plan.md
+last_synced_at: '2026-05-09T05:37:30+00:00'

@@ -28,10 +28,98 @@ export const consoleData = {
     ]
   },
   runs: [
-    { run_id: "run_20260505_001", id: "run_20260505_001", agent: "发布 Agent", skill: "生产部署", risk_level: "高", l5_state: "healthy", policy_state: "approval_required", evidence_state: "summary_only" },
-    { run_id: "run_20260505_002", id: "run_20260505_002", agent: "质检 Agent", skill: "测试执行", risk_level: "中", l5_state: "healthy", policy_state: "conditional_allow", evidence_state: "approved_limited" },
-    { run_id: "run_20260505_003", id: "run_20260505_003", agent: "迁移 Agent", skill: "结构变更", risk_level: "高", l5_state: "degraded", policy_state: "block", evidence_state: "redaction_failed" },
-    { run_id: "run_20260505_004", id: "run_20260505_004", agent: "商店 Agent", skill: "发布上架", risk_level: "低", l5_state: "unknown", policy_state: "warn", evidence_state: "summary_only" }
+    {
+      run_id: "run_20260505_001",
+      id: "run_20260505_001",
+      agent: "发布 Agent",
+      skill: "生产部署",
+      risk_level: "高",
+      l5_state: "healthy",
+      policy_state: "approval_required",
+      evidence_state: "summary_only",
+      runtime_status: "approval_paused",
+      trace_state: "summary_only",
+      outbox_state: "pending",
+      runtime_action: "等待审批 Grant",
+      detail_summary: "策略要求人工审批，运行已暂停在授权边界内。",
+      trace_timeline: [
+        { span_id: "span_publish_root", span_kind: "agent", title: "发布编排", status_code: "ok", duration_ms: 812, input_ref: "sha256:8c11...", output_ref: "sha256:91a0..." },
+        { span_id: "span_publish_policy", span_kind: "policy", title: "生产部署策略校验", status_code: "unset", duration_ms: 126, input_ref: "sha256:f031...", output_ref: "approval:ap_001" }
+      ]
+    },
+    {
+      run_id: "run_20260505_002",
+      id: "run_20260505_002",
+      agent: "质检 Agent",
+      skill: "测试执行",
+      risk_level: "中",
+      l5_state: "healthy",
+      policy_state: "conditional_allow",
+      evidence_state: "approved_limited",
+      runtime_status: "succeeded",
+      trace_state: "summary_only",
+      outbox_state: "healthy",
+      runtime_action: "保持观测",
+      detail_summary: "运行成功结束，轨迹仅展示脱敏摘要和哈希引用。",
+      trace_timeline: [
+        { span_id: "span_qa_root", span_kind: "agent", title: "测试任务编排", status_code: "ok", duration_ms: 640, input_ref: "sha256:7821...", output_ref: "sha256:1cf0..." },
+        { span_id: "span_qa_tool", span_kind: "tool", title: "测试执行工具", status_code: "ok", duration_ms: 338, input_ref: "sha256:442e...", output_ref: "ev_002" }
+      ]
+    },
+    {
+      run_id: "run_20260505_003",
+      id: "run_20260505_003",
+      agent: "迁移 Agent",
+      skill: "结构变更",
+      risk_level: "高",
+      l5_state: "degraded",
+      policy_state: "block",
+      evidence_state: "redaction_failed",
+      runtime_status: "blocked",
+      trace_state: "degraded",
+      outbox_state: "pending",
+      runtime_action: "复核阻断原因",
+      detail_summary: "高风险数据库动作被策略阻断，证据原文访问同时被拒绝。",
+      trace_timeline: [
+        { span_id: "span_migrate_root", span_kind: "agent", title: "结构变更编排", status_code: "error", duration_ms: 214, input_ref: "sha256:d9a1...", output_ref: "sha256:ff03..." },
+        { span_id: "span_migrate_policy", span_kind: "policy", title: "数据库迁移策略阻断", status_code: "error", duration_ms: 78, input_ref: "sha256:7bb2...", output_ref: "policy:pol_002" }
+      ]
+    },
+    {
+      run_id: "run_20260505_004",
+      id: "run_20260505_004",
+      agent: "商店 Agent",
+      skill: "发布上架",
+      risk_level: "低",
+      l5_state: "unknown",
+      policy_state: "warn",
+      evidence_state: "summary_only",
+      runtime_status: "trace_pending",
+      trace_state: "trace_pending",
+      outbox_state: "pending",
+      runtime_action: "等待轨迹补齐",
+      detail_summary: "运行时记录已入库，轨迹片段尚未到齐，不能推导为健康。",
+      trace_timeline: []
+    },
+    {
+      run_id: "run_20260505_005",
+      id: "run_20260505_005",
+      agent: "运行时 Agent",
+      skill: "工具调用",
+      risk_level: "中",
+      l5_state: "degraded",
+      policy_state: "warn",
+      evidence_state: "permission_denied",
+      runtime_status: "degraded",
+      trace_state: "degraded",
+      outbox_state: "warning",
+      runtime_action: "检查降级原因",
+      detail_summary: "部分轨迹片段缺少父节点或签名证明，页面仅展示安全摘要。",
+      trace_timeline: [
+        { span_id: "span_runtime_root", span_kind: "agent", title: "运行时编排摘要", status_code: "ok", duration_ms: 430, input_ref: "sha256:03fa...", output_ref: "sha256:fb71..." },
+        { span_id: "span_runtime_tool", span_kind: "tool", title: "工具调用摘要", status_code: "unset", duration_ms: 201, input_ref: "sha256:19c4...", output_ref: "dlq:TRACE_PARENT_MISSING" }
+      ]
+    }
   ],
   evidence: [
     { evidence_id: "ev_001", id: "ev_001", run_id: "run_20260505_001", summary: "部署命令摘要已移除敏感值。", payload_hash: "sha256:7a21...", raw_access_state: "summary_only", audit_id: "audit_ev_001", denied_scope: "" },

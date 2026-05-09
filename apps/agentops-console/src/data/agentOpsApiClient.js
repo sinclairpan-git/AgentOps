@@ -5,11 +5,24 @@ export const SNAPSHOT_TIMEOUT_MS = 3000;
 
 const allowedStates = new Set([
   "healthy",
+  "created",
   "allow",
   "conditional_allow",
   "warn",
   "approval_required",
   "block",
+  "blocked",
+  "succeeded",
+  "failed",
+  "cancelled",
+  "timeout",
+  "approval_paused",
+  "trace_pending",
+  "running",
+  "ok",
+  "waiting",
+  "error",
+  "unset",
   "degraded",
   "unknown",
   "empty",
@@ -143,6 +156,9 @@ export function validateSnapshot(snapshot) {
     return false;
   }
   if (!snapshotShapeIsSafe(consoleData)) {
+    return false;
+  }
+  if (!runtimeRunsAreSafe(consoleData)) {
     return false;
   }
   if (!actionDetailsAreComplete(consoleData)) {
@@ -1133,6 +1149,46 @@ export function snapshotShapeIsSafe(consoleData) {
     consoleDataHasCredentialHandoffShape(consoleData);
 }
 
+function runtimeRunsAreSafe(consoleData) {
+  const runtimeStatuses = new Set([
+    "created",
+    "succeeded",
+    "failed",
+    "cancelled",
+    "timeout",
+    "blocked",
+    "approval_paused",
+    "running",
+    "trace_pending",
+    "degraded"
+  ]);
+  return (consoleData.runs || []).every((run) => {
+    if (!isRecord(run) || containsUnsafeAuditReference(run)) {
+      return false;
+    }
+    if (run.runtime_status && !runtimeStatuses.has(run.runtime_status)) {
+      return false;
+    }
+    if (run.trace_state && !allowedStates.has(run.trace_state)) {
+      return false;
+    }
+    if (run.outbox_state && !allowedStates.has(run.outbox_state)) {
+      return false;
+    }
+    if (run.trace_timeline === undefined) {
+      return true;
+    }
+    if (!Array.isArray(run.trace_timeline)) {
+      return false;
+    }
+    return run.trace_timeline.every((span) =>
+      isRecord(span) &&
+      !containsUnsafeAuditReference(span) &&
+      (!span.status_code || allowedStates.has(span.status_code))
+    );
+  });
+}
+
 function consoleDataHasCredentialHandoffShape(consoleData) {
   if (!isRecord(consoleData.credentialHandoff)) {
     return false;
@@ -1169,6 +1225,10 @@ function containsForbiddenCredentialMaterial(value) {
   return [
     "token_value",
     "private_key",
+    "raw_input",
+    "raw_output",
+    "raw_request",
+    "raw_response",
     "raw_url",
     "download_url",
     "raw_payload",
@@ -1182,7 +1242,15 @@ export function statesAreKnown(consoleData) {
   const candidates = [
     consoleData.summary?.adapter?.status,
     ...(consoleData.summary?.metrics || []).map((item) => item.status),
-    ...(consoleData.runs || []).flatMap((item) => [item.l5_state, item.policy_state, item.evidence_state]),
+    ...(consoleData.runs || []).flatMap((item) => [
+      item.l5_state,
+      item.policy_state,
+      item.evidence_state,
+      item.runtime_status,
+      item.trace_state,
+      item.outbox_state,
+      ...(item.trace_timeline || []).map((span) => span.status_code)
+    ]),
     ...(consoleData.evidence || []).map((item) => item.raw_access_state),
     ...(consoleData.approvals || []).flatMap((item) => [item.status, item.grant_status]),
     ...(consoleData.policies || []).map((item) => item.decision),

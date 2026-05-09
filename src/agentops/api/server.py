@@ -23,6 +23,11 @@ from agentops.api.credentials import (
     revoke_credentials,
 )
 from agentops.api.ingestion import ingest_events_batch
+from agentops.api.runtime import (
+    get_runtime_run_detail,
+    get_runtime_trace_timeline,
+    ingest_runtime_events,
+)
 from agentops.api.store_summary import get_agent_store_summary_for_run
 from agentops.core.errors import AgentOpsError
 from agentops.storage.audit import AuditRecord, JsonlAuditLog
@@ -202,6 +207,103 @@ def create_http_handler(
                     return
                 self._append_audit_record(
                     action="runtime.audit.export",
+                    outcome="accepted",
+                    resource=request_path,
+                )
+                self._send_json(HTTPStatus.OK, response)
+                return
+
+            runtime_trace_prefix = "/v1/runtime/runs/"
+            if request_path.startswith(runtime_trace_prefix):
+                suffix = request_path.removeprefix(runtime_trace_prefix).strip("/")
+                if suffix.endswith("/trace"):
+                    run_id = suffix.removesuffix("/trace").strip("/")
+                    if not run_id or "/" in run_id:
+                        self._send_json(
+                            HTTPStatus.NOT_FOUND,
+                            {
+                                "error_code": "NOT_FOUND",
+                                "message": "未找到请求的 AgentOps API 路径。",
+                            },
+                        )
+                        return
+                    auth_error = self._require_scope("runtime.trace.read")
+                    if auth_error:
+                        self._send_auth_error(
+                            auth_error,
+                            action="runtime.trace.read",
+                            resource=request_path,
+                        )
+                        return
+                    try:
+                        response = get_runtime_trace_timeline(
+                            live_repository,
+                            run_id,
+                            request_raw=False,
+                            raw_access_allowed=False,
+                        )
+                    except AgentOpsError as exc:
+                        self._append_audit_record(
+                            action="runtime.trace.read",
+                            outcome="rejected",
+                            resource=request_path,
+                            error_code=exc.error_code,
+                        )
+                        self._send_json(
+                            HTTPStatus.NOT_FOUND,
+                            {
+                                "error_code": exc.error_code,
+                                "message": exc.message,
+                                "retryable": exc.retryable,
+                            },
+                        )
+                        return
+                    self._append_audit_record(
+                        action="runtime.trace.read",
+                        outcome="accepted",
+                        resource=request_path,
+                    )
+                    self._send_json(HTTPStatus.OK, response)
+                    return
+
+                run_id = suffix
+                if not run_id or "/" in run_id:
+                    self._send_json(
+                        HTTPStatus.NOT_FOUND,
+                        {
+                            "error_code": "NOT_FOUND",
+                            "message": "未找到请求的 AgentOps API 路径。",
+                        },
+                    )
+                    return
+                auth_error = self._require_scope("runtime.run.read")
+                if auth_error:
+                    self._send_auth_error(
+                        auth_error,
+                        action="runtime.run.read",
+                        resource=request_path,
+                    )
+                    return
+                try:
+                    response = get_runtime_run_detail(live_repository, run_id)
+                except AgentOpsError as exc:
+                    self._append_audit_record(
+                        action="runtime.run.read",
+                        outcome="rejected",
+                        resource=request_path,
+                        error_code=exc.error_code,
+                    )
+                    self._send_json(
+                        HTTPStatus.NOT_FOUND,
+                        {
+                            "error_code": exc.error_code,
+                            "message": exc.message,
+                            "retryable": exc.retryable,
+                        },
+                    )
+                    return
+                self._append_audit_record(
+                    action="runtime.run.read",
                     outcome="accepted",
                     resource=request_path,
                 )
@@ -570,11 +672,74 @@ def create_http_handler(
                 )
                 self._append_audit_record(
                     action="event.ingest",
-                    outcome="accepted"
-                    if status == HTTPStatus.ACCEPTED
-                    else "rejected",
+                    outcome="accepted" if status == HTTPStatus.ACCEPTED else "rejected",
                     resource=request_path,
-                    error_code="" if status == HTTPStatus.ACCEPTED else "EVENTS_REJECTED",
+                    error_code=""
+                    if status == HTTPStatus.ACCEPTED
+                    else "EVENTS_REJECTED",
+                )
+                self._send_json(status, outcome)
+                return
+
+            if request_path == "/v1/runtime/events":
+                auth_error = self._require_scope("event.ingest")
+                if auth_error:
+                    self._send_auth_error(
+                        auth_error,
+                        action="runtime.event.ingest",
+                        resource=request_path,
+                    )
+                    return
+                payload = self._read_json()
+                if payload is None:
+                    self._append_audit_record(
+                        action="runtime.event.ingest",
+                        outcome="rejected",
+                        resource=request_path,
+                        error_code="REQUEST_JSON_INVALID",
+                    )
+                    self._send_json(
+                        HTTPStatus.BAD_REQUEST,
+                        {
+                            "error_code": "REQUEST_JSON_INVALID",
+                            "message": "请求体必须是 JSON。",
+                        },
+                    )
+                    return
+                try:
+                    outcome = ingest_runtime_events(payload, live_repository)
+                except AgentOpsError as exc:
+                    self._append_audit_record(
+                        action="runtime.event.ingest",
+                        outcome="rejected",
+                        resource=request_path,
+                        error_code=exc.error_code,
+                    )
+                    self._send_json(
+                        HTTPStatus.BAD_REQUEST,
+                        {
+                            "error_code": exc.error_code,
+                            "message": exc.message,
+                            "retryable": exc.retryable,
+                        },
+                    )
+                    return
+                status = (
+                    HTTPStatus.ACCEPTED
+                    if (
+                        outcome["accepted_count"]
+                        or outcome["deduplicated_count"]
+                        or outcome["dlq_count"]
+                    )
+                    else HTTPStatus.BAD_REQUEST
+                )
+                self._append_audit_record(
+                    action="runtime.event.ingest",
+                    outcome="accepted" if status == HTTPStatus.ACCEPTED else "rejected",
+                    resource=request_path,
+                    error_code=""
+                    if status == HTTPStatus.ACCEPTED
+                    else "EVENTS_REJECTED",
                 )
                 self._send_json(status, outcome)
                 return
@@ -626,7 +791,9 @@ def create_http_handler(
                 ):
                     break
                 record_payload = record.to_dict()
-                if any(record_payload.get(name) != value for name, value in filters.items()):
+                if any(
+                    record_payload.get(name) != value for name, value in filters.items()
+                ):
                     continue
                 if cursor_offset <= matched_count < page_end:
                     page_records.append(record_payload)
@@ -770,7 +937,9 @@ def create_http_handler(
             export_records: list[dict[str, Any]] = []
             for record in audit_log.records() if audit_log is not None else []:
                 record_payload = self._audit_export_record_payload(record)
-                if any(record_payload.get(name) != value for name, value in filters.items()):
+                if any(
+                    record_payload.get(name) != value for name, value in filters.items()
+                ):
                     continue
                 if (
                     "action" not in filters
@@ -912,11 +1081,15 @@ def create_http_handler(
                 ) from exc
             signing_secret = self._audit_query_signing_secret()
             serialized_payload = self._audit_query_cursor_payload_bytes(payload)
-            expected_signature = hmac.new(
-                signing_secret,
-                serialized_payload,
-                hashlib.sha256,
-            ).hexdigest().encode("ascii")
+            expected_signature = (
+                hmac.new(
+                    signing_secret,
+                    serialized_payload,
+                    hashlib.sha256,
+                )
+                .hexdigest()
+                .encode("ascii")
+            )
             if not hmac.compare_digest(signature_bytes, expected_signature):
                 raise AgentOpsError(
                     "AUDIT_CURSOR_INVALID",

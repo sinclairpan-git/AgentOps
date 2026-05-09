@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Iterator
 from contextlib import contextmanager
 from copy import deepcopy
@@ -15,6 +16,58 @@ from agentops.core.errors import AgentOpsError
 
 def utc_now() -> str:
     return datetime.now(UTC).isoformat()
+
+
+def _runtime_number_sort_value(value: Any) -> float:
+    if isinstance(value, bool):
+        return -1.0
+    if isinstance(value, (int, float)):
+        try:
+            numeric_value = float(value)
+        except OverflowError:
+            return -1.0
+        return numeric_value if math.isfinite(numeric_value) else -1.0
+    if isinstance(value, str):
+        try:
+            numeric_value = float(value)
+        except (OverflowError, ValueError):
+            return -1.0
+        return numeric_value if math.isfinite(numeric_value) else -1.0
+    return -1.0
+
+
+def _runtime_attempt_sort_key(record: dict[str, Any]) -> tuple[float, float, str]:
+    value = record.get("attempt_no", 0)
+    attempt_no = _runtime_number_sort_value(value)
+    sequence_no = _runtime_number_sort_value(record.get("sequence_no", 0))
+    return (attempt_no, sequence_no, str(record.get("received_at", "")))
+
+
+def _runtime_attempt_matches(actual: Any, expected: Any) -> bool:
+    actual_sort_value = _runtime_number_sort_value(actual)
+    expected_sort_value = _runtime_number_sort_value(expected)
+    if actual_sort_value >= 0 and expected_sort_value >= 0:
+        return actual_sort_value == expected_sort_value
+    return str(actual) == str(expected)
+
+
+def _runtime_attempt_identity(value: Any) -> str:
+    sort_value = _runtime_number_sort_value(value)
+    if sort_value >= 0:
+        return f"n:{sort_value:g}"
+    return f"s:{value}"
+
+
+def _runtime_time_sort_value(value: Any) -> tuple[int, float, str]:
+    raw_value = str(value or "")
+    try:
+        parsed = datetime.fromisoformat(raw_value.replace("Z", "+00:00"))
+    except ValueError:
+        return (1, 0.0, raw_value)
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    timestamp = parsed.astimezone(UTC).timestamp()
+    return (0, timestamp, raw_value)
 
 
 @dataclass
@@ -40,6 +93,12 @@ class InMemoryRepository:
     raw_access_grants: dict[str, dict[str, Any]] = field(default_factory=dict)
     agent_store_agents: dict[str, dict[str, Any]] = field(default_factory=dict)
     agent_store_skills: dict[str, dict[str, Any]] = field(default_factory=dict)
+    runtime_runs: dict[str, dict[str, Any]] = field(default_factory=dict)
+    trace_spans: dict[tuple[str, str, str, str], dict[str, Any]] = field(
+        default_factory=dict
+    )
+    runtime_idempotency_index: dict[str, dict[str, str]] = field(default_factory=dict)
+    runtime_dlq: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     def write_event(self, event: dict[str, Any], evidence_mode: str = "managed") -> str:
         event_id = event["event_id"]
@@ -72,6 +131,152 @@ class InMemoryRepository:
     def raw_event_count(self) -> int:
         with self._lock:
             return len(self.raw_events)
+
+    def runtime_run_count(self) -> int:
+        with self._lock:
+            return len(self.runtime_runs)
+
+    def trace_span_count(self) -> int:
+        with self._lock:
+            return len(self.trace_spans)
+
+    def runtime_dlq_count(self) -> int:
+        with self._lock:
+            return len(self.runtime_dlq)
+
+    def get_runtime_run_fact(self, run_id: str) -> dict[str, Any] | None:
+        with self._lock:
+            candidates = [
+                record
+                for record in self.runtime_runs.values()
+                if record.get("run_id") == run_id
+            ]
+            if not candidates:
+                return None
+            latest = sorted(candidates, key=_runtime_attempt_sort_key)[-1]
+            return deepcopy(latest)
+
+    def trace_span_records_for_run(
+        self, run_id: str, *, attempt_no: Any | None = None
+    ) -> tuple[dict[str, Any], ...]:
+        with self._lock:
+            spans = [
+                deepcopy(record)
+                for record in self.trace_spans.values()
+                if record.get("run_id") == run_id
+                and (
+                    attempt_no is None
+                    or _runtime_attempt_matches(record.get("attempt_no"), attempt_no)
+                )
+            ]
+            return tuple(
+                sorted(
+                    spans,
+                    key=lambda item: (
+                        _runtime_time_sort_value(item.get("start_time")),
+                        str(item.get("span_id", "")),
+                    ),
+                )
+            )
+
+    def runtime_idempotency_outcome(
+        self, idempotency_key: str, payload_hash: str
+    ) -> str:
+        with self._lock:
+            existing = self.runtime_idempotency_index.get(idempotency_key)
+            if existing is None:
+                return "new"
+            if existing.get("payload_hash") != payload_hash:
+                return "conflict"
+            return "deduplicated"
+
+    def remember_runtime_idempotency(
+        self, idempotency_key: str, event_id: str, payload_hash: str
+    ) -> None:
+        with self._lock:
+            self.runtime_idempotency_index[idempotency_key] = {
+                "event_id": event_id,
+                "payload_hash": payload_hash,
+            }
+
+    def write_runtime_run_fact(
+        self, event: dict[str, Any], payload: dict[str, Any]
+    ) -> None:
+        record = {
+            **deepcopy(payload),
+            "event_id": event["event_id"],
+            "sequence_no": event.get("sequence_no", 0),
+            "received_at": utc_now(),
+        }
+        key = f"{payload['run_id']}:{payload.get('attempt_no', 1)}"
+        with self._lock:
+            existing = self.runtime_runs.get(key)
+            if existing and _runtime_attempt_sort_key(
+                record
+            ) <= _runtime_attempt_sort_key(existing):
+                return
+            self.runtime_runs[key] = record
+
+    def write_trace_span_fact(
+        self, event: dict[str, Any], payload: dict[str, Any]
+    ) -> None:
+        record = {
+            **deepcopy(payload),
+            "event_id": event["event_id"],
+            "sequence_no": event.get("sequence_no", 0),
+            "received_at": utc_now(),
+        }
+        key = self._trace_span_key(
+            payload["run_id"],
+            payload["trace_id"],
+            payload.get("attempt_no", 1),
+            payload["span_id"],
+        )
+        with self._lock:
+            existing = self.trace_spans.get(key)
+            if existing and _runtime_number_sort_value(
+                record.get("sequence_no", 0)
+            ) <= _runtime_number_sort_value(existing.get("sequence_no", 0)):
+                return
+            self.trace_spans[key] = record
+
+    def has_trace_span(
+        self, run_id: str, trace_id: str, span_id: str, *, attempt_no: Any | None = None
+    ) -> bool:
+        with self._lock:
+            if attempt_no is None:
+                return any(
+                    record.get("run_id") == run_id
+                    and record.get("trace_id") == trace_id
+                    and record.get("span_id") == span_id
+                    for record in self.trace_spans.values()
+                )
+            return (
+                self._trace_span_key(run_id, trace_id, attempt_no, span_id)
+                in self.trace_spans
+            )
+
+    def write_runtime_dlq(
+        self, event: dict[str, Any], *, error_code: str, message: str
+    ) -> None:
+        with self._lock:
+            self.runtime_dlq[event.get("event_id", "unknown")] = {
+                "event": deepcopy(event),
+                "error_code": error_code,
+                "message": message,
+                "received_at": utc_now(),
+            }
+
+    @staticmethod
+    def _trace_span_key(
+        run_id: str, trace_id: str, attempt_no: Any, span_id: str
+    ) -> tuple[str, str, str, str]:
+        return (
+            str(run_id),
+            str(trace_id),
+            _runtime_attempt_identity(attempt_no),
+            str(span_id),
+        )
 
     def add_bootstrap_session(self, session: dict[str, Any]) -> None:
         with self._lock:
