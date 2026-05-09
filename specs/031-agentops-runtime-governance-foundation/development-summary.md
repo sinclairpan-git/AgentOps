@@ -23,12 +23,12 @@
 - 已完成 Batch 5：Console mock/API client 与 RunsView/OverviewView 承接五类 Runtime 运行状态。
 - Console 已能表达 `succeeded`、`blocked`、`approval_paused`、`trace_pending`、`degraded`，并保持轨迹摘要只展示哈希引用和安全摘要。
 - 已补充 Console 契约测试，拒绝未知 Runtime 状态和 raw trace 输入/输出。
+- 已修复 PR #32 Codex review 反馈：非数字 `sequence_no` 不再导致 ingestion 排序崩溃；无效 incoming parent span 不再让 child span 错误 accepted。
 
 ## 尚未执行内容
 
-- 尚未推送本工作项并创建 PR。
-- 尚未执行 PR 后的 `@codex review`、GitHub checks、Compatibility Gate Result 和 mergeStateStatus 收口。
+- PR #32 已创建；当前处于 review fix 后重新触发 `@codex review` 和 GitHub checks 收口阶段。
 
 ## 下一步
 
-完成最终 AI-SDLC 收口验证后提交 Batch 5，并按项目规则推送、创建 PR、触发 `@codex review` 与 5 分钟轮询 heartbeat。
+推送 review fix，重新触发 `@codex review`；若 Codex review、GitHub checks、Compatibility Gate Result 和 mergeStateStatus 均通过，则合入 `main` 并同步本地 `main`。

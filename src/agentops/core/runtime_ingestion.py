@@ -38,14 +38,14 @@ def ingest_runtime_batch(
     batch: dict[str, Any], repository: InMemoryRepository
 ) -> dict[str, Any]:
     _validate_batch(batch)
-    incoming_span_ids = _incoming_span_ids(batch["events"])
+    incoming_span_ids = _incoming_valid_span_ids(batch["events"], repository)
     item_results: list[dict[str, Any]] = []
     accepted_count = 0
     deduplicated_count = 0
     rejected_count = 0
     dlq_count = 0
 
-    for event in sorted(batch["events"], key=lambda item: item.get("sequence_no", 0)):
+    for event in sorted(batch["events"], key=_event_sort_key):
         result = _ingest_runtime_event(event, repository, incoming_span_ids)
         item_results.append(result)
         if result["status"] == "accepted":
@@ -82,11 +82,13 @@ def _validate_batch(batch: dict[str, Any]) -> None:
 
 
 def _ingest_runtime_event(
-    event: dict[str, Any],
+    event: Any,
     repository: InMemoryRepository,
     incoming_span_ids: set[tuple[str, str]],
 ) -> dict[str, Any]:
-    event_id = event.get("event_id", "unknown")
+    event_id = (
+        event.get("event_id", "unknown") if isinstance(event, dict) else "unknown"
+    )
     try:
         _validate_event_envelope(event)
         idempotency_outcome = repository.runtime_idempotency_outcome(
@@ -138,11 +140,22 @@ def _ingest_runtime_event(
 
 
 def _validate_event_envelope(event: dict[str, Any]) -> None:
+    if not isinstance(event, dict):
+        raise AgentOpsError(
+            "EVENT_SCHEMA_UNSUPPORTED",
+            "Runtime event envelope must be object.",
+        )
     missing = EVENT_REQUIRED_FIELDS - set(event)
     if missing:
         raise AgentOpsError(
             "EVENT_SCHEMA_UNSUPPORTED",
             f"Runtime event is missing envelope fields: {sorted(missing)}",
+        )
+    sequence_no = event.get("sequence_no")
+    if not _sequence_no_is_numeric(sequence_no):
+        raise AgentOpsError(
+            "EVENT_SCHEMA_UNSUPPORTED",
+            "Runtime event sequence_no must be numeric.",
         )
     if event.get("signature_state") != "valid":
         raise AgentOpsError(
@@ -215,19 +228,54 @@ def _trace_parent_missing(
     return (trace_id, parent_span_id) not in incoming_span_ids
 
 
-def _incoming_span_ids(events: list[dict[str, Any]]) -> set[tuple[str, str]]:
-    span_ids: set[tuple[str, str]] = set()
+def _incoming_valid_span_ids(
+    events: list[dict[str, Any]], repository: InMemoryRepository
+) -> set[tuple[str, str]]:
+    candidates: dict[tuple[str, str], dict[str, Any]] = {}
     for event in events:
-        if event.get("event_type") != "trace_span":
+        if not isinstance(event, dict) or event.get("event_type") != "trace_span":
             continue
-        payload = event.get("payload")
-        if not isinstance(payload, dict):
+        try:
+            _validate_event_envelope(event)
+            payload = _validated_payload(event, "trace_span.v1", "TRACE_SPAN_INVALID")
+            _validate_enum_fields("trace_span.v1", payload)
+        except AgentOpsError:
             continue
         trace_id = payload.get("trace_id")
         span_id = payload.get("span_id")
         if trace_id and span_id:
-            span_ids.add((str(trace_id), str(span_id)))
+            candidates[(str(trace_id), str(span_id))] = payload
+
+    span_ids: set[tuple[str, str]] = set()
+    changed = True
+    while changed:
+        changed = False
+        for span_key, payload in candidates.items():
+            if span_key in span_ids:
+                continue
+            trace_id = str(payload["trace_id"])
+            parent_span_id = str(payload.get("parent_span_id") or "").strip()
+            if (
+                not parent_span_id
+                or repository.has_trace_span(trace_id, parent_span_id)
+                or (trace_id, parent_span_id) in span_ids
+            ):
+                span_ids.add(span_key)
+                changed = True
     return span_ids
+
+
+def _event_sort_key(event: Any) -> tuple[int, float, str]:
+    if not isinstance(event, dict):
+        return (1, 0.0, "unknown")
+    sequence_no = event.get("sequence_no")
+    if _sequence_no_is_numeric(sequence_no):
+        return (0, float(sequence_no), str(event.get("event_id", "")))
+    return (1, 0.0, str(event.get("event_id", "")))
+
+
+def _sequence_no_is_numeric(value: Any) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
 
 
 def _item_result(

@@ -346,3 +346,20 @@ Run Detail 和 Trace Timeline projection 已具备后端最小能力。当前还
 #### 6.7 批次结论
 
 Runtime Governance Foundation 的后端接入、投影和 Console 承接已完成最小闭环。剩余工作是最终 AI-SDLC 约束验证、dry-run、提交、推送和 PR 收口。
+
+### Review Fix 2026-05-09-001 | Codex runtime ingestion hardening
+
+#### RF-001 | reject invalid sequence and invalid incoming parent spans
+
+- **验证画像**：code-change
+- 反馈来源：PR #32 Codex Review。
+- 改动范围：`src/agentops/core/runtime_ingestion.py`、`tests/contract/test_ao31_ct_runtime_governance_foundation.py`、`specs/031-agentops-runtime-governance-foundation/development-summary.md`、`specs/031-agentops-runtime-governance-foundation/task-execution-log.md`
+- 改动内容：Runtime ingestion 在排序前使用安全 sort key，非数字 `sequence_no` 不再触发 TypeError，而是按单条事件 rejected；同批 parent span 预扫描只纳入通过 envelope/payload/enum/parent closure 校验的 span，避免无效父 span 让子 span 被错误 accepted。
+- 新增/调整的测试：新增非数字 `sequence_no` 混合批次测试；新增无效 incoming parent span 不接受 child span 测试。
+- 执行的命令：`uv run pytest tests/contract/test_ao31_ct_runtime_governance_foundation.py -q`、`uv run pytest tests -q`、`uv run ruff check src tests`、`uv run ruff format src/agentops/core/runtime_ingestion.py tests/contract/test_ao31_ct_runtime_governance_foundation.py`
+- 测试结果：AO31 19 个测试通过；全量 Python 测试通过；ruff check 通过；ruff format 已应用。
+- 是否符合任务目标：是；回应 Codex review 对 runtime ingestion recoverable contract error 和 trace integrity 的要求。
+- **已完成 git 提交**：是，提交后以当前 Git HEAD 作为本次 review fix 提交。
+- **提交哈希**：见当前 Git HEAD。
+- 当前批次 worktree disposition 状态：当前 worktree 继续承载 PR #32 收口。
+- 是否继续下一批：否，本批继续 PR 收口。

@@ -255,6 +255,42 @@ def test_ao31_ct_002_runtime_ingestion_deduplicates_replay():
     assert repository.runtime_run_count() == 1
 
 
+def test_ao31_ct_002_runtime_ingestion_rejects_non_numeric_sequence_without_crash():
+    repository = InMemoryRepository()
+    outcome = ingest_runtime_events(
+        runtime_batch(
+            [
+                runtime_event(
+                    "evt_bad_sequence",
+                    "runtime_run",
+                    runtime_run_payload(),
+                    schema_version="runtime_run.v1",
+                    sequence_no="1",
+                    idempotency_key="runtime:bad_sequence",
+                ),
+                runtime_event(
+                    "evt_span_valid",
+                    "trace_span",
+                    trace_span_payload(),
+                    schema_version="trace_span.v1",
+                    sequence_no=2,
+                    idempotency_key="runtime:span_valid",
+                ),
+            ]
+        ),
+        repository,
+    )
+
+    assert outcome["accepted_count"] == 1
+    assert outcome["rejected_count"] == 1
+    assert any(
+        item.get("error_code") == "EVENT_SCHEMA_UNSUPPORTED"
+        for item in outcome["item_results"]
+    )
+    assert repository.trace_span_count() == 1
+    assert repository.runtime_run_count() == 0
+
+
 def test_ao31_ct_003_runtime_run_fact_rejects_missing_required_field():
     repository = InMemoryRepository()
     payload = runtime_run_payload()
@@ -324,6 +360,43 @@ def test_ao31_ct_005_trace_parent_missing_enters_dlq():
 
     assert outcome["dlq_count"] == 1
     assert outcome["item_results"][0]["error_code"] == "TRACE_PARENT_MISSING"
+    assert repository.trace_span_count() == 0
+
+
+def test_ao31_ct_005_invalid_incoming_parent_does_not_accept_child_span():
+    repository = InMemoryRepository()
+    outcome = ingest_runtime_events(
+        runtime_batch(
+            [
+                runtime_event(
+                    "evt_parent_invalid",
+                    "trace_span",
+                    trace_span_payload(span_id="span_parent", span_kind="database"),
+                    schema_version="trace_span.v1",
+                    sequence_no=1,
+                    idempotency_key="runtime:span_parent_invalid",
+                ),
+                runtime_event(
+                    "evt_child_span",
+                    "trace_span",
+                    trace_span_payload(
+                        span_id="span_child", parent_span_id="span_parent"
+                    ),
+                    schema_version="trace_span.v1",
+                    sequence_no=2,
+                    idempotency_key="runtime:span_child_parent_invalid",
+                ),
+            ]
+        ),
+        repository,
+    )
+
+    assert outcome["rejected_count"] == 1
+    assert outcome["dlq_count"] == 1
+    assert [item["error_code"] for item in outcome["item_results"]] == [
+        "TRACE_SPAN_KIND_UNSUPPORTED",
+        "TRACE_PARENT_MISSING",
+    ]
     assert repository.trace_span_count() == 0
 
 
