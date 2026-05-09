@@ -40,6 +40,10 @@ class InMemoryRepository:
     raw_access_grants: dict[str, dict[str, Any]] = field(default_factory=dict)
     agent_store_agents: dict[str, dict[str, Any]] = field(default_factory=dict)
     agent_store_skills: dict[str, dict[str, Any]] = field(default_factory=dict)
+    runtime_runs: dict[str, dict[str, Any]] = field(default_factory=dict)
+    trace_spans: dict[str, dict[str, Any]] = field(default_factory=dict)
+    runtime_idempotency_index: dict[str, dict[str, str]] = field(default_factory=dict)
+    runtime_dlq: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     def write_event(self, event: dict[str, Any], evidence_mode: str = "managed") -> str:
         event_id = event["event_id"]
@@ -72,6 +76,81 @@ class InMemoryRepository:
     def raw_event_count(self) -> int:
         with self._lock:
             return len(self.raw_events)
+
+    def runtime_run_count(self) -> int:
+        with self._lock:
+            return len(self.runtime_runs)
+
+    def trace_span_count(self) -> int:
+        with self._lock:
+            return len(self.trace_spans)
+
+    def runtime_dlq_count(self) -> int:
+        with self._lock:
+            return len(self.runtime_dlq)
+
+    def runtime_idempotency_outcome(
+        self, idempotency_key: str, payload_hash: str
+    ) -> str:
+        with self._lock:
+            existing = self.runtime_idempotency_index.get(idempotency_key)
+            if existing is None:
+                return "new"
+            if existing.get("payload_hash") != payload_hash:
+                return "conflict"
+            return "deduplicated"
+
+    def remember_runtime_idempotency(
+        self, idempotency_key: str, event_id: str, payload_hash: str
+    ) -> None:
+        with self._lock:
+            self.runtime_idempotency_index[idempotency_key] = {
+                "event_id": event_id,
+                "payload_hash": payload_hash,
+            }
+
+    def write_runtime_run_fact(
+        self, event: dict[str, Any], payload: dict[str, Any]
+    ) -> None:
+        record = {
+            **deepcopy(payload),
+            "event_id": event["event_id"],
+            "received_at": utc_now(),
+        }
+        key = f"{payload['run_id']}:{payload.get('attempt_no', 1)}"
+        with self._lock:
+            self.runtime_runs[key] = record
+
+    def write_trace_span_fact(
+        self, event: dict[str, Any], payload: dict[str, Any]
+    ) -> None:
+        record = {
+            **deepcopy(payload),
+            "event_id": event["event_id"],
+            "received_at": utc_now(),
+        }
+        key = self._trace_span_key(payload["trace_id"], payload["span_id"])
+        with self._lock:
+            self.trace_spans[key] = record
+
+    def has_trace_span(self, trace_id: str, span_id: str) -> bool:
+        with self._lock:
+            return self._trace_span_key(trace_id, span_id) in self.trace_spans
+
+    def write_runtime_dlq(
+        self, event: dict[str, Any], *, error_code: str, message: str
+    ) -> None:
+        with self._lock:
+            self.runtime_dlq[event.get("event_id", "unknown")] = {
+                "event": deepcopy(event),
+                "error_code": error_code,
+                "message": message,
+                "received_at": utc_now(),
+            }
+
+    @staticmethod
+    def _trace_span_key(trace_id: str, span_id: str) -> str:
+        return f"{trace_id}:{span_id}"
 
     def add_bootstrap_session(self, session: dict[str, Any]) -> None:
         with self._lock:

@@ -9,10 +9,10 @@ working_set_snapshot:
   plan_path: /Users/sinclairpan/project/AgentOps/specs/031-agentops-runtime-governance-foundation/plan.md
   tasks_path: /Users/sinclairpan/project/AgentOps/specs/031-agentops-runtime-governance-foundation/tasks.md
   active_files: []
-  context_summary: 'Goal: Implement AgentOps 031 Batch 2 runtime governance registry
-    | State: Runtime Contract/Schema/State/Error Registry implemented with AO31-CT-001
-    and AO31-CT-008 tests passing on feature/031-agentops-runtime-governance-foundation-dev
-    | Next: Commit Batch 2, then start Batch 3 Runtime Ingestion API v1'
+  context_summary: 'Goal: Implement AgentOps 031 Batch 3 Runtime Ingestion API v1
+    | State: Runtime ingestion accepts RuntimeRun and TraceSpan facts with schema
+    checks, idempotency, unsupported span kind rejection, and parent-missing DLQ |
+    Next: Commit Batch 3, then implement Batch 4 Run Detail and Trace Timeline projections'
 current_branch: feature/031-agentops-runtime-governance-foundation-docs
 docs_baseline_ref: ''
 docs_baseline_at: ''

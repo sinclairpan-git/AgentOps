@@ -16,6 +16,8 @@
 - 已执行 `ai-sdlc run --dry-run`；close 阶段因尚未执行代码和最终测试而 RETRY，符合当前“等待执行阶段”的状态。
 - 已完成 Batch 2：Runtime Contract / Schema / State / Error Registry 最小实现。
 - 已新增 AO31-CT-001 / AO31-CT-008 的可运行 contract tests 与 registry 单元测试。
+- 已完成 Batch 3：Runtime Ingestion API v1，包含 runtime_run / trace_span 规范化、幂等、schema 拒绝、span kind 拒绝、parent missing DLQ。
+- 已新增 AO31-CT-002 到 AO31-CT-005 的可运行 contract tests。
 
 ## 尚未执行内容
 
@@ -24,4 +26,4 @@
 
 ## 下一步
 
-进入 Batch 3：实现 Runtime Ingestion API v1，并把 AO31-CT-002 到 AO31-CT-005 转为可运行测试。
+进入 Batch 4：实现 Run Detail 和 Trace Timeline projections，并把 AO31-CT-006 / AO31-CT-007 补齐为投影级测试。

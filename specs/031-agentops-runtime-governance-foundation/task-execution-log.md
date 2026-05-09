@@ -151,3 +151,65 @@
 #### 3.7 批次结论
 
 Runtime Contract / Schema / State / Error Registry 的最小治理基础已落地；AO31 后续可以基于这些 registry 实现 Runtime Ingestion 和 Run/Trace 投影。
+
+### Batch 2026-05-09-003 | T31-21 - T31-23
+
+#### 4.1 批次范围
+
+- 覆盖任务：`T31-21`、`T31-22`、`T31-23`
+- 覆盖阶段：execute / Batch 3
+- 预读范围：
+  - `specs/031-agentops-runtime-governance-foundation/spec.md`
+  - `specs/031-agentops-runtime-governance-foundation/plan.md`
+  - `specs/031-agentops-runtime-governance-foundation/tasks.md`
+
+#### 4.2 改动范围
+
+- `src/agentops/core/runtime_ingestion.py`
+- `src/agentops/api/runtime.py`
+- `src/agentops/api/app.py`
+- `src/agentops/api/server.py`
+- `src/agentops/storage/repository.py`
+- `tests/contract/test_ao31_ct_runtime_governance_foundation.py`
+- `specs/031-agentops-runtime-governance-foundation/tasks.md`
+- `specs/031-agentops-runtime-governance-foundation/development-summary.md`
+- `specs/031-agentops-runtime-governance-foundation/task-execution-log.md`
+
+#### 4.3 改动内容
+
+- 新增 `runtime.ingestion.v1` 批量接入核心。
+- 新增 `POST /v1/runtime/events` API manifest 和 HTTP route，旧 `/v1/events` 不变。
+- 支持 RuntimeRun / TraceSpan 规范化写入 repository。
+- 支持 runtime idempotency：重复重放 deduplicated，payload hash 冲突 rejected。
+- 支持 schema_version 不匹配拒绝、RuntimeRun 必填字段校验、TraceSpan span_kind 校验。
+- 支持 TraceSpan parent missing 进入 runtime DLQ，并返回 `TRACE_PARENT_MISSING`。
+
+#### 4.4 统一验证命令
+
+- `uv run pytest tests/unit/test_runtime_contracts.py tests/contract/test_ao31_ct_runtime_governance_foundation.py -q`
+  - 结果：PASS，19 passed。
+- `uv run pytest tests -q`
+  - 结果：PASS，全量 Python 测试通过。
+- `uv run ruff check src tests`
+  - 结果：PASS。
+- `uv run ruff format --check src/agentops/api/runtime.py src/agentops/core/runtime_ingestion.py src/agentops/storage/repository.py src/agentops/api/app.py src/agentops/api/server.py src/agentops/models/runtime.py src/agentops/core/runtime_contracts.py tests/unit/test_runtime_contracts.py tests/contract/test_ao31_ct_runtime_governance_foundation.py`
+  - 结果：PASS，本批文件格式通过。
+
+#### 4.5 代码审查结论
+
+- 宪章/规格对齐：符合。Runtime 仍是事实 Producer，AgentOps 只接收、校验、落治理事实。
+- 代码质量：Runtime ingestion 与旧 Ai_AutoSDLC `/v1/events` 分离，避免语义混杂；repository 新增 runtime 专用事实存储和 idempotency index。
+- 测试质量：覆盖 AO31-CT-002 到 AO31-CT-005 正例、schema 反例、幂等重放、RuntimeRun invalid、TraceSpan kind invalid、parent missing DLQ。
+- 结论：Batch 3 可收口，后续进入 Batch 4 Run Detail / Trace Timeline 投影。
+
+#### 4.6 任务/计划同步状态
+
+- `tasks.md` 同步状态：T31-21、T31-22、T31-23 已完成。
+- `related_plan` 同步状态：Batch 3 与 `plan.md` Phase 2 对齐。
+- 分支状态：继续使用 `feature/031-agentops-runtime-governance-foundation-dev`。
+- 当前批次 branch disposition 状态：retained（docs 分支已由 dev 分支承接；dev 分支继续执行 Batch 4-5 后统一 PR）
+- 当前批次 worktree disposition 状态：retained（当前工作树继续执行 031 后续批次）
+
+#### 4.7 批次结论
+
+Runtime Ingestion API v1 已具备最小可用接入能力。当前还未实现 Run Detail / Trace Timeline projection，因此 Console 仍不能完整消费 runtime facts。

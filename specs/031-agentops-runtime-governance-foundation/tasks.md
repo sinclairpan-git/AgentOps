@@ -73,7 +73,7 @@ Batch 5: Console contract integration and verification
 
 ### Task 3.1 实现 Runtime Ingestion 规范化核心
 
-- **状态**：待执行
+- **状态**：已完成
 - **优先级**：P0
 - **依赖**：T31-11
 - **文件**：`src/agentops/core/runtime_ingestion.py`、`src/agentops/storage/repository.py`
@@ -82,7 +82,7 @@ Batch 5: Console contract integration and verification
 
 ### Task 3.2 暴露 Runtime Ingestion API
 
-- **状态**：待执行
+- **状态**：已完成
 - **优先级**：P0
 - **依赖**：T31-21
 - **文件**：`src/agentops/api/runtime.py`、`src/agentops/api/app.py`、`src/agentops/api/server.py`
@@ -91,7 +91,7 @@ Batch 5: Console contract integration and verification
 
 ### Task 3.3 增加 Ingestion contract tests
 
-- **状态**：待执行
+- **状态**：已完成
 - **优先级**：P0
 - **依赖**：T31-21、T31-22
 - **文件**：`tests/contract/test_ao31_ct_runtime_governance_foundation.py`

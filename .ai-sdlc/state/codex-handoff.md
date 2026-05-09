@@ -1,9 +1,9 @@
 # Continuity Handoff
 
-- Updated: 2026-05-09T05:57:52+00:00
-- Reason: Record execute Batch 2 progress and branch disposition
-- Goal: Implement AgentOps 031 Batch 2 runtime governance registry
-- State: Runtime Contract/Schema/State/Error Registry implemented with AO31-CT-001 and AO31-CT-008 tests passing on feature/031-agentops-runtime-governance-foundation-dev
+- Updated: 2026-05-09T06:03:54+00:00
+- Reason: Record Batch 3 progress before commit
+- Goal: Implement AgentOps 031 Batch 3 Runtime Ingestion API v1
+- State: Runtime ingestion accepts RuntimeRun and TraceSpan facts with schema checks, idempotency, unsupported span kind rejection, and parent-missing DLQ
 - Stage: close
 - Work Item: 031-agentops-runtime-governance-foundation
 - Branch: feature/031-agentops-runtime-governance-foundation-dev
@@ -12,19 +12,21 @@
 - M specs/031-agentops-runtime-governance-foundation/development-summary.md
 - M specs/031-agentops-runtime-governance-foundation/task-execution-log.md
 - M specs/031-agentops-runtime-governance-foundation/tasks.md
-- ?? src/agentops/core/runtime_contracts.py
-- ?? src/agentops/models/runtime.py
-- ?? tests/contract/test_ao31_ct_runtime_governance_foundation.py
-- ?? tests/unit/test_runtime_contracts.py
+- M src/agentops/api/app.py
+- M src/agentops/api/server.py
+- M src/agentops/storage/repository.py
+- M tests/contract/test_ao31_ct_runtime_governance_foundation.py
+- ?? src/agentops/api/runtime.py
+- ?? src/agentops/core/runtime_ingestion.py
 
 ## Key Decisions
-- Docs branch is superseded by dev branch; dev branch will continue Batch 3-5 and own final PR
+- Keep /v1/runtime/events separate from legacy /v1/events so Runtime facts do not mix with Ai_AutoSDLC event ingestion
 
 ## Commands / Tests
-- Targeted AO31 tests PASS; full uv pytest tests -q PASS; ruff check PASS; scoped ruff format check PASS; full ruff format check still has unrelated historical files
+- AO31 targeted tests PASS (19); full uv pytest tests -q PASS; ruff check PASS; scoped ruff format check PASS; verify constraints no BLOCKER
 
 ## Blockers / Risks
 - none
 
 ## Exact Next Steps
-- Commit Batch 2, then start Batch 3 Runtime Ingestion API v1
+- Commit Batch 3, then implement Batch 4 Run Detail and Trace Timeline projections
