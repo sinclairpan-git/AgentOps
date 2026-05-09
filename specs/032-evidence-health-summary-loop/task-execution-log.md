@@ -166,3 +166,20 @@
 #### 3.5 批次结论
 
 032 已完成 P0 摘要闭环：Runtime facts 可生成 EvidenceSummary / HealthSummary，Agent Store 可通过 display-only summary 回显 recommended_action 和 ops_detail_url，且端到端 contract tests 证明 run_id/agent_id/version 链路一致。
+
+### Review Fix 2026-05-09-001 | Codex runtime summary governance hardening
+
+#### RF-001 | suspected registration and attempt-aware health summary
+
+- **验证画像**：code-change
+- 反馈来源：PR #33 Codex Review。
+- 改动范围：`src/agentops/api/store_summary.py`、`src/agentops/core/runtime_summary.py`、`src/agentops/storage/repository.py`、`tests/contract/test_ao32_ct_evidence_health_summary_loop.py`、`specs/032-evidence-health-summary-loop/task-execution-log.md`、`development-summary.md`
+- 改动内容：Runtime Store summary 在缺 Agent Store metadata 时不再把 run_audit 标为 `governed`，改为 `suspected` 并保留 discovery gap id；HealthSummary 计算 evidence_completeness 时按具体 run attempt 读取对应 TraceSpan，不再用同 run 最新 attempt 覆盖历史 attempt；最近窗口排序改为按 received_at/sequence/attempt，而不是跨 run 误用 attempt_no 作为主排序键。
+- 新增/调整的测试：新增未注册 runtime run Store summary suspected 回归；新增同 run 多 attempt 证据完整度独立计算回归；新增 health window 按 received_at 最近运行选择回归。
+- 执行的命令：`uv run pytest tests/contract/test_ao32_ct_evidence_health_summary_loop.py -q`、`uv run pytest tests/contract/test_ao32_ct_evidence_health_summary_loop.py tests/contract/test_ao31_ct_runtime_governance_foundation.py tests/contract/test_ao22_ct_agent_store_summary_http_contract.py -q`、`uv run ruff check src tests`、`uv run ruff format --check src/agentops/api/store_summary.py src/agentops/core/runtime_summary.py src/agentops/storage/repository.py tests/contract/test_ao32_ct_evidence_health_summary_loop.py`
+- 测试结果：AO32 12 条 tests 通过；AO22/AO31/AO32 定向 70 条 tests 通过；ruff check 通过；本次触碰文件 format check 通过。
+- 是否符合任务目标：是；回应 Codex review 对 Store governance labeling、attempt-aware evidence completeness 和 health recency window 的要求。
+- **已完成 git 提交**：是，本批实现与归档将在当前 review fix 提交中一并提交。
+- **提交哈希**：见当前 Git HEAD。
+- 当前批次 worktree disposition 状态：当前 worktree 继续承载 PR #33 收口。
+- 是否继续下一批：否，本批继续 PR 收口。

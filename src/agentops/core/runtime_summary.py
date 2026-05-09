@@ -41,6 +41,36 @@ def build_runtime_evidence_summary(
             request_id=f"req_runtime_evidence_{run_id}",
         )
 
+    return _build_runtime_evidence_summary_for_run(
+        repository,
+        run,
+        request_raw=request_raw,
+        raw_access_allowed=raw_access_allowed,
+        now=now,
+        valid_until=valid_until,
+    )
+
+
+def _build_runtime_evidence_summary_for_run(
+    repository: InMemoryRepository,
+    run: dict[str, Any],
+    *,
+    request_raw: bool = False,
+    raw_access_allowed: bool = False,
+    now: datetime | None = None,
+    valid_until: datetime | None = None,
+) -> dict[str, Any]:
+    run_id = str(run["run_id"])
+    if request_raw and not raw_access_allowed:
+        raise AgentOpsError(
+            "RAW_ACCESS_REQUIRED",
+            "Raw runtime evidence requires Evidence Vault approval.",
+            audit_id=f"audit_runtime_evidence_{run_id}",
+            request_id=f"req_runtime_evidence_{run_id}",
+            denied_scope="runtime.evidence.raw",
+            request_access_url="/v1/evidence/raw-access-requests",
+        )
+
     calculated_at = _coerce_datetime(now) or datetime.now(UTC)
     expires_at = _coerce_datetime(valid_until) or calculated_at + SUMMARY_VALIDITY
     spans = list(
@@ -54,7 +84,7 @@ def build_runtime_evidence_summary(
 
     return {
         "schema_version": "evidence_summary.v1",
-        "run_id": str(run_id),
+        "run_id": run_id,
         "trace_id": trace_id,
         "evidence_level": _evidence_level(run, missing_dimensions, expired),
         "source_event_ids": _source_event_ids(run, spans),
@@ -204,7 +234,7 @@ def _average_evidence_completeness(
     values = []
     for run in runs:
         try:
-            summary = build_runtime_evidence_summary(repository, str(run["run_id"]))
+            summary = _build_runtime_evidence_summary_for_run(repository, run)
         except AgentOpsError:
             values.append(0.0)
         else:

@@ -43,6 +43,19 @@ def _runtime_attempt_sort_key(record: dict[str, Any]) -> tuple[float, float, str
     return (attempt_no, sequence_no, str(record.get("received_at", "")))
 
 
+def _runtime_recency_sort_key(
+    record: dict[str, Any],
+) -> tuple[tuple[int, float, str], float, float, str]:
+    sequence_no = _runtime_number_sort_value(record.get("sequence_no", 0))
+    attempt_no = _runtime_number_sort_value(record.get("attempt_no", 0))
+    return (
+        _runtime_time_sort_value(record.get("received_at")),
+        sequence_no,
+        attempt_no,
+        str(record.get("run_id", "")),
+    )
+
+
 def _runtime_attempt_matches(actual: Any, expected: Any) -> bool:
     actual_sort_value = _runtime_number_sort_value(actual)
     expected_sort_value = _runtime_number_sort_value(expected)
@@ -166,7 +179,7 @@ class InMemoryRepository:
                 if record.get("agent_id") == agent_id
                 and record.get("version") == version
             ]
-            sorted_records = sorted(records, key=_runtime_attempt_sort_key)
+            sorted_records = sorted(records, key=_runtime_recency_sort_key)
             if limit is not None and limit >= 0:
                 sorted_records = sorted_records[-limit:]
             return tuple(sorted_records)

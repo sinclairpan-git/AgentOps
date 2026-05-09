@@ -14,11 +14,12 @@
 - 已接入 Agent Store runtime summary 优先路径，保留 AO22 legacy fallback。
 - 已新增 AO32 可运行 contract tests，覆盖 EvidenceSummary、HealthSummary、Store 回显、过期语义和 P0 端到端。
 - 已接入 manifest 声明的 runtime evidence/health summary HTTP routes。
+- 已修复 PR #33 Codex review 反馈：未注册 runtime run 的 Store run_audit 标为 suspected；HealthSummary 证据完整度按具体 attempt 计算；最近运行窗口按 received_at/sequence 排序。
 
 ## 尚未执行内容
 
-- 最终提交、推送、创建 PR 并触发 `@codex review`。
+- 推送 review fix 并重新触发 `@codex review`。
 
 ## 下一步
 
-完成 close-out：刷新 program truth、运行 AI-SDLC dry-run、提交、推送、创建 PR，并按 AgentOps PR 收口固定规则轮询 Codex review、GitHub checks、Compatibility Gate Result 和 mergeStateStatus。
+完成 PR #33 review fix 收口：推送当前修复，重新触发 `@codex review`；若 Codex review、GitHub checks、Compatibility Gate Result 和 mergeStateStatus 均通过，则合入 `main` 并同步本地 `main`。

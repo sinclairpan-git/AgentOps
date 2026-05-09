@@ -161,7 +161,7 @@ def _runtime_agent_store_summary(
         now=now,
         valid_until=summary_valid_until,
     )
-    run_audit = _runtime_run_audit(runtime_run, evidence_summary)
+    run_audit = _runtime_run_audit(repository, runtime_run, evidence_summary)
     echo_summary = build_agent_store_echo_summary(
         repository,
         agent_id,
@@ -204,21 +204,25 @@ def _runtime_evidence_for_legacy_echo(
 
 
 def _runtime_run_audit(
-    runtime_run: dict[str, Any], evidence_summary: dict[str, Any]
+    repository: InMemoryRepository,
+    runtime_run: dict[str, Any],
+    evidence_summary: dict[str, Any],
 ) -> dict[str, Any]:
     run_id = str(runtime_run["run_id"])
     agent_id = str(runtime_run["agent_id"])
     version = str(runtime_run["version"])
+    registered = repository.get_agent_store_metadata(agent_id, version) is not None
+    discovery_gap_ids = [] if registered else [_runtime_agent_gap_id(agent_id)]
     return {
         "audit_id": f"audit_run_{run_id}",
         "run_id": run_id,
         "agent_id": agent_id,
         "version": version,
-        "registration_state": "governed",
+        "registration_state": "governed" if registered else "suspected",
         "event_count": len(evidence_summary.get("source_event_ids", [])),
         "event_ids": list(evidence_summary.get("source_event_ids", [])),
         "raw_access_state": "summary_only",
-        "discovery_gap_ids": [],
+        "discovery_gap_ids": discovery_gap_ids,
         "related_agent_versions": [f"{agent_id}@{version}"],
         "deep_links": {
             "agent_id": agent_id,
@@ -233,6 +237,11 @@ def _runtime_run_audit(
             "return_url": f"/agent-store/agents/{agent_id}/runs/{run_id}",
         },
     }
+
+
+def _runtime_agent_gap_id(agent_id: str) -> str:
+    slug = "".join(char if char.isalnum() else "_" for char in agent_id).strip("_")
+    return f"gap_runtime_agent_{slug or 'unknown'}"
 
 
 def _events_for_run(

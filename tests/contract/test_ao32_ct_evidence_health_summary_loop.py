@@ -98,16 +98,18 @@ def runtime_batch(events):
 
 def write_runtime_run(repository: InMemoryRepository, **overrides) -> None:
     run_id = str(overrides.get("run_id", "run_1"))
+    attempt_no = int(overrides.get("attempt_no", 1))
     sequence_no = int(overrides.pop("sequence_no", 1))
+    event_id = f"evt_{run_id}" if attempt_no == 1 else f"evt_{run_id}_a{attempt_no}"
     ingest_runtime_events(
         runtime_batch(
             [
                 runtime_event(
-                    f"evt_{run_id}",
+                    event_id,
                     "runtime_run",
                     runtime_run_payload(**overrides),
                     sequence_no=sequence_no,
-                    idempotency_key=f"runtime:{run_id}",
+                    idempotency_key=f"runtime:{run_id}:attempt:{attempt_no}",
                 )
             ]
         ),
@@ -115,16 +117,20 @@ def write_runtime_run(repository: InMemoryRepository, **overrides) -> None:
     )
 
 
-def write_full_trace(repository: InMemoryRepository, *, run_id: str = "run_1") -> None:
+def write_full_trace(
+    repository: InMemoryRepository, *, run_id: str = "run_1", attempt_no: int = 1
+) -> None:
     spans = [
         trace_span_payload(
             run_id=run_id,
+            attempt_no=attempt_no,
             span_id="span_model",
             span_kind="model",
             operation_name="model.call",
         ),
         trace_span_payload(
             run_id=run_id,
+            attempt_no=attempt_no,
             span_id="span_tool",
             parent_span_id="span_model",
             span_kind="tool",
@@ -132,6 +138,7 @@ def write_full_trace(repository: InMemoryRepository, *, run_id: str = "run_1") -
         ),
         trace_span_payload(
             run_id=run_id,
+            attempt_no=attempt_no,
             span_id="span_guardrail",
             parent_span_id="span_tool",
             span_kind="guardrail",
@@ -139,6 +146,7 @@ def write_full_trace(repository: InMemoryRepository, *, run_id: str = "run_1") -
         ),
         trace_span_payload(
             run_id=run_id,
+            attempt_no=attempt_no,
             span_id="span_artifact",
             parent_span_id="span_guardrail",
             span_kind="artifact",
@@ -154,7 +162,9 @@ def write_full_trace(repository: InMemoryRepository, *, run_id: str = "run_1") -
                     "trace_span",
                     span,
                     sequence_no=index,
-                    idempotency_key=f"runtime:{run_id}:{span['span_id']}",
+                    idempotency_key=(
+                        f"runtime:{run_id}:attempt:{attempt_no}:{span['span_id']}"
+                    ),
                 )
                 for index, span in enumerate(spans, start=10)
             ]
@@ -172,6 +182,14 @@ def register_agent(repository: InMemoryRepository) -> None:
             "skills": [{"skill_id": "refine"}],
         },
     )
+
+
+def set_runtime_run_received_at(
+    repository: InMemoryRepository, run_id: str, attempt_no: int, received_at: str
+) -> None:
+    for record in repository.runtime_runs.values():
+        if record.get("run_id") == run_id and record.get("attempt_no") == attempt_no:
+            record["received_at"] = received_at
 
 
 def test_ao32_ct_001_evidence_summary_outputs_l5_for_complete_runtime_trace():
@@ -266,6 +284,54 @@ def test_ao32_ct_003_health_summary_handles_empty_sample_without_dividing_by_zer
     assert summary["recommended_action"] == "watching"
 
 
+def test_ao32_ct_003_health_summary_scores_each_run_attempt_independently():
+    repository = InMemoryRepository()
+    write_runtime_run(
+        repository,
+        run_id="run_retry",
+        attempt_no=1,
+        status="failed",
+        terminal_reason="tool_error",
+    )
+    write_runtime_run(
+        repository,
+        run_id="run_retry",
+        attempt_no=2,
+        status="succeeded",
+        sequence_no=2,
+    )
+    write_full_trace(repository, run_id="run_retry", attempt_no=2)
+
+    summary = build_runtime_health_summary(repository, "agent.ai-sdlc", "1.0.0")
+
+    assert summary["sample_size"] == 2
+    assert summary["evidence_completeness"] == pytest.approx(0.5)
+    assert summary["recommended_action"] == "disable_recommended"
+
+
+def test_ao32_ct_003_health_summary_window_uses_received_recency_not_attempt_number():
+    repository = InMemoryRepository()
+    write_runtime_run(repository, run_id="run_old_retry", attempt_no=9, status="failed")
+    write_runtime_run(
+        repository,
+        run_id="run_new",
+        attempt_no=1,
+        status="succeeded",
+        sequence_no=2,
+    )
+    set_runtime_run_received_at(
+        repository, "run_old_retry", 9, "2026-05-09T05:00:00+00:00"
+    )
+    set_runtime_run_received_at(repository, "run_new", 1, "2026-05-09T06:00:00+00:00")
+
+    summary = build_runtime_health_summary(
+        repository, "agent.ai-sdlc", "1.0.0", window_limit=1
+    )
+
+    assert summary["calculation_window"]["run_ids"] == ["run_new"]
+    assert summary["success_rate"] == 1.0
+
+
 def test_ao32_ct_004_store_summary_returns_runtime_evidence_health_and_ops_link():
     repository = InMemoryRepository()
     register_agent(repository)
@@ -284,6 +350,19 @@ def test_ao32_ct_004_store_summary_returns_runtime_evidence_health_and_ops_link(
     assert summary["health_summary"]["schema_version"] == "health_summary.v1"
     assert summary["recommended_action"] == "usable"
     assert summary["ops_detail_url"] == "/agentops/runtime/runs/run_1"
+
+
+def test_ao32_ct_004_store_summary_marks_unregistered_runtime_run_as_suspected():
+    repository = InMemoryRepository()
+    write_runtime_run(repository)
+    write_full_trace(repository)
+
+    summary = get_agent_store_summary_for_run(
+        repository, "agent.ai-sdlc", "1.0.0", "run_1"
+    )
+
+    assert summary["metadata_state"] == "unregistered"
+    assert summary["run_audit"]["registration_state"] == "suspected"
 
 
 def test_ao32_ct_004_store_summary_rejects_runtime_run_target_mismatch():
