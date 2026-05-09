@@ -43,6 +43,14 @@ def _runtime_attempt_sort_key(record: dict[str, Any]) -> tuple[float, float, str
     return (attempt_no, sequence_no, str(record.get("received_at", "")))
 
 
+def _runtime_attempt_matches(actual: Any, expected: Any) -> bool:
+    actual_sort_value = _runtime_number_sort_value(actual)
+    expected_sort_value = _runtime_number_sort_value(expected)
+    if actual_sort_value >= 0 and expected_sort_value >= 0:
+        return actual_sort_value == expected_sort_value
+    return str(actual) == str(expected)
+
+
 @dataclass
 class InMemoryRepository:
     _lock: RLock = field(default_factory=RLock, repr=False)
@@ -129,12 +137,18 @@ class InMemoryRepository:
             latest = sorted(candidates, key=_runtime_attempt_sort_key)[-1]
             return deepcopy(latest)
 
-    def trace_span_records_for_run(self, run_id: str) -> tuple[dict[str, Any], ...]:
+    def trace_span_records_for_run(
+        self, run_id: str, *, attempt_no: Any | None = None
+    ) -> tuple[dict[str, Any], ...]:
         with self._lock:
             spans = [
                 deepcopy(record)
                 for record in self.trace_spans.values()
                 if record.get("run_id") == run_id
+                and (
+                    attempt_no is None
+                    or _runtime_attempt_matches(record.get("attempt_no"), attempt_no)
+                )
             ]
             return tuple(
                 sorted(

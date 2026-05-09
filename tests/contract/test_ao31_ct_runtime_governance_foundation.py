@@ -824,6 +824,68 @@ def test_ao31_ct_006_run_detail_selects_latest_mixed_attempt_types():
     assert detail["run"]["status"] == "blocked"
 
 
+def test_ao31_ct_006_run_detail_scopes_spans_to_latest_attempt():
+    repository = InMemoryRepository()
+    ingest_runtime_events(
+        runtime_batch(
+            [
+                runtime_event(
+                    "evt_run_attempt_1",
+                    "runtime_run",
+                    runtime_run_payload(attempt_no=1, status="failed"),
+                    schema_version="runtime_run.v1",
+                    sequence_no=1,
+                    idempotency_key="runtime:run_attempt_1",
+                ),
+                runtime_event(
+                    "evt_span_attempt_1",
+                    "trace_span",
+                    trace_span_payload(
+                        attempt_no=1,
+                        span_id="span_old_guardrail",
+                        span_kind="guardrail",
+                        operation_name="guardrail.old",
+                    ),
+                    schema_version="trace_span.v1",
+                    sequence_no=2,
+                    idempotency_key="runtime:span_attempt_1",
+                ),
+                runtime_event(
+                    "evt_run_attempt_2",
+                    "runtime_run",
+                    runtime_run_payload(attempt_no="2", status="running"),
+                    schema_version="runtime_run.v1",
+                    sequence_no=3,
+                    idempotency_key="runtime:run_attempt_2",
+                ),
+                runtime_event(
+                    "evt_span_attempt_2",
+                    "trace_span",
+                    trace_span_payload(
+                        attempt_no=2,
+                        span_id="span_latest_artifact",
+                        span_kind="artifact",
+                        operation_name="artifact.latest",
+                        output_ref="sha256:latest",
+                    ),
+                    schema_version="trace_span.v1",
+                    sequence_no=4,
+                    idempotency_key="runtime:span_attempt_2",
+                ),
+            ]
+        ),
+        repository,
+    )
+
+    detail = get_runtime_run_detail(repository, "run_1")
+
+    assert detail["run"]["attempt_no"] == "2"
+    assert detail["guardrail_summary"] == []
+    assert detail["artifact_refs"] == [
+        {"span_id": "span_latest_artifact", "output_ref": "sha256:latest"}
+    ]
+
+
 def test_ao31_ct_006_run_detail_preserves_latest_sequence_for_attempt():
     repository = InMemoryRepository()
     ingest_runtime_events(
@@ -964,6 +1026,112 @@ def test_ao31_ct_007_trace_timeline_projection_is_ordered_and_summarized():
     assert timeline["redaction_state"] == "summary_only"
     assert timeline["aggregate"]["token_usage"]["input"] == 24
     assert timeline["aggregate"]["cost_estimate"]["amount"] == 0.02
+
+
+def test_ao31_ct_007_trace_timeline_scopes_spans_to_latest_attempt():
+    repository = InMemoryRepository()
+    ingest_runtime_events(
+        runtime_batch(
+            [
+                runtime_event(
+                    "evt_run_attempt_1",
+                    "runtime_run",
+                    runtime_run_payload(attempt_no=1, status="failed"),
+                    schema_version="runtime_run.v1",
+                    sequence_no=1,
+                    idempotency_key="runtime:run_attempt_1",
+                ),
+                runtime_event(
+                    "evt_span_attempt_1",
+                    "trace_span",
+                    trace_span_payload(
+                        attempt_no=1,
+                        span_id="span_old",
+                        operation_name="model.old",
+                    ),
+                    schema_version="trace_span.v1",
+                    sequence_no=2,
+                    idempotency_key="runtime:span_attempt_1",
+                ),
+                runtime_event(
+                    "evt_run_attempt_2",
+                    "runtime_run",
+                    runtime_run_payload(attempt_no=2, status="running"),
+                    schema_version="runtime_run.v1",
+                    sequence_no=3,
+                    idempotency_key="runtime:run_attempt_2",
+                ),
+                runtime_event(
+                    "evt_span_attempt_2",
+                    "trace_span",
+                    trace_span_payload(
+                        attempt_no=2,
+                        span_id="span_latest",
+                        operation_name="model.latest",
+                    ),
+                    schema_version="trace_span.v1",
+                    sequence_no=4,
+                    idempotency_key="runtime:span_attempt_2",
+                ),
+            ]
+        ),
+        repository,
+    )
+
+    timeline = get_runtime_trace_timeline(repository, "run_1")
+
+    assert [span["span_id"] for span in timeline["spans"]] == ["span_latest"]
+    assert timeline["aggregate"]["span_count"] == 1
+
+
+def test_ao31_ct_007_trace_timeline_degraded_parent_check_is_trace_scoped():
+    repository = InMemoryRepository()
+    run_event = runtime_event(
+        "evt_run_trace_scoped_parent",
+        "runtime_run",
+        runtime_run_payload(),
+        schema_version="runtime_run.v1",
+        sequence_no=1,
+        idempotency_key="runtime:run_trace_scoped_parent",
+    )
+    repository.write_runtime_run_fact(run_event, run_event["payload"])
+    root_payload = trace_span_payload(
+        trace_id="trace_a",
+        span_id="span_root",
+        parent_span_id="",
+    )
+    child_payload = trace_span_payload(
+        trace_id="trace_b",
+        span_id="span_child",
+        parent_span_id="span_root",
+    )
+    repository.write_trace_span_fact(
+        runtime_event(
+            "evt_span_trace_a_root",
+            "trace_span",
+            root_payload,
+            schema_version="trace_span.v1",
+            sequence_no=2,
+            idempotency_key="runtime:span_trace_a_root",
+        ),
+        root_payload,
+    )
+    repository.write_trace_span_fact(
+        runtime_event(
+            "evt_span_trace_b_child",
+            "trace_span",
+            child_payload,
+            schema_version="trace_span.v1",
+            sequence_no=3,
+            idempotency_key="runtime:span_trace_b_child",
+        ),
+        child_payload,
+    )
+
+    timeline = get_runtime_trace_timeline(repository, "run_1")
+
+    assert timeline["degraded"] is True
+    assert timeline["degraded_reason"] == "TRACE_PARENT_MISSING"
 
 
 def test_ao31_ct_007_trace_span_replay_cannot_regress_newer_sequence():

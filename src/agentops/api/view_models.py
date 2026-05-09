@@ -309,7 +309,9 @@ def build_runtime_run_detail_projection(
         )
 
     state = get_state(_run_display_state(run))
-    spans = repository.trace_span_records_for_run(run_id)
+    spans = repository.trace_span_records_for_run(
+        run_id, attempt_no=run.get("attempt_no")
+    )
     trace_state = "complete" if spans else "pending"
     return {
         "run": run,
@@ -341,7 +343,8 @@ def build_trace_timeline_projection(
             denied_scope="runtime.trace.raw",
         )
 
-    if repository.get_runtime_run_fact(run_id) is None:
+    run = repository.get_runtime_run_fact(run_id)
+    if run is None:
         raise AgentOpsError(
             "RUNTIME_RUN_NOT_FOUND",
             "Runtime run fact was not found.",
@@ -349,7 +352,9 @@ def build_trace_timeline_projection(
             request_id=f"req_runtime_trace_{run_id}",
         )
 
-    spans = list(repository.trace_span_records_for_run(run_id))
+    spans = list(
+        repository.trace_span_records_for_run(run_id, attempt_no=run.get("attempt_no"))
+    )
     trace_id = str(spans[0].get("trace_id")) if spans else ""
     degraded_reason = _timeline_degraded_reason(spans)
     return {
@@ -446,10 +451,14 @@ def _trace_span_projection(span: dict[str, Any]) -> dict[str, Any]:
 def _timeline_degraded_reason(spans: list[dict[str, Any]]) -> str | None:
     if not spans:
         return "trace_pending"
-    span_ids = {str(span.get("span_id")) for span in spans}
+    span_ids = {
+        (str(span.get("trace_id") or ""), str(span.get("span_id") or ""))
+        for span in spans
+    }
     for span in spans:
+        trace_id = str(span.get("trace_id") or "")
         parent_span_id = str(span.get("parent_span_id") or "")
-        if parent_span_id and parent_span_id not in span_ids:
+        if parent_span_id and (trace_id, parent_span_id) not in span_ids:
             return "TRACE_PARENT_MISSING"
     return None
 
