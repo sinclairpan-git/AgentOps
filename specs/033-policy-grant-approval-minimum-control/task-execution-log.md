@@ -135,3 +135,42 @@
 - 当前批次 branch disposition 状态：PR 收口后删除或保留按 GitHub 分支策略处理
 - 当前批次 worktree disposition 状态：当前工作区继续用于 PR 收口
 - 是否继续下一批：否，本批进入提交、PR、checks 与 review 收口。
+
+## 3. PR Review Fix 2026-05-09-001 | Codex grant binding and policy request hardening
+
+### 3.1 触发来源
+
+- 来源：PR #34 Codex Review
+- Reviewed commit：`565c119db2`
+- 反馈类型：P1 grant artifact hash 绑定漏洞；P2 low-risk policy decision 缺省 `run_id` 崩溃。
+
+### 3.2 修复内容
+
+#### RF-001 | 占位 artifact hash 不再跨 artifact 复用
+
+- 改动范围：`src/agentops/core/grants.py`
+- 改动内容：将 Grant context 匹配从“`sha256:unknown` 完全跳过匹配”改为“仅兼容旧请求未携带 artifact_hash；若 Runtime 请求携带具体 artifact_hash，则必须与 Grant 绑定值一致”。这保留 AO2 旧兼容路径，同时阻断 PR review 指出的跨 artifact 复用。
+- 新增/调整测试：`test_ao33_ct_004_grant_consumption_rejects_placeholder_artifact_hash_reuse`
+- 是否符合任务目标：符合 AO-P0-08 CapabilityGrant 最小控制闭环，Grant 不得越过审批上下文。
+
+#### RF-002 | PolicyDecision low-risk 请求不再依赖 run_id 必填
+
+- 改动范围：`src/agentops/api/policy.py`
+- 改动内容：`evaluate_policy_decision_v1` 的 request_id 生成改为使用 `request.get("run_id", "unknown")`，避免低风险读类请求未携带 run_id 时出现 raw `KeyError`。
+- 新增/调整测试：`test_ao33_ct_001_policy_decision_v1_allows_low_risk_without_run_id`
+- 是否符合任务目标：符合 AO-P0-07 PolicyDecision 最小可用接口，低风险允许路径必须稳定返回结构化决策。
+
+### 3.3 验证记录
+
+- `uv run ai-sdlc recover --reconcile`：通过，checkpoint 对齐到 AO33 execute。
+- `uv run ai-sdlc run --dry-run`：通过安全预演，close gate 剩余 `development-summary.md not found` 已在本次修复补齐。
+- `uv run pytest tests/contract/test_ao33_ct_policy_grant_guardrail_control.py tests/contract/test_ao2_ct_003_capability_grant.py tests/unit/test_grant_scope.py tests/contract/test_ao2_ct_001_policy_check.py tests/unit/test_policy_engine.py -q`：通过，27 tests。
+- `uv run pytest tests/contract/test_ao33_ct_policy_grant_guardrail_control.py tests/contract/test_ao2_ct_001_policy_check.py tests/contract/test_ao2_ct_002_approval_lifecycle.py tests/contract/test_ao2_ct_003_capability_grant.py tests/unit/test_policy_engine.py tests/unit/test_grant_scope.py tests/contract/test_ao31_ct_runtime_governance_foundation.py tests/contract/test_ao32_ct_evidence_health_summary_loop.py -q`：通过，94 tests。
+- `uv run ruff check src/agentops/api/policy.py src/agentops/core/grants.py tests/contract/test_ao33_ct_policy_grant_guardrail_control.py`：通过。
+- `uv run ruff check src tests`：通过。
+- `uv run ruff format --check src/agentops/api/policy.py src/agentops/core/grants.py tests/contract/test_ao33_ct_policy_grant_guardrail_control.py`：通过。
+
+### 3.4 结论
+
+- Codex review 两条 actionable feedback 已修复并纳入合同测试。
+- 本修复将提交、推送，并重新触发 PR #34 `@codex review`。

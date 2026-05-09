@@ -186,9 +186,7 @@ def _request_matches_grant(
             request_value = request_value or policy_request.get("agent_version")
         if field == "user_id":
             request_value = request_value or policy_request.get("requester")
-        if not _context_value_requires_match(field, grant_value):
-            continue
-        if grant_value not in (None, "") and grant_value != request_value:
+        if not _context_value_matches(field, grant_value, request_value):
             return False
     return True
 
@@ -229,9 +227,9 @@ def _remaining_uses(value: Any) -> int:
         return 0
 
 
-def _context_value_requires_match(field: str, value: Any) -> bool:
-    if value in (None, ""):
-        return False
-    if field == "artifact_hash" and value == "sha256:unknown":
-        return False
-    return True
+def _context_value_matches(field: str, grant_value: Any, request_value: Any) -> bool:
+    if grant_value in (None, ""):
+        return True
+    if request_value in (None, ""):
+        return field == "artifact_hash" and grant_value == "sha256:unknown"
+    return grant_value == request_value

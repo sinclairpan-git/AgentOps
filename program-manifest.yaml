@@ -122,22 +122,22 @@ specs:
   path: specs/033-policy-grant-approval-minimum-control
   depends_on: []
 truth_snapshot:
-  generated_at: '2026-05-09T13:01:12Z'
+  generated_at: '2026-05-09T13:17:39Z'
   generated_by: ai-sdlc program truth sync
   generator_version: program_truth_snapshot_v1
-  repo_revision: 1e90e67
+  repo_revision: 565c119
   authoring_hash: 14004651b4c017646f2fc3847aed20e75e4ed914aaa124bb21b1f00daf03e439
   source_hashes: {}
-  snapshot_hash: fe868fb9258440e5c9395cb2c64149180efccf88577e38e726c6ea16be260254
+  snapshot_hash: 99c402e784bc12d157bfbcc64db621b60a90cff70d060e48da1ab1b9b12d118f
   computed_capabilities: []
   source_inventory:
     state: complete
     total_sources: 165
     mapped_sources: 165
     unmapped_sources: 0
-    missing_sources: 1
-    phase_signal_count: 203
-    deferred_signal_count: 324
+    missing_sources: 0
+    phase_signal_count: 205
+    deferred_signal_count: 326
     non_goal_signal_count: 55
     layer_totals:
       spec: 33
@@ -150,7 +150,7 @@ truth_snapshot:
       plan: 33
       tasks: 33
       execution: 33
-      close: 32
+      close: 33
     entries:
     - path: specs/001-agentops-trusted-loop/spec.md
       source_type: spec_doc
@@ -1625,14 +1625,14 @@ truth_snapshot:
       mapped: true
       exists: true
       mapping_ref: 033-policy-grant-approval-minimum-control
-      phase_signal_count: 3
-      deferred_signal_count: 7
+      phase_signal_count: 5
+      deferred_signal_count: 9
       non_goal_signal_count: 0
     - path: specs/033-policy-grant-approval-minimum-control/development-summary.md
       source_type: development_summary
       truth_layer: close
       mapped: true
-      exists: false
+      exists: true
       mapping_ref: 033-policy-grant-approval-minimum-control
       phase_signal_count: 0
       deferred_signal_count: 0

@@ -86,6 +86,19 @@ def test_ao33_ct_001_policy_decision_v1_has_required_p0_fields():
     assert decision["constraints"]["raw_payload_access"] == "forbidden"
 
 
+def test_ao33_ct_001_policy_decision_v1_allows_low_risk_without_run_id():
+    decision = evaluate_policy_decision_v1(
+        {
+            "action": "read",
+            "risk_level": "low",
+            "resource_scope": {"repo": "AgentOps"},
+        }
+    )
+
+    assert decision["decision"] == "allow"
+    assert decision["request_id"] == "pcheck_unknown"
+
+
 def test_ao33_ct_002_policy_unavailable_is_not_allowed_for_high_risk_action():
     decision = evaluate_policy_decision_v1(policy_request(), service_available=False)
 
@@ -161,6 +174,35 @@ def test_ao33_ct_004_grant_consumption_decrements_remaining_uses(repository):
         )
 
     assert exc.value.error_code == "GRANT_EXHAUSTED"
+
+
+def test_ao33_ct_004_grant_consumption_rejects_placeholder_artifact_hash_reuse(
+    repository,
+):
+    approval = create_pending_approval(repository)
+    approved = decide_approval_request(
+        approval["approval_id"],
+        action="approve",
+        actor="security_1",
+        reason="approved",
+        repository=repository,
+    )
+    grant = issue_grant(
+        approved["approval_id"], grant_request_from_approval(approved), repository
+    )
+
+    with pytest.raises(AgentOpsError) as exc:
+        consume_grant(
+            grant["grant_id"],
+            policy_request(
+                policy_check_id=grant["policy_check_id"],
+                artifact_hash="sha256:other-artifact",
+            ),
+            repository,
+        )
+
+    assert grant["artifact_hash"] == "sha256:unknown"
+    assert exc.value.error_code == "GRANT_SCOPE_MISMATCH"
 
 
 def test_ao33_ct_005_runtime_ingests_guardrail_result_fact():

@@ -23,7 +23,9 @@ def evaluate_policy_decision_v1(
         or request.get("policy_version")
         or "policy.v1"
     )
-    request_id = str(request.get("policy_check_id") or f"pcheck_{request['run_id']}")
+    request_id = str(
+        request.get("policy_check_id") or f"pcheck_{request.get('run_id', 'unknown')}"
+    )
     p0_decision = _p0_policy_decision(decision)
     ttl = _policy_decision_ttl(p0_decision)
     return {
