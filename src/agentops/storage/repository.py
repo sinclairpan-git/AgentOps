@@ -238,7 +238,7 @@ class InMemoryRepository:
 
     def write_runtime_run_fact(
         self, event: dict[str, Any], payload: dict[str, Any]
-    ) -> None:
+    ) -> str:
         record = {
             **deepcopy(payload),
             "event_id": event["event_id"],
@@ -251,12 +251,13 @@ class InMemoryRepository:
             if existing and _runtime_attempt_sort_key(
                 record
             ) <= _runtime_attempt_sort_key(existing):
-                return
+                return "stale_ignored"
             self.runtime_runs[key] = record
+            return "stored"
 
     def write_trace_span_fact(
         self, event: dict[str, Any], payload: dict[str, Any]
-    ) -> None:
+    ) -> str:
         record = {
             **deepcopy(payload),
             "event_id": event["event_id"],
@@ -274,12 +275,13 @@ class InMemoryRepository:
             if existing and _runtime_number_sort_value(
                 record.get("sequence_no", 0)
             ) <= _runtime_number_sort_value(existing.get("sequence_no", 0)):
-                return
+                return "stale_ignored"
             self.trace_spans[key] = record
+            return "stored"
 
     def write_guardrail_result_fact(
         self, event: dict[str, Any], payload: dict[str, Any]
-    ) -> None:
+    ) -> str:
         record = {
             **deepcopy(payload),
             "event_id": event["event_id"],
@@ -296,8 +298,9 @@ class InMemoryRepository:
             if existing and _runtime_number_sort_value(
                 record.get("sequence_no", 0)
             ) <= _runtime_number_sort_value(existing.get("sequence_no", 0)):
-                return
+                return "stale_ignored"
             self.guardrail_results[key] = record
+            return "stored"
 
     def guardrail_result_records_for_run(
         self, run_id: str, *, attempt_no: Any | None = None
@@ -340,13 +343,33 @@ class InMemoryRepository:
             )
 
     def write_runtime_dlq(
-        self, event: dict[str, Any], *, error_code: str, message: str
+        self,
+        event: dict[str, Any],
+        *,
+        error_code: str,
+        message: str,
+        state: str = "degraded",
+        status: str = "dlq",
+        retryable: bool = True,
     ) -> None:
+        event_id = str(event.get("event_id") or "unknown")
         with self._lock:
-            self.runtime_dlq[event.get("event_id", "unknown")] = {
-                "event": deepcopy(event),
+            self.runtime_dlq[event_id] = {
+                "event_id": event_id,
+                "event_type": str(event.get("event_type") or ""),
+                "event_type_version": str(event.get("event_type_version") or ""),
+                "schema_version": str(event.get("schema_version") or ""),
+                "sequence_no": event.get("sequence_no"),
+                "idempotency_key": str(event.get("idempotency_key") or ""),
+                "payload_hash": str(event.get("payload_hash") or ""),
+                "payload_ref": str(event.get("payload_ref") or ""),
+                "source_trust": str(event.get("source_trust") or ""),
+                "integration_mode": str(event.get("integration_mode") or ""),
+                "status": status,
+                "state": state,
                 "error_code": error_code,
                 "message": message,
+                "retryable": retryable,
                 "received_at": utc_now(),
             }
 
