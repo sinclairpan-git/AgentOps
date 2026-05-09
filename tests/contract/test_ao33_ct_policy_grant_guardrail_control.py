@@ -225,6 +225,46 @@ def test_ao33_ct_004_grant_consumption_is_atomic_for_remaining_uses(repository):
     assert stored_grant["remaining_uses"] == 0
 
 
+def test_ao33_ct_004_multi_use_grant_consumptions_keep_distinct_audit_records(
+    repository,
+):
+    grant = approved_grant(repository, remaining_uses=2)
+
+    first = consume_grant(
+        grant["grant_id"],
+        policy_request(
+            policy_check_id=grant["policy_check_id"],
+            version=grant["version"],
+            artifact_hash=grant["artifact_hash"],
+            installation_id=grant["installation_id"],
+            device_id=grant["device_id"],
+            user_id=grant["user_id"],
+            session_id=grant["session_id"],
+            run_id=grant["run_id"],
+        ),
+        repository,
+    )
+    second = consume_grant(
+        grant["grant_id"],
+        policy_request(
+            policy_check_id=grant["policy_check_id"],
+            version=grant["version"],
+            artifact_hash=grant["artifact_hash"],
+            installation_id=grant["installation_id"],
+            device_id=grant["device_id"],
+            user_id=grant["user_id"],
+            session_id=grant["session_id"],
+            run_id=grant["run_id"],
+        ),
+        repository,
+    )
+
+    assert first["consumption_id"] != second["consumption_id"]
+    assert first["remaining_uses_after"] == 1
+    assert second["remaining_uses_after"] == 0
+    assert len(repository.grant_consumptions) == 2
+
+
 def test_ao33_ct_004_grant_consumption_rejects_placeholder_artifact_hash_reuse(
     repository,
 ):
@@ -336,6 +376,21 @@ def test_ao33_ct_006_runtime_views_include_guardrail_summary_without_raw_payload
                     sequence_no=4,
                     idempotency_key="runtime:span_guardrail_pending",
                 ),
+                runtime_event(
+                    "evt_span_guardrail_same_id_other_trace",
+                    "trace_span",
+                    trace_span_payload(
+                        trace_id="trace_2",
+                        span_id="span_guardrail",
+                        span_kind="guardrail",
+                        operation_name="guardrail.bias",
+                        guardrail_result_refs=["gr_missing"],
+                        status_code="waiting",
+                    ),
+                    schema_version="trace_span.v1",
+                    sequence_no=5,
+                    idempotency_key="runtime:span_guardrail_same_id_other_trace",
+                ),
             ]
         ),
         repository,
@@ -355,6 +410,11 @@ def test_ao33_ct_006_runtime_views_include_guardrail_summary_without_raw_payload
             "evidence_ref": "vault://guardrail/gr_1",
         },
         {
+            "span_id": "span_guardrail",
+            "operation_name": "guardrail.bias",
+            "status_code": "waiting",
+        },
+        {
             "span_id": "span_guardrail_pending",
             "operation_name": "guardrail.toxicity",
             "status_code": "waiting",
@@ -362,5 +422,6 @@ def test_ao33_ct_006_runtime_views_include_guardrail_summary_without_raw_payload
     ]
     assert "payload" not in detail["guardrail_summary"][0]
     assert "payload" not in detail["guardrail_summary"][1]
+    assert "payload" not in detail["guardrail_summary"][2]
     assert timeline["spans"][0]["guardrail_results"][0]["status"] == "warn"
     assert "payload" not in timeline["spans"][0]["guardrail_results"][0]

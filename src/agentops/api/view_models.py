@@ -419,8 +419,8 @@ def _runtime_guardrail_summary(
     guardrail_results: tuple[dict[str, Any], ...],
 ) -> list[dict[str, str]]:
     summaries = [_guardrail_result_summary(result) for result in guardrail_results]
-    resolved_span_ids = {
-        str(result.get("span_id"))
+    resolved_span_identities = {
+        _guardrail_span_identity(result)
         for result in guardrail_results
         if result.get("span_id") not in (None, "")
     }
@@ -428,7 +428,7 @@ def _runtime_guardrail_summary(
         _guardrail_span_summary(span)
         for span in spans
         if span.get("span_kind") == "guardrail"
-        and str(span.get("span_id")) not in resolved_span_ids
+        and _guardrail_span_identity(span) not in resolved_span_identities
     )
     return summaries
 
@@ -499,6 +499,10 @@ def _guardrail_span_summary(span: dict[str, Any]) -> dict[str, str]:
         "operation_name": str(span.get("operation_name")),
         "status_code": str(span.get("status_code")),
     }
+
+
+def _guardrail_span_identity(value: dict[str, Any]) -> tuple[str, str]:
+    return (str(value.get("trace_id") or ""), str(value.get("span_id") or ""))
 
 
 def _trace_duration_ms(span: dict[str, Any]) -> int:

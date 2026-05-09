@@ -87,7 +87,10 @@ def consume_capability_grant(
 
     remaining_uses_after = _remaining_uses(grant.get("remaining_uses", 0))
     consumption = {
-        "consumption_id": f"consume_{grant_id}_{policy_request.get('run_id', 'run')}",
+        "consumption_id": (
+            f"consume_{grant_id}_{policy_request.get('run_id', 'run')}"
+            f"_{remaining_uses_after}"
+        ),
         "grant_id": grant_id,
         "policy_check_id": policy_request.get(
             "policy_check_id", f"pcheck_{policy_request['run_id']}"

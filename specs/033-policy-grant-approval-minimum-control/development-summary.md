@@ -17,6 +17,7 @@
 - 已修复 PR #34 Codex review 第二轮反馈：AI-SDLC checkpoint 的 `linked_plan_uri` 与 AO33 work item 对齐，避免 resume/close-check 读取 AO32 plan。
 - 已修复 PR #34 Codex review 第三轮反馈：`policy_unavailable` 可生成策略摘要；Run Detail guardrail 摘要保留未解析 result 的 guardrail span。
 - 已修复 PR #34 Codex review 第四轮反馈：PolicyDecision TTL 不超过 Grant `valid_until`；Grant `remaining_uses` 在仓储锁内原子扣减。
+- 已修复 PR #34 Codex review 第五轮反馈：多次 Grant consumption 不覆盖审计记录；Guardrail summary 按 `trace_id + span_id` 去重。
 
 ## 尚未执行内容
 

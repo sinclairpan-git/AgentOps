@@ -281,3 +281,41 @@
 ### 6.4 结论
 
 - Codex review 最新两条 P1 已修复并纳入合同测试，将同步 Program Truth、close-check、提交推送并触发 PR #34 `@codex review`。
+
+## 7. PR Review Fix 2026-05-09-005 | Grant audit uniqueness and guardrail identity
+
+### 7.1 触发来源
+
+- 来源：PR #34 Codex Review
+- Reviewed commit：`2733095411`
+- 反馈类型：P1 multi-use grant consumption audit overwrite；P2 guardrail summary dedupe identity。
+
+### 7.2 修复内容
+
+#### RF-008 | 多次 Grant consumption 保留独立审计记录
+
+- 改动范围：`src/agentops/core/grants.py`
+- 改动内容：`consumption_id` 增加 `remaining_uses_after` 后缀，确保同一 grant 在同一 run 内被多次合法消费时不会覆盖 `grant_consumptions` 字典中的历史记录。
+- 新增/调整测试：`test_ao33_ct_004_multi_use_grant_consumptions_keep_distinct_audit_records`
+- 是否符合任务目标：符合 AO-P0-08，Grant 使用轨迹必须可审计且不可被后续使用覆盖。
+
+#### RF-009 | Guardrail summary 按 trace_id + span_id 去重
+
+- 改动范围：`src/agentops/api/view_models.py`
+- 改动内容：Run Detail guardrail summary 的已解析 span 去重从单独 `span_id` 改为 `(trace_id, span_id)`，避免同一 run 内不同 trace 的同名 guardrail span 被错误隐藏。
+- 新增/调整测试：`test_ao33_ct_006_runtime_views_include_guardrail_summary_without_raw_payload`
+- 是否符合任务目标：符合 AO-P0-09，partial ingestion 下的 governance evidence gap 必须可见。
+
+### 7.3 验证记录
+
+- `uv run ai-sdlc run --dry-run`：通过，Stage close PASS。
+- `uv run pytest tests/contract/test_ao33_ct_policy_grant_guardrail_control.py tests/contract/test_ao2_ct_003_capability_grant.py tests/contract/test_ao31_ct_runtime_governance_foundation.py -q`：通过，64 tests。
+- `uv run pytest tests/contract/test_ao33_ct_policy_grant_guardrail_control.py tests/contract/test_ao2_ct_001_policy_check.py tests/contract/test_ao2_ct_002_approval_lifecycle.py tests/contract/test_ao2_ct_003_capability_grant.py tests/contract/test_ao2_ct_005_policy_summary.py tests/unit/test_policy_engine.py tests/unit/test_grant_scope.py tests/contract/test_ao31_ct_runtime_governance_foundation.py tests/contract/test_ao32_ct_evidence_health_summary_loop.py -q`：通过，101 tests。
+- `uv run ruff check src/agentops/core/grants.py src/agentops/api/view_models.py tests/contract/test_ao33_ct_policy_grant_guardrail_control.py`：通过。
+- `uv run ruff check src tests`：通过。
+- `uv run ruff format --check src/agentops/core/grants.py src/agentops/api/view_models.py tests/contract/test_ao33_ct_policy_grant_guardrail_control.py`：通过。
+- `uv run ai-sdlc verify constraints`：通过，无 BLOCKER。
+
+### 7.4 结论
+
+- Codex review 最新 P1/P2 已修复并纳入合同测试，将同步 Program Truth、close-check、提交推送并触发 PR #34 `@codex review`。
