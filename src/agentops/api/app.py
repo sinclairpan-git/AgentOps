@@ -25,6 +25,8 @@ def create_app() -> dict[str, str]:
         "runtime_ingestion": "POST /v1/runtime/events",
         "runtime_run_detail": "GET /v1/runtime/runs/{run_id}",
         "runtime_trace_timeline": "GET /v1/runtime/runs/{run_id}/trace",
+        "runtime_evidence_summary": "GET /v1/runtime/runs/{run_id}/evidence-summary",
+        "runtime_health_summary": "GET /v1/runtime/agents/{agent_id}/versions/{version}/health-summary",
         "health": "/v1/health",
         "console_snapshot": "/v1/console/snapshot",
         "production_auth_boundary": "upstream headers: X-AgentOps-Principal, X-AgentOps-Roles, X-AgentOps-Scopes",

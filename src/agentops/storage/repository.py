@@ -156,6 +156,21 @@ class InMemoryRepository:
             latest = sorted(candidates, key=_runtime_attempt_sort_key)[-1]
             return deepcopy(latest)
 
+    def runtime_run_records_for_agent_version(
+        self, agent_id: str, version: str, *, limit: int | None = None
+    ) -> tuple[dict[str, Any], ...]:
+        with self._lock:
+            records = [
+                deepcopy(record)
+                for record in self.runtime_runs.values()
+                if record.get("agent_id") == agent_id
+                and record.get("version") == version
+            ]
+            sorted_records = sorted(records, key=_runtime_attempt_sort_key)
+            if limit is not None and limit >= 0:
+                sorted_records = sorted_records[-limit:]
+            return tuple(sorted_records)
+
     def trace_span_records_for_run(
         self, run_id: str, *, attempt_no: Any | None = None
     ) -> tuple[dict[str, Any], ...]:

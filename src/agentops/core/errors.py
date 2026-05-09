@@ -11,6 +11,7 @@ class AgentOpsError(Exception):
     audit_id: str | None = None
     request_id: str | None = None
     denied_scope: str | None = None
+    request_access_url: str | None = None
 
     def to_response(self) -> dict:
         response = {
@@ -24,4 +25,6 @@ class AgentOpsError(Exception):
             response["request_id"] = self.request_id
         if self.denied_scope:
             response["denied_scope"] = self.denied_scope
+        if self.request_access_url:
+            response["request_access_url"] = self.request_access_url
         return response
