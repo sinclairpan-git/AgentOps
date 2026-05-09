@@ -51,6 +51,18 @@ def _runtime_attempt_matches(actual: Any, expected: Any) -> bool:
     return str(actual) == str(expected)
 
 
+def _runtime_time_sort_value(value: Any) -> tuple[int, float, str]:
+    raw_value = str(value or "")
+    try:
+        parsed = datetime.fromisoformat(raw_value.replace("Z", "+00:00"))
+    except ValueError:
+        return (1, 0.0, raw_value)
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    timestamp = parsed.astimezone(UTC).timestamp()
+    return (0, timestamp, raw_value)
+
+
 @dataclass
 class InMemoryRepository:
     _lock: RLock = field(default_factory=RLock, repr=False)
@@ -154,7 +166,7 @@ class InMemoryRepository:
                 sorted(
                     spans,
                     key=lambda item: (
-                        str(item.get("start_time", "")),
+                        _runtime_time_sort_value(item.get("start_time")),
                         str(item.get("span_id", "")),
                     ),
                 )

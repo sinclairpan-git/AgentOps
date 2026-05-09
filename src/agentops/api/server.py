@@ -726,7 +726,11 @@ def create_http_handler(
                     return
                 status = (
                     HTTPStatus.ACCEPTED
-                    if outcome["accepted_count"] or outcome["deduplicated_count"]
+                    if (
+                        outcome["accepted_count"]
+                        or outcome["deduplicated_count"]
+                        or outcome["dlq_count"]
+                    )
                     else HTTPStatus.BAD_REQUEST
                 )
                 self._append_audit_record(

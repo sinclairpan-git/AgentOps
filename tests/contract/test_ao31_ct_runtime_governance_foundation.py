@@ -155,6 +155,24 @@ def _json_get(server: ThreadingHTTPServer, path: str):
         connection.close()
 
 
+def _json_post(server: ThreadingHTTPServer, path: str, payload: dict):
+    connection = HTTPConnection(
+        server.server_address[0], server.server_address[1], timeout=5
+    )
+    try:
+        connection.request(
+            "POST",
+            path,
+            body=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+        )
+        response = connection.getresponse()
+        body = response.read().decode("utf-8")
+        return response, json.loads(body) if body else {}
+    finally:
+        connection.close()
+
+
 def _serve_repository(repository: InMemoryRepository):
     server = ThreadingHTTPServer(
         ("127.0.0.1", 0), create_http_handler(repository=repository)
@@ -684,6 +702,41 @@ def test_ao31_ct_005_trace_parent_missing_enters_dlq():
     assert repository.trace_span_count() == 0
 
 
+def test_ao31_ct_005_runtime_events_http_accepts_dlq_only_batch():
+    repository = InMemoryRepository()
+    server, thread = _serve_repository(repository)
+    try:
+        response, body = _json_post(
+            server,
+            "/v1/runtime/events",
+            runtime_batch(
+                [
+                    runtime_event(
+                        "evt_child_span_http_dlq",
+                        "trace_span",
+                        trace_span_payload(
+                            span_id="span_child", parent_span_id="span_missing"
+                        ),
+                        schema_version="trace_span.v1",
+                        sequence_no=1,
+                        idempotency_key="runtime:span_child_http_dlq",
+                    )
+                ]
+            ),
+        )
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+    assert response.status == 202
+    assert body["accepted_count"] == 0
+    assert body["dlq_count"] == 1
+    assert body["item_results"][0]["error_code"] == "TRACE_PARENT_MISSING"
+    assert repository.trace_span_count() == 0
+    assert repository.runtime_dlq_count() == 1
+
+
 def test_ao31_ct_005_trace_parent_presence_is_scoped_by_run_id():
     repository = InMemoryRepository()
     outcome = ingest_runtime_events(
@@ -1026,6 +1079,56 @@ def test_ao31_ct_007_trace_timeline_projection_is_ordered_and_summarized():
     assert timeline["redaction_state"] == "summary_only"
     assert timeline["aggregate"]["token_usage"]["input"] == 24
     assert timeline["aggregate"]["cost_estimate"]["amount"] == 0.02
+
+
+def test_ao31_ct_007_trace_timeline_orders_by_normalized_start_time():
+    repository = InMemoryRepository()
+    ingest_runtime_events(
+        runtime_batch(
+            [
+                runtime_event(
+                    "evt_run_timeline_offsets",
+                    "runtime_run",
+                    runtime_run_payload(),
+                    schema_version="runtime_run.v1",
+                    sequence_no=1,
+                    idempotency_key="runtime:run_timeline_offsets",
+                ),
+                runtime_event(
+                    "evt_span_later_offset",
+                    "trace_span",
+                    trace_span_payload(
+                        span_id="span_later_offset",
+                        start_time="2026-05-09T08:00:00+03:00",
+                        end_time="2026-05-09T08:00:01+03:00",
+                    ),
+                    schema_version="trace_span.v1",
+                    sequence_no=2,
+                    idempotency_key="runtime:span_later_offset",
+                ),
+                runtime_event(
+                    "evt_span_earlier_utc",
+                    "trace_span",
+                    trace_span_payload(
+                        span_id="span_earlier_utc",
+                        start_time="2026-05-09T04:30:00+00:00",
+                        end_time="2026-05-09T04:30:01+00:00",
+                    ),
+                    schema_version="trace_span.v1",
+                    sequence_no=3,
+                    idempotency_key="runtime:span_earlier_utc",
+                ),
+            ]
+        ),
+        repository,
+    )
+
+    timeline = get_runtime_trace_timeline(repository, "run_1")
+
+    assert [span["span_id"] for span in timeline["spans"]] == [
+        "span_earlier_utc",
+        "span_later_offset",
+    ]
 
 
 def test_ao31_ct_007_trace_timeline_scopes_spans_to_latest_attempt():
