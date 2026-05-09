@@ -213,3 +213,62 @@ Runtime Contract / Schema / State / Error Registry 的最小治理基础已落�
 #### 4.7 批次结论
 
 Runtime Ingestion API v1 已具备最小可用接入能力。当前还未实现 Run Detail / Trace Timeline projection，因此 Console 仍不能完整消费 runtime facts。
+
+### Batch 2026-05-09-004 | T31-31 - T31-33
+
+#### 5.1 批次范围
+
+- 覆盖任务：`T31-31`、`T31-32`、`T31-33`
+- 覆盖阶段：execute / Batch 4
+- 预读范围：
+  - `specs/031-agentops-runtime-governance-foundation/spec.md`
+  - `specs/031-agentops-runtime-governance-foundation/plan.md`
+  - `specs/031-agentops-runtime-governance-foundation/tasks.md`
+
+#### 5.2 改动范围
+
+- `src/agentops/api/view_models.py`
+- `src/agentops/api/runtime.py`
+- `src/agentops/api/app.py`
+- `src/agentops/storage/repository.py`
+- `tests/contract/test_ao31_ct_runtime_governance_foundation.py`
+- `specs/031-agentops-runtime-governance-foundation/tasks.md`
+- `specs/031-agentops-runtime-governance-foundation/development-summary.md`
+- `specs/031-agentops-runtime-governance-foundation/task-execution-log.md`
+
+#### 5.3 改动内容
+
+- 新增 `RunDetailProjection` 构建函数，返回 display_state、next_action、policy/approval/guardrail/artifact 摘要、outbox_state、trace_state 和 audit_id。
+- 新增 `TraceTimelineProjection` 构建函数，返回 span tree/list、redaction_state、degraded_reason、token/cost aggregate。
+- 新增 runtime API 包装：`get_runtime_run_detail`、`get_runtime_trace_timeline`。
+- 在 API manifest 中登记 `GET /v1/runtime/runs/{run_id}` 与 `GET /v1/runtime/runs/{run_id}/trace`。
+- Repository 新增 runtime run / trace span 查询能力。
+
+#### 5.4 统一验证命令
+
+- `uv run pytest tests/unit/test_runtime_contracts.py tests/contract/test_ao31_ct_runtime_governance_foundation.py tests/unit/test_admin_view_models.py -q`
+  - 结果：PASS，26 passed。
+- `uv run pytest tests -q`
+  - 结果：PASS，全量 Python 测试通过。
+- `uv run ruff check src tests`
+  - 结果：PASS。
+- `uv run ruff format --check src/agentops/api/runtime.py src/agentops/api/view_models.py src/agentops/storage/repository.py src/agentops/api/app.py tests/contract/test_ao31_ct_runtime_governance_foundation.py`
+  - 结果：PASS，本批文件格式通过。
+
+#### 5.5 代码审查结论
+
+- 宪章/规格对齐：符合。投影层不返回 raw payload，保持 AgentOps 只解释 Runtime facts。
+- 代码质量：Run Detail 与 Timeline 由后端统一构造，避免前端拼 raw events。
+- 测试质量：覆盖 blocked/trace_pending、安全权限拒绝、timeline 排序、token/cost aggregate、raw access required。
+- 结论：Batch 4 可收口，后续进入 Batch 5 Console contract integration。
+
+#### 5.6 任务/计划同步状态
+
+- `tasks.md` 同步状态：T31-31、T31-32、T31-33 已完成。
+- `related_plan` 同步状态：Batch 4 与 `plan.md` Phase 3 对齐。
+- 当前批次 branch disposition 状态：retained（dev 分支继续执行 Batch 5 后统一 PR）
+- 当前批次 worktree disposition 状态：retained（当前工作树继续执行 031 后续批次）
+
+#### 5.7 批次结论
+
+Run Detail 和 Trace Timeline projection 已具备后端最小能力。当前还未完成 Console mock/API client 和页面承接。

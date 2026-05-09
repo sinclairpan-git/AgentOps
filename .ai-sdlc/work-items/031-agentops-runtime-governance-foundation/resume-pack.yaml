@@ -9,10 +9,10 @@ working_set_snapshot:
   plan_path: /Users/sinclairpan/project/AgentOps/specs/031-agentops-runtime-governance-foundation/plan.md
   tasks_path: /Users/sinclairpan/project/AgentOps/specs/031-agentops-runtime-governance-foundation/tasks.md
   active_files: []
-  context_summary: 'Goal: Implement AgentOps 031 Batch 3 Runtime Ingestion API v1
-    | State: Runtime ingestion accepts RuntimeRun and TraceSpan facts with schema
-    checks, idempotency, unsupported span kind rejection, and parent-missing DLQ |
-    Next: Commit Batch 3, then implement Batch 4 Run Detail and Trace Timeline projections'
+  context_summary: 'Goal: Implement AgentOps 031 Batch 4 Run Detail and Trace Timeline
+    projections | State: Runtime facts can now be projected into safe Run Detail and
+    Trace Timeline models; AO31-CT-006/007 pass | Next: Commit Batch 4, then implement
+    Batch 5 Console mock/API client and RunsView/OverviewView integration'
 current_branch: feature/031-agentops-runtime-governance-foundation-docs
 docs_baseline_ref: ''
 docs_baseline_at: ''

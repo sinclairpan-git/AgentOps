@@ -1,6 +1,7 @@
 import pytest
 
 from agentops.api.app import create_app
+from agentops.api.runtime import get_runtime_run_detail, get_runtime_trace_timeline
 from agentops.core.errors import AgentOpsError
 from agentops.api.runtime import ingest_runtime_events
 from agentops.core.runtime_contracts import (
@@ -204,6 +205,8 @@ def test_ao31_ct_002_runtime_ingestion_api_manifest_is_exposed():
     manifest = create_app()
 
     assert manifest["runtime_ingestion"] == "POST /v1/runtime/events"
+    assert manifest["runtime_run_detail"] == "GET /v1/runtime/runs/{run_id}"
+    assert manifest["runtime_trace_timeline"] == "GET /v1/runtime/runs/{run_id}/trace"
 
 
 def test_ao31_ct_002_runtime_ingestion_rejects_unsupported_schema():
@@ -322,3 +325,112 @@ def test_ao31_ct_005_trace_parent_missing_enters_dlq():
     assert outcome["dlq_count"] == 1
     assert outcome["item_results"][0]["error_code"] == "TRACE_PARENT_MISSING"
     assert repository.trace_span_count() == 0
+
+
+def test_ao31_ct_006_run_detail_projection_explains_blocked_and_trace_pending():
+    repository = InMemoryRepository()
+    ingest_runtime_events(
+        runtime_batch(
+            [
+                runtime_event(
+                    "evt_blocked_run",
+                    "runtime_run",
+                    runtime_run_payload(
+                        status="blocked",
+                        terminal_reason="policy_block: deploy requires approval",
+                    ),
+                    schema_version="runtime_run.v1",
+                    sequence_no=1,
+                    idempotency_key="runtime:blocked_run",
+                )
+            ]
+        ),
+        repository,
+    )
+
+    detail = get_runtime_run_detail(repository, "run_1")
+
+    assert detail["run"]["status"] == "blocked"
+    assert detail["display_state"]["display_name"] == "已阻断"
+    assert detail["next_action"] == "查看原因"
+    assert detail["trace_state"] == "pending"
+    assert detail["audit_id"] == "audit_runtime_run_run_1"
+
+
+def test_ao31_ct_006_run_detail_scope_denied_is_safe():
+    repository = InMemoryRepository()
+
+    with pytest.raises(AgentOpsError) as exc:
+        get_runtime_run_detail(repository, "run_1", allowed=False)
+
+    assert exc.value.error_code == "RUN_DETAIL_SCOPE_DENIED"
+    assert exc.value.denied_scope == "runtime.run.read"
+
+
+def test_ao31_ct_007_trace_timeline_projection_is_ordered_and_summarized():
+    repository = InMemoryRepository()
+    ingest_runtime_events(
+        runtime_batch(
+            [
+                runtime_event(
+                    "evt_run_timeline",
+                    "runtime_run",
+                    runtime_run_payload(),
+                    schema_version="runtime_run.v1",
+                    sequence_no=1,
+                    idempotency_key="runtime:run_timeline",
+                ),
+                runtime_event(
+                    "evt_span_root",
+                    "trace_span",
+                    trace_span_payload(
+                        span_id="span_root",
+                        parent_span_id="",
+                        span_kind="model",
+                        start_time="2026-05-09T05:00:00+00:00",
+                        end_time="2026-05-09T05:00:01+00:00",
+                    ),
+                    schema_version="trace_span.v1",
+                    sequence_no=2,
+                    idempotency_key="runtime:span_root",
+                ),
+                runtime_event(
+                    "evt_span_tool",
+                    "trace_span",
+                    trace_span_payload(
+                        span_id="span_tool",
+                        parent_span_id="span_root",
+                        span_kind="tool",
+                        operation_name="tool.call",
+                        start_time="2026-05-09T05:00:01+00:00",
+                        end_time="2026-05-09T05:00:02+00:00",
+                    ),
+                    schema_version="trace_span.v1",
+                    sequence_no=3,
+                    idempotency_key="runtime:span_tool",
+                ),
+            ]
+        ),
+        repository,
+    )
+
+    timeline = get_runtime_trace_timeline(repository, "run_1")
+
+    assert timeline["trace_id"] == "trace_1"
+    assert [span["span_id"] for span in timeline["spans"]] == [
+        "span_root",
+        "span_tool",
+    ]
+    assert timeline["redaction_state"] == "summary_only"
+    assert timeline["aggregate"]["token_usage"]["input"] == 24
+    assert timeline["aggregate"]["cost_estimate"]["amount"] == 0.02
+
+
+def test_ao31_ct_007_trace_timeline_raw_access_requires_permission():
+    repository = InMemoryRepository()
+
+    with pytest.raises(AgentOpsError) as exc:
+        get_runtime_trace_timeline(repository, "run_1", request_raw=True)
+
+    assert exc.value.error_code == "RAW_ACCESS_REQUIRED"
+    assert exc.value.denied_scope == "runtime.trace.raw"

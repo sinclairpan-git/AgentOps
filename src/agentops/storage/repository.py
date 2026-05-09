@@ -89,6 +89,35 @@ class InMemoryRepository:
         with self._lock:
             return len(self.runtime_dlq)
 
+    def get_runtime_run_fact(self, run_id: str) -> dict[str, Any] | None:
+        with self._lock:
+            candidates = [
+                record
+                for record in self.runtime_runs.values()
+                if record.get("run_id") == run_id
+            ]
+            if not candidates:
+                return None
+            latest = sorted(candidates, key=lambda item: item.get("attempt_no", 0))[-1]
+            return deepcopy(latest)
+
+    def trace_span_records_for_run(self, run_id: str) -> tuple[dict[str, Any], ...]:
+        with self._lock:
+            spans = [
+                deepcopy(record)
+                for record in self.trace_spans.values()
+                if record.get("run_id") == run_id
+            ]
+            return tuple(
+                sorted(
+                    spans,
+                    key=lambda item: (
+                        str(item.get("start_time", "")),
+                        str(item.get("span_id", "")),
+                    ),
+                )
+            )
+
     def runtime_idempotency_outcome(
         self, idempotency_key: str, payload_hash: str
     ) -> str:

@@ -3,6 +3,11 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import Any
+
+from agentops.core.errors import AgentOpsError
+from agentops.core.runtime_contracts import get_state
+from agentops.storage.repository import InMemoryRepository
 
 PAGES = [
     "Overview",
@@ -276,3 +281,184 @@ def _stage2_primary_action(page: str, state: str) -> str:
     if state in business_actions:
         return business_actions[state]
     return "查看详情"
+
+
+def build_runtime_run_detail_projection(
+    repository: InMemoryRepository,
+    run_id: str,
+    *,
+    allowed: bool = True,
+) -> dict[str, Any]:
+    if not allowed:
+        raise AgentOpsError(
+            "RUN_DETAIL_SCOPE_DENIED",
+            "Runtime run detail requires runtime.run.read permission.",
+            audit_id=f"audit_runtime_run_{run_id}",
+            request_id=f"req_runtime_run_{run_id}",
+            denied_scope="runtime.run.read",
+        )
+
+    run = repository.get_runtime_run_fact(run_id)
+    if run is None:
+        raise AgentOpsError(
+            "RUNTIME_RUN_NOT_FOUND",
+            "Runtime run fact was not found.",
+            audit_id=f"audit_runtime_run_{run_id}",
+            request_id=f"req_runtime_run_{run_id}",
+        )
+
+    state = get_state(_run_display_state(run))
+    spans = repository.trace_span_records_for_run(run_id)
+    trace_state = "complete" if spans else "pending"
+    return {
+        "run": run,
+        "display_state": state.to_stable_dict(),
+        "next_action": state.primary_action,
+        "policy_summary": _runtime_policy_summary(run),
+        "approval_summary": _runtime_approval_summary(run),
+        "guardrail_summary": _runtime_guardrail_summary(spans),
+        "artifact_refs": _runtime_artifact_refs(spans),
+        "outbox_state": "delivered" if spans else "pending",
+        "trace_state": trace_state,
+        "audit_id": f"audit_runtime_run_{run_id}",
+    }
+
+
+def build_trace_timeline_projection(
+    repository: InMemoryRepository,
+    run_id: str,
+    *,
+    request_raw: bool = False,
+    raw_access_allowed: bool = False,
+) -> dict[str, Any]:
+    if request_raw and not raw_access_allowed:
+        raise AgentOpsError(
+            "RAW_ACCESS_REQUIRED",
+            "Raw trace input/output requires Evidence Vault approval.",
+            audit_id=f"audit_runtime_trace_{run_id}",
+            request_id=f"req_runtime_trace_{run_id}",
+            denied_scope="runtime.trace.raw",
+        )
+
+    spans = list(repository.trace_span_records_for_run(run_id))
+    trace_id = str(spans[0].get("trace_id")) if spans else ""
+    degraded_reason = _timeline_degraded_reason(spans)
+    return {
+        "trace_id": trace_id,
+        "run_id": run_id,
+        "spans": [_trace_span_projection(span) for span in spans],
+        "degraded": bool(degraded_reason),
+        "degraded_reason": degraded_reason,
+        "redaction_state": "raw" if raw_access_allowed else "summary_only",
+        "aggregate": _trace_aggregate(spans),
+    }
+
+
+def _run_display_state(run: dict[str, Any]) -> str:
+    status = str(run.get("status") or "degraded")
+    if status in {
+        "running",
+        "approval_paused",
+        "succeeded",
+        "failed",
+        "cancelled",
+        "timeout",
+        "blocked",
+    }:
+        return status
+    return "degraded"
+
+
+def _runtime_policy_summary(run: dict[str, Any]) -> dict[str, str] | None:
+    terminal_reason = str(run.get("terminal_reason") or "")
+    if "policy" not in terminal_reason and run.get("status") != "blocked":
+        return None
+    return {
+        "decision": "block",
+        "reason_code": terminal_reason or "policy_block",
+        "fallback_action": "require_online",
+        "policy_set_version": str(run.get("policy_bundle_version") or "unknown"),
+    }
+
+
+def _runtime_approval_summary(run: dict[str, Any]) -> dict[str, str] | None:
+    if run.get("status") != "approval_paused":
+        return None
+    return {
+        "approval_id": f"approval_{run['run_id']}",
+        "status": "pending",
+        "primary_action": "查看审批进度",
+    }
+
+
+def _runtime_guardrail_summary(
+    spans: tuple[dict[str, Any], ...],
+) -> list[dict[str, str]]:
+    return [
+        {
+            "span_id": str(span.get("span_id")),
+            "operation_name": str(span.get("operation_name")),
+            "status_code": str(span.get("status_code")),
+        }
+        for span in spans
+        if span.get("span_kind") == "guardrail"
+    ]
+
+
+def _runtime_artifact_refs(spans: tuple[dict[str, Any], ...]) -> list[dict[str, str]]:
+    return [
+        {
+            "span_id": str(span.get("span_id")),
+            "output_ref": str(span.get("output_ref") or ""),
+        }
+        for span in spans
+        if span.get("span_kind") == "artifact"
+    ]
+
+
+def _trace_span_projection(span: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "trace_id": span.get("trace_id"),
+        "span_id": span.get("span_id"),
+        "parent_span_id": span.get("parent_span_id"),
+        "span_kind": span.get("span_kind"),
+        "operation_name": span.get("operation_name"),
+        "status_code": span.get("status_code"),
+        "start_time": span.get("start_time"),
+        "end_time": span.get("end_time"),
+        "input_ref": span.get("input_ref"),
+        "output_ref": span.get("output_ref"),
+        "error_code": span.get("error_code"),
+        "retryable": span.get("retryable"),
+    }
+
+
+def _timeline_degraded_reason(spans: list[dict[str, Any]]) -> str | None:
+    if not spans:
+        return "trace_pending"
+    span_ids = {str(span.get("span_id")) for span in spans}
+    for span in spans:
+        parent_span_id = str(span.get("parent_span_id") or "")
+        if parent_span_id and parent_span_id not in span_ids:
+            return "TRACE_PARENT_MISSING"
+    return None
+
+
+def _trace_aggregate(spans: list[dict[str, Any]]) -> dict[str, Any]:
+    input_tokens = 0
+    output_tokens = 0
+    cost_amount = 0.0
+    currency = "unknown"
+    for span in spans:
+        token_usage = span.get("token_usage") or {}
+        input_tokens += int(token_usage.get("input") or 0)
+        output_tokens += int(token_usage.get("output") or 0)
+        cost_estimate = span.get("cost_estimate") or {}
+        cost_amount += float(cost_estimate.get("amount") or 0)
+        if cost_estimate.get("currency"):
+            currency = str(cost_estimate["currency"])
+    return {
+        "span_count": len(spans),
+        "token_usage": {"input": input_tokens, "output": output_tokens},
+        "cost_estimate": {"amount": round(cost_amount, 6), "currency": currency},
+    }

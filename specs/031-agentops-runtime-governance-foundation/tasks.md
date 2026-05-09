@@ -102,7 +102,7 @@ Batch 5: Console contract integration and verification
 
 ### Task 4.1 实现 Run Detail projection
 
-- **状态**：待执行
+- **状态**：已完成
 - **优先级**：P0
 - **依赖**：T31-21
 - **文件**：`src/agentops/api/view_models.py`、`src/agentops/api/console_snapshot.py`、`src/agentops/api/runtime.py`
@@ -111,7 +111,7 @@ Batch 5: Console contract integration and verification
 
 ### Task 4.2 实现 Trace Timeline projection
 
-- **状态**：待执行
+- **状态**：已完成
 - **优先级**：P0
 - **依赖**：T31-21
 - **文件**：`src/agentops/api/view_models.py`、`src/agentops/api/runtime.py`
@@ -120,7 +120,7 @@ Batch 5: Console contract integration and verification
 
 ### Task 4.3 增加 Projection contract tests
 
-- **状态**：待执行
+- **状态**：已完成
 - **优先级**：P0
 - **依赖**：T31-31、T31-32
 - **文件**：`tests/contract/test_ao31_ct_runtime_governance_foundation.py`

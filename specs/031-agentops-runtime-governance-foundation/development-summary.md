@@ -18,6 +18,8 @@
 - 已新增 AO31-CT-001 / AO31-CT-008 的可运行 contract tests 与 registry 单元测试。
 - 已完成 Batch 3：Runtime Ingestion API v1，包含 runtime_run / trace_span 规范化、幂等、schema 拒绝、span kind 拒绝、parent missing DLQ。
 - 已新增 AO31-CT-002 到 AO31-CT-005 的可运行 contract tests。
+- 已完成 Batch 4：Run Detail / Trace Timeline projections。
+- 已新增 AO31-CT-006 / AO31-CT-007 的可运行 projection tests。
 
 ## 尚未执行内容
 
@@ -26,4 +28,4 @@
 
 ## 下一步
 
-进入 Batch 4：实现 Run Detail 和 Trace Timeline projections，并把 AO31-CT-006 / AO31-CT-007 补齐为投影级测试。
+进入 Batch 5：更新 Console mock/API client 与 RunsView/OverviewView 承接 runtime detail/timeline 状态。
