@@ -217,6 +217,18 @@ assert.equal(
     ...validApiSnapshot,
     consoleData: {
       ...consoleData,
+      runs: consoleData.runs.map((run, index) =>
+        index === 0 ? { ...run, runtime_status: "created" } : run
+      )
+    }
+  }),
+  true
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
       runs: [{
         ...consoleData.runs[0],
         trace_timeline: [{

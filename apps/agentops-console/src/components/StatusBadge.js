@@ -6,6 +6,7 @@ const labels = {
   approval_required: "需审批",
   block: "阻断",
   blocked: "已阻断",
+  created: "已创建",
   succeeded: "成功",
   failed: "失败",
   cancelled: "已取消",

@@ -453,6 +453,33 @@ def test_ao31_ct_004_trace_span_fact_rejects_unsupported_span_kind():
     assert outcome["item_results"][0]["error_code"] == "TRACE_SPAN_KIND_UNSUPPORTED"
 
 
+def test_ao31_ct_004_trace_span_invalid_kind_wins_over_missing_parent_dlq():
+    repository = InMemoryRepository()
+    outcome = ingest_runtime_events(
+        runtime_batch(
+            [
+                runtime_event(
+                    "evt_span_bad_kind_missing_parent",
+                    "trace_span",
+                    trace_span_payload(
+                        span_id="span_child",
+                        parent_span_id="span_missing",
+                        span_kind="database",
+                    ),
+                    schema_version="trace_span.v1",
+                    sequence_no=1,
+                    idempotency_key="runtime:span_bad_kind_missing_parent",
+                )
+            ]
+        ),
+        repository,
+    )
+
+    assert outcome["rejected_count"] == 1
+    assert outcome["dlq_count"] == 0
+    assert outcome["item_results"][0]["error_code"] == "TRACE_SPAN_KIND_UNSUPPORTED"
+
+
 def test_ao31_ct_005_trace_parent_missing_enters_dlq():
     repository = InMemoryRepository()
     outcome = ingest_runtime_events(

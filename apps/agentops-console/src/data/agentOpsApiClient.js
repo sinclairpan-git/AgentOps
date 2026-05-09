@@ -5,6 +5,7 @@ export const SNAPSHOT_TIMEOUT_MS = 3000;
 
 const allowedStates = new Set([
   "healthy",
+  "created",
   "allow",
   "conditional_allow",
   "warn",
@@ -1149,6 +1150,7 @@ export function snapshotShapeIsSafe(consoleData) {
 
 function runtimeRunsAreSafe(consoleData) {
   const runtimeStatuses = new Set([
+    "created",
     "succeeded",
     "failed",
     "cancelled",

@@ -273,6 +273,7 @@ def _trace_parent_missing(
     incoming_span_ids: set[tuple[str, str]],
 ) -> bool:
     payload = _validated_payload(event, "trace_span.v1", "TRACE_SPAN_INVALID")
+    _validate_enum_fields("trace_span.v1", payload)
     parent_span_id = str(payload.get("parent_span_id") or "").strip()
     if not parent_span_id:
         return False
