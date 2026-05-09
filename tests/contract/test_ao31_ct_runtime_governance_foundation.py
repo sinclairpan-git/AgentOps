@@ -406,6 +406,42 @@ def test_ao31_ct_002_runtime_ingestion_rejects_non_numeric_sequence_without_cras
     assert repository.runtime_run_count() == 0
 
 
+def test_ao31_ct_002_runtime_ingestion_rejects_non_finite_sequence_without_crash():
+    repository = InMemoryRepository()
+    outcome = ingest_runtime_events(
+        runtime_batch(
+            [
+                runtime_event(
+                    "evt_bad_sequence_nan",
+                    "runtime_run",
+                    runtime_run_payload(),
+                    schema_version="runtime_run.v1",
+                    sequence_no=float("nan"),
+                    idempotency_key="runtime:bad_sequence_nan",
+                ),
+                runtime_event(
+                    "evt_run_valid_after_nan",
+                    "runtime_run",
+                    runtime_run_payload(status="succeeded"),
+                    schema_version="runtime_run.v1",
+                    sequence_no=2,
+                    idempotency_key="runtime:run_valid_after_nan",
+                ),
+            ]
+        ),
+        repository,
+    )
+
+    assert outcome["accepted_count"] == 1
+    assert outcome["rejected_count"] == 1
+    assert any(
+        item.get("event_id") == "evt_bad_sequence_nan"
+        and item.get("error_code") == "EVENT_SCHEMA_UNSUPPORTED"
+        for item in outcome["item_results"]
+    )
+    assert repository.get_runtime_run_fact("run_1")["status"] == "succeeded"
+
+
 def test_ao31_ct_003_runtime_run_fact_rejects_missing_required_field():
     repository = InMemoryRepository()
     payload = runtime_run_payload()
@@ -478,6 +514,50 @@ def test_ao31_ct_004_trace_span_invalid_kind_wins_over_missing_parent_dlq():
     assert outcome["rejected_count"] == 1
     assert outcome["dlq_count"] == 0
     assert outcome["item_results"][0]["error_code"] == "TRACE_SPAN_KIND_UNSUPPORTED"
+
+
+def test_ao31_ct_004_trace_span_identity_does_not_collide_on_colon_values():
+    repository = InMemoryRepository()
+    outcome = ingest_runtime_events(
+        runtime_batch(
+            [
+                runtime_event(
+                    "evt_run_trace_collision",
+                    "runtime_run",
+                    runtime_run_payload(),
+                    schema_version="runtime_run.v1",
+                    sequence_no=1,
+                    idempotency_key="runtime:run_trace_collision",
+                ),
+                runtime_event(
+                    "evt_span_trace_ab_c",
+                    "trace_span",
+                    trace_span_payload(trace_id="trace:a", span_id="b"),
+                    schema_version="trace_span.v1",
+                    sequence_no=2,
+                    idempotency_key="runtime:span_trace_ab_c",
+                ),
+                runtime_event(
+                    "evt_span_trace_a_bc",
+                    "trace_span",
+                    trace_span_payload(trace_id="trace", span_id="a:b"),
+                    schema_version="trace_span.v1",
+                    sequence_no=3,
+                    idempotency_key="runtime:span_trace_a_bc",
+                ),
+            ]
+        ),
+        repository,
+    )
+
+    spans = repository.trace_span_records_for_run("run_1")
+
+    assert outcome["accepted_count"] == 3
+    assert repository.trace_span_count() == 2
+    assert {(span["trace_id"], span["span_id"]) for span in spans} == {
+        ("trace:a", "b"),
+        ("trace", "a:b"),
+    }
 
 
 def test_ao31_ct_005_trace_parent_missing_enters_dlq():
