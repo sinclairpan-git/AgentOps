@@ -78,6 +78,12 @@ def _validate_batch(batch: dict[str, Any]) -> None:
             "EVENT_SCHEMA_UNSUPPORTED",
             "Runtime ingestion batch schema is not supported.",
         )
+    batch_id = batch.get("batch_id")
+    if not isinstance(batch_id, str) or not batch_id.strip():
+        raise AgentOpsError(
+            "EVENT_SCHEMA_UNSUPPORTED",
+            "Runtime batch requires batch_id.",
+        )
     events = batch.get("events")
     if not isinstance(events, list):
         raise AgentOpsError(

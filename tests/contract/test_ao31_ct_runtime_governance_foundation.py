@@ -324,6 +324,29 @@ def test_ao31_ct_002_runtime_ingestion_rejects_unsupported_schema():
     assert repository.runtime_run_count() == 0
 
 
+def test_ao31_ct_002_runtime_ingestion_rejects_missing_batch_id():
+    repository = InMemoryRepository()
+    batch = runtime_batch(
+        [
+            runtime_event(
+                "evt_run_missing_batch",
+                "runtime_run",
+                runtime_run_payload(),
+                schema_version="runtime_run.v1",
+                sequence_no=1,
+                idempotency_key="runtime:missing_batch",
+            )
+        ]
+    )
+    batch.pop("batch_id")
+
+    with pytest.raises(AgentOpsError) as exc:
+        ingest_runtime_events(batch, repository)
+
+    assert exc.value.error_code == "EVENT_SCHEMA_UNSUPPORTED"
+    assert repository.runtime_run_count() == 0
+
+
 def test_ao31_ct_002_runtime_ingestion_deduplicates_replay():
     repository = InMemoryRepository()
     batch = runtime_batch(
