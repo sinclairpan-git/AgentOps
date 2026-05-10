@@ -331,6 +331,39 @@ def test_ao36_ct_003_policy_operations_projection_preserves_transition_history(
     assert len({item["policy_set_version_record_id"] for item in transitions}) == 3
 
 
+def test_ao36_ct_003_policy_operations_projection_uses_current_active_state(
+    repository,
+):
+    for state in ("active", "retired"):
+        register_policy_set_version(
+            repository,
+            policy_set_version="policy.v5",
+            state=state,
+            risk_templates=["deploy_prod"],
+            fallback_action="block",
+        )
+    register_policy_set_version(
+        repository,
+        policy_set_version="policy.v6",
+        state="active",
+        risk_templates=["deploy_prod"],
+        fallback_action="require_online",
+    )
+    register_policy_set_version(
+        repository,
+        policy_set_version="policy.v6",
+        state="rolled_back",
+        risk_templates=["deploy_prod"],
+        fallback_action="block",
+        rollback_from="policy.v6",
+        rollback_reason="canary rollback",
+    )
+
+    projection = build_policy_operations_projection(repository)
+
+    assert projection["active_version"] == ""
+
+
 def test_ao36_ct_004_grant_lifecycle_tracks_consumption_and_binding(repository):
     grant = _issue_active_grant(repository, remaining_uses=2)
     consume_grant(
