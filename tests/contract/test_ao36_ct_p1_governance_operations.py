@@ -38,14 +38,17 @@ def test_ao36_ct_001_contract_registry_has_approval_operation():
     assert contract.enum_fields["operation"] == frozenset(
         {
             "request_input",
+            "request_more_info",
             "approve",
             "reject",
             "expire",
             "withdraw",
             "escalate",
+            "revoke",
             "break_glass_approve",
         }
     )
+    assert {"needs_more_info", "revoked"}.issubset(contract.enum_fields["state_after"])
     assert "AO36-CT-002" in contract.contract_tests
 
 
@@ -66,6 +69,18 @@ def test_ao36_ct_001_contract_registry_has_policy_set_version():
     }.issubset(contract.required_fields)
     assert contract.enum_fields["state"] == frozenset(
         {"draft", "canary", "active", "rolled_back", "retired"}
+    )
+    assert "AO36-CT-003" in contract.contract_tests
+
+
+def test_ao36_ct_001_contract_registry_has_policy_operations_projection():
+    contract = get_contract("policy_operations_projection.v1")
+
+    assert contract.domain_owner == "AgentOps"
+    assert contract.producer == "Policy Service"
+    assert {"Ops", "Runtime", "Agent Store"}.issubset(contract.consumers)
+    assert {"active_version", "versions", "summary", "audit_id"}.issubset(
+        contract.required_fields
     )
     assert "AO36-CT-003" in contract.contract_tests
 
@@ -162,6 +177,24 @@ def test_ao36_ct_002_break_glass_approval_requires_audit_reason(repository):
     assert operation["summary"]["break_glass"] is True
 
 
+def test_ao36_ct_002_approval_operation_keeps_legacy_action_contract_safe(repository):
+    approval = create_pending_approval(repository)
+
+    updated = decide_approval_request(
+        approval["approval_id"],
+        action="request_more_info",
+        actor="security_1",
+        reason="Need the original reviewer notes.",
+        repository=repository,
+    )
+
+    assert updated["status"] == "needs_more_info"
+    operation = repository.approval_operation_records()[-1]
+    contract = get_contract("approval_operation.v1")
+    assert operation["operation"] in contract.enum_fields["operation"]
+    assert operation["state_after"] in contract.enum_fields["state_after"]
+
+
 def test_ao36_ct_003_policy_operations_projection_explains_canary(repository):
     register_policy_set_version(
         repository,
@@ -175,7 +208,7 @@ def test_ao36_ct_003_policy_operations_projection_explains_canary(repository):
 
     projection = build_policy_operations_projection(repository)
 
-    assert projection["schema_version"] == "policy_set_version.v1"
+    assert projection["schema_version"] == "policy_operations_projection.v1"
     assert projection["active_version"] == ""
     assert projection["versions"][0]["policy_set_version"] == "policy.v3"
     assert projection["versions"][0]["state"] == "canary"

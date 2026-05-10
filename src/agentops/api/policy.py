@@ -195,7 +195,7 @@ def build_policy_operations_projection(
         "",
     )
     return {
-        "schema_version": "policy_set_version.v1",
+        "schema_version": "policy_operations_projection.v1",
         "active_version": active_version,
         "versions": versions,
         "summary": {
