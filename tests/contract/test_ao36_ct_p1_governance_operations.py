@@ -195,6 +195,30 @@ def test_ao36_ct_002_approval_operation_keeps_legacy_action_contract_safe(reposi
     assert operation["state_after"] in contract.enum_fields["state_after"]
 
 
+def test_ao36_ct_002_repeated_approval_operations_keep_full_history(repository):
+    approval = create_pending_approval(repository)
+
+    for reason in ("Need the rollout plan.", "Need reviewer acknowledgement."):
+        decide_approval_request(
+            approval["approval_id"],
+            action="request_more_info",
+            actor="security_1",
+            reason=reason,
+            repository=repository,
+        )
+
+    operations = repository.approval_operation_records()
+    matching = [
+        item for item in operations if item["approval_id"] == approval["approval_id"]
+    ]
+    assert [item["reason"] for item in matching] == [
+        "Need the rollout plan.",
+        "Need reviewer acknowledgement.",
+    ]
+    assert len({item["approval_decision_id"] for item in matching}) == 2
+    assert len({item["operation_id"] for item in matching}) == 2
+
+
 def test_ao36_ct_003_policy_operations_projection_explains_canary(repository):
     register_policy_set_version(
         repository,

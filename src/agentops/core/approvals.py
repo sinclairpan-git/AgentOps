@@ -121,9 +121,18 @@ def decide_approval(
     repository.store_approval(approval)
 
     operation = "break_glass_approve" if action == "approve" and break_glass else action
+    operation_sequence = (
+        sum(
+            1
+            for record in repository.approval_operation_records()
+            if record.get("approval_id") == approval_id
+        )
+        + 1
+    )
+    operation_ref = f"{operation}_{operation_sequence}"
     decision = {
-        "approval_decision_id": f"approval_decision_{approval_id}_{action}",
-        "operation_id": f"approval_operation_{approval_id}_{operation}",
+        "approval_decision_id": f"approval_decision_{approval_id}_{operation_ref}",
+        "operation_id": f"approval_operation_{approval_id}_{operation_ref}",
         "approval_id": approval_id,
         "actor": actor,
         "action": action,
