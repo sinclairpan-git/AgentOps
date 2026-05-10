@@ -28,7 +28,7 @@ def issue_capability_grant(
 
     _validate_approval_binding(approval, grant_request)
 
-    now = now or datetime.now(UTC)
+    now = _normalize_time(now or datetime.now(UTC))
     grant = {
         "grant_id": grant_request.get("grant_id", f"grant_{approval_id}"),
         "decision_id": grant_request.get(
@@ -77,7 +77,7 @@ def consume_capability_grant(
     *,
     now: datetime | None = None,
 ) -> dict[str, Any]:
-    now = now or datetime.now(UTC)
+    now = _normalize_time(now or datetime.now(UTC))
     grant = repository.consume_grant_atomically(
         grant_id,
         lambda stored_grant: _consume_grant_use(stored_grant, policy_request, now),
@@ -149,7 +149,7 @@ def revoke_capability_grant(
     actor: str = "system",
     reason: str = "",
 ) -> dict[str, Any]:
-    now = now or datetime.now(UTC)
+    now = _normalize_time(now or datetime.now(UTC))
     grant = repository.get_grant(grant_id)
     if not grant:
         raise AgentOpsError("GRANT_NOT_FOUND", "Capability Grant does not exist.")
@@ -163,7 +163,7 @@ def revoke_capability_grant(
 def build_grant_lifecycle(
     grant_id: str, repository: InMemoryRepository, *, now: datetime | None = None
 ) -> dict[str, Any]:
-    now = now or datetime.now(UTC)
+    now = _normalize_time(now or datetime.now(UTC))
     grant = repository.get_grant(grant_id)
     if not grant:
         raise AgentOpsError("GRANT_NOT_FOUND", "Capability Grant does not exist.")
@@ -283,7 +283,13 @@ def _request_matches_grant(
 
 
 def _parse_time(value: str) -> datetime:
-    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    return _normalize_time(datetime.fromisoformat(value.replace("Z", "+00:00")))
+
+
+def _normalize_time(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
 
 
 def _approval_context_value(approval: dict[str, Any], field: str) -> Any:

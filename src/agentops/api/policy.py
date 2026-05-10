@@ -184,7 +184,7 @@ def build_policy_operations_projection(
 ) -> dict[str, Any]:
     versions = sorted(
         repository.policy_set_version_records(),
-        key=lambda item: str(item.get("registered_at", "")),
+        key=_policy_registered_sort_key,
     )
     current_versions: dict[str, tuple[int, dict[str, Any]]] = {}
     for index, version in enumerate(versions):
@@ -266,7 +266,17 @@ def _parse_policy_time(value: Any) -> datetime | None:
         parsed = datetime.fromisoformat(raw_value.replace("Z", "+00:00"))
     except ValueError:
         return None
-    return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=UTC)
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
+
+
+def _policy_registered_sort_key(record: dict[str, Any]) -> tuple[int, float, str]:
+    registered_at = str(record.get("registered_at", ""))
+    parsed = _parse_policy_time(registered_at)
+    if parsed is None:
+        return (-1, 0.0, registered_at)
+    return (0, parsed.timestamp(), registered_at)
 
 
 def _policy_reason_code(decision: dict[str, Any], p0_decision: str) -> str:

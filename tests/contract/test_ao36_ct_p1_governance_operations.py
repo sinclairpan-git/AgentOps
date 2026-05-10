@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime, timedelta, timezone
 
 from agentops.api.approvals import decide_approval_request
 from agentops.api.grants import (
@@ -394,6 +395,33 @@ def test_ao36_ct_003_policy_operations_projection_uses_latest_active_transition(
     assert projection["active_version"] == "policy.v5"
 
 
+def test_ao36_ct_003_policy_operations_projection_orders_mixed_timezones(repository):
+    register_policy_set_version(
+        repository,
+        policy_set_version="policy.v7",
+        state="active",
+        risk_templates=["deploy_prod"],
+        fallback_action="require_online",
+        now=datetime(2026, 5, 10, 18, 0, tzinfo=timezone(timedelta(hours=9))),
+    )
+    register_policy_set_version(
+        repository,
+        policy_set_version="policy.v8",
+        state="active",
+        risk_templates=["deploy_prod"],
+        fallback_action="block",
+        now=datetime(2026, 5, 10, 10, 0, tzinfo=UTC),
+    )
+
+    projection = build_policy_operations_projection(repository)
+
+    assert [item["policy_set_version"] for item in projection["versions"]] == [
+        "policy.v7",
+        "policy.v8",
+    ]
+    assert projection["active_version"] == "policy.v8"
+
+
 def test_ao36_ct_004_grant_lifecycle_tracks_consumption_and_binding(repository):
     grant = _issue_active_grant(repository, remaining_uses=2)
     consume_grant(
@@ -426,6 +454,21 @@ def test_ao36_ct_004_active_offline_grant_does_not_queue_owner_notification(
     assert lifecycle["impact_summary"]["owner_notification_state"] == "not_required"
 
 
+def test_ao36_ct_004_grant_lifecycle_accepts_naive_now(repository):
+    grant = _issue_active_grant(
+        repository,
+        issued_at=datetime(2026, 5, 10, 9, 0, tzinfo=UTC),
+    )
+
+    lifecycle = build_grant_lifecycle_view(
+        grant["grant_id"],
+        repository,
+        now=datetime(2026, 5, 10, 9, 5),
+    )
+
+    assert lifecycle["status"] == "active"
+
+
 def test_ao36_ct_004_grant_lifecycle_records_revocation_impact(repository):
     grant = _issue_active_grant(repository, offline_allowed=True)
 
@@ -445,7 +488,7 @@ def test_ao36_ct_004_grant_lifecycle_records_revocation_impact(repository):
     assert lifecycle["impact_summary"]["owner_notification_state"] == "pending"
 
 
-def _issue_active_grant(repository, **grant_overrides):
+def _issue_active_grant(repository, issued_at=None, **grant_overrides):
     approval = create_pending_approval(repository)
     approved = decide_approval_request(
         approval["approval_id"],
@@ -465,7 +508,8 @@ def _issue_active_grant(repository, **grant_overrides):
         run_id=approved["run_id"],
         **grant_overrides,
     )
-    return issue_grant(approved["approval_id"], grant_request, repository)
+    kwargs = {"now": issued_at} if issued_at is not None else {}
+    return issue_grant(approved["approval_id"], grant_request, repository, **kwargs)
 
 
 def _policy_request_for_grant(grant):
