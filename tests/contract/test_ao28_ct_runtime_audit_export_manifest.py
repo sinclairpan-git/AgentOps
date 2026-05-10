@@ -126,7 +126,9 @@ def test_ao28_ct_001_operator_gets_stable_metadata_export_manifest(
     records = JsonlAuditLog(audit_path).records()
     assert first_response.status == 200
     assert second_response.status == 200
-    assert first_payload["schema_version"] == "agentops.runtime_audit.export_manifest.v1"
+    assert (
+        first_payload["schema_version"] == "agentops.runtime_audit.export_manifest.v1"
+    )
     assert first_payload["filters"] == {"action": "credential.revoke"}
     assert first_payload["limit"] == 2
     assert first_payload["record_count"] == 2

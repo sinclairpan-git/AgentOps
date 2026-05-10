@@ -7,11 +7,15 @@ from typing import Any
 from agentops.core.operations import (
     build_dlq_operations_projection,
     build_exporter_operation,
+    build_optimizer_recommendation,
+    build_policy_simulation_projection,
     build_runtime_budget_summary,
     build_runtime_slo_summary,
     build_store_governance_projection,
     create_eval_case as _create_eval_case,
     create_evidence_access_operation as _create_evidence_access_operation,
+    create_experiment_plan as _create_experiment_plan,
+    create_safe_replay_plan as _create_safe_replay_plan,
 )
 from agentops.storage.repository import InMemoryRepository
 
@@ -30,6 +34,39 @@ def create_eval_case(
     **kwargs: Any,
 ) -> dict[str, Any]:
     return _create_eval_case(repository, run_id, **kwargs)
+
+
+def create_safe_replay_plan(
+    repository: InMemoryRepository,
+    run_id: str,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    return _create_safe_replay_plan(repository, run_id, **kwargs)
+
+
+def create_experiment_plan(
+    repository: InMemoryRepository,
+    agent_id: str,
+    version: str,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    return _create_experiment_plan(repository, agent_id, version, **kwargs)
+
+
+def get_optimizer_recommendation(
+    repository: InMemoryRepository,
+    agent_id: str,
+    version: str,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    return build_optimizer_recommendation(repository, agent_id, version, **kwargs)
+
+
+def get_policy_simulation_projection(
+    repository: InMemoryRepository,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    return build_policy_simulation_projection(repository, **kwargs)
 
 
 def get_runtime_budget_summary(

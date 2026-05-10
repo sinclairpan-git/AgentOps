@@ -195,7 +195,9 @@ def test_ao25_ct_002_store_summary_success_and_query_failure_are_audited(
     assert summary["schema_version"] == "agentops.agent_store.echo.v1"
     assert rejected_response.status == 400
     assert rejected["error_code"] == "STORE_SUMMARY_QUERY_REQUIRED"
-    assert [(record.action, record.outcome, record.error_code) for record in records] == [
+    assert [
+        (record.action, record.outcome, record.error_code) for record in records
+    ] == [
         ("store.summary.read", "accepted", ""),
         (
             "store.summary.read",
@@ -233,7 +235,9 @@ def test_ao25_ct_003_credential_status_success_and_not_found_are_audited(
     assert accepted["bootstrap_id"] == "boot-ao25"
     assert rejected_response.status == 404
     assert rejected["error_code"] == "CREDENTIAL_STATUS_NOT_FOUND"
-    assert [(record.action, record.outcome, record.error_code) for record in records] == [
+    assert [
+        (record.action, record.outcome, record.error_code) for record in records
+    ] == [
         ("credential.read", "accepted", ""),
         ("credential.read", "rejected", "CREDENTIAL_STATUS_NOT_FOUND"),
     ]

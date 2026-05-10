@@ -107,6 +107,8 @@ class InMemoryRepository:
     raw_access_grants: dict[str, dict[str, Any]] = field(default_factory=dict)
     evidence_access_operations: dict[str, dict[str, Any]] = field(default_factory=dict)
     eval_cases: dict[str, dict[str, Any]] = field(default_factory=dict)
+    safe_replay_plans: dict[str, dict[str, Any]] = field(default_factory=dict)
+    experiment_plans: dict[str, dict[str, Any]] = field(default_factory=dict)
     agent_store_agents: dict[str, dict[str, Any]] = field(default_factory=dict)
     agent_store_skills: dict[str, dict[str, Any]] = field(default_factory=dict)
     runtime_runs: dict[str, dict[str, Any]] = field(default_factory=dict)
@@ -858,6 +860,24 @@ class InMemoryRepository:
     def eval_case_records(self) -> tuple[dict[str, Any], ...]:
         with self._lock:
             return tuple(deepcopy(record) for record in self.eval_cases.values())
+
+    def store_safe_replay_plan(self, replay_plan: dict[str, Any]) -> dict[str, Any]:
+        with self._lock:
+            sequence = len(self.safe_replay_plans) + 1
+            stored = deepcopy(replay_plan)
+            stored["replay_plan_sequence"] = sequence
+            stored["replay_plan_id"] = f"safe_replay_plan_{sequence}"
+            self.safe_replay_plans[stored["replay_plan_id"]] = stored
+            return deepcopy(stored)
+
+    def store_experiment_plan(self, experiment_plan: dict[str, Any]) -> dict[str, Any]:
+        with self._lock:
+            sequence = len(self.experiment_plans) + 1
+            stored = deepcopy(experiment_plan)
+            stored["experiment_plan_sequence"] = sequence
+            stored["experiment_plan_id"] = f"experiment_plan_{sequence}"
+            self.experiment_plans[stored["experiment_plan_id"]] = stored
+            return deepcopy(stored)
 
     def runtime_dlq_records(
         self, *, agent_id: str | None = None, version: str | None = None
