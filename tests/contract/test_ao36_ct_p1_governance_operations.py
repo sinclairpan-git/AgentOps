@@ -301,6 +301,36 @@ def test_ao36_ct_003_policy_operations_projection_explains_rollback(repository):
     assert rolled_back["summary"]["rollback_recorded"] is True
 
 
+def test_ao36_ct_003_policy_operations_projection_preserves_transition_history(
+    repository,
+):
+    for state in ("canary", "active", "rolled_back"):
+        register_policy_set_version(
+            repository,
+            policy_set_version="policy.v4",
+            state=state,
+            risk_templates=["deploy_prod"],
+            fallback_action="block",
+            rollback_from="policy.v4" if state == "rolled_back" else "",
+            rollback_reason="canary rollback" if state == "rolled_back" else "",
+        )
+
+    projection = build_policy_operations_projection(repository)
+    transitions = [
+        item
+        for item in projection["versions"]
+        if item["policy_set_version"] == "policy.v4"
+    ]
+
+    assert [item["state"] for item in transitions] == [
+        "canary",
+        "active",
+        "rolled_back",
+    ]
+    assert [item["transition_sequence"] for item in transitions] == [1, 2, 3]
+    assert len({item["policy_set_version_record_id"] for item in transitions}) == 3
+
+
 def test_ao36_ct_004_grant_lifecycle_tracks_consumption_and_binding(repository):
     grant = _issue_active_grant(repository, remaining_uses=2)
     consume_grant(
@@ -319,6 +349,18 @@ def test_ao36_ct_004_grant_lifecycle_tracks_consumption_and_binding(repository):
     assert lifecycle["consumption_summary"]["consumption_count"] == 1
     assert lifecycle["impact_summary"]["affected_runs"] == [grant["run_id"]]
     assert lifecycle["summary"]["raw_payload_access"] == "forbidden"
+
+
+def test_ao36_ct_004_active_offline_grant_does_not_queue_owner_notification(
+    repository,
+):
+    grant = _issue_active_grant(repository, offline_allowed=True)
+
+    lifecycle = build_grant_lifecycle_view(grant["grant_id"], repository)
+
+    assert lifecycle["status"] == "active"
+    assert lifecycle["impact_summary"]["offline_allowed"] is True
+    assert lifecycle["impact_summary"]["owner_notification_state"] == "not_required"
 
 
 def test_ao36_ct_004_grant_lifecycle_records_revocation_impact(repository):

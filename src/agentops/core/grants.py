@@ -175,7 +175,7 @@ def build_grant_lifecycle(
     )
     offline_allowed = bool(grant.get("offline_allowed", False))
     owner_notification_state = (
-        "pending" if status == "revoked" or offline_allowed else "not_required"
+        "pending" if status in {"revoked", "expired"} else "not_required"
     )
     return {
         "schema_version": "grant_lifecycle.v1",

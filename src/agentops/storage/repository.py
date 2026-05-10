@@ -715,8 +715,21 @@ class InMemoryRepository:
 
     def store_policy_set_version(self, record: dict[str, Any]) -> dict[str, Any]:
         with self._lock:
-            self.policy_set_versions[record["policy_set_version"]] = dict(record)
-            return dict(record)
+            policy_set_version = str(record["policy_set_version"])
+            transition_sequence = (
+                sum(
+                    1
+                    for item in self.policy_set_versions.values()
+                    if item.get("policy_set_version") == policy_set_version
+                )
+                + 1
+            )
+            record_id = f"{policy_set_version}:{transition_sequence}"
+            stored = dict(record)
+            stored["policy_set_version_record_id"] = record_id
+            stored["transition_sequence"] = transition_sequence
+            self.policy_set_versions[record_id] = stored
+            return dict(stored)
 
     def policy_set_version_records(self) -> tuple[dict[str, Any], ...]:
         with self._lock:

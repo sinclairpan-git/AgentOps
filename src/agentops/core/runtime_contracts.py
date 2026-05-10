@@ -460,6 +460,8 @@ CONTRACT_REGISTRY: dict[str, ContractRegistryEntry] = {
             "rollback_from",
             "rollback_reason",
             "owner",
+            "policy_set_version_record_id",
+            "transition_sequence",
         ),
         enum_fields={
             "state": ("draft", "canary", "active", "rolled_back", "retired"),
