@@ -124,36 +124,43 @@ specs:
 - id: 034-runtime-outbox-sdlc-trace-bridge
   path: specs/034-runtime-outbox-sdlc-trace-bridge
   depends_on: []
+- id: 035-p0-end-to-end-acceptance-gate
+  path: specs/035-p0-end-to-end-acceptance-gate
+  depends_on:
+  - 031-agentops-runtime-governance-foundation
+  - 032-evidence-health-summary-loop
+  - 033-policy-grant-approval-minimum-control
+  - 034-runtime-outbox-sdlc-trace-bridge
 truth_snapshot:
-  generated_at: '2026-05-09T15:15:41Z'
+  generated_at: '2026-05-10T03:43:33Z'
   generated_by: ai-sdlc program truth sync
   generator_version: program_truth_snapshot_v1
-  repo_revision: dc67d80
-  authoring_hash: 5681729b4a39357b31abdb1b767b42b0f89d6b66f7b48eb4852354d10fc9a0a9
+  repo_revision: 25373e1
+  authoring_hash: bef2442754589c69ac5236258adcb85cda40783999a1efe567424b6a30729280
   source_hashes: {}
-  snapshot_hash: 5b6aa25a194ea54ebc4b545a5588d2ea849f900aa0121aeef313497571e2856c
+  snapshot_hash: 3f15264fc21515f8e5884b10a3e81a550a54ab0eea8895a986539f4546a34391
   computed_capabilities: []
   source_inventory:
     state: complete
-    total_sources: 170
-    mapped_sources: 170
+    total_sources: 175
+    mapped_sources: 175
     unmapped_sources: 0
     missing_sources: 0
-    phase_signal_count: 224
-    deferred_signal_count: 353
+    phase_signal_count: 230
+    deferred_signal_count: 359
     non_goal_signal_count: 62
     layer_totals:
-      spec: 34
-      plan: 34
-      tasks: 34
-      execution: 34
-      close: 34
+      spec: 35
+      plan: 35
+      tasks: 35
+      execution: 35
+      close: 35
     layer_materialized:
-      spec: 34
-      plan: 34
-      tasks: 34
-      execution: 34
-      close: 34
+      spec: 35
+      plan: 35
+      tasks: 35
+      execution: 35
+      close: 35
     entries:
     - path: specs/001-agentops-trusted-loop/spec.md
       source_type: spec_doc
@@ -1673,8 +1680,8 @@ truth_snapshot:
       mapped: true
       exists: true
       mapping_ref: 034-runtime-outbox-sdlc-trace-bridge
-      phase_signal_count: 1
-      deferred_signal_count: 5
+      phase_signal_count: 2
+      deferred_signal_count: 6
       non_goal_signal_count: 1
     - path: specs/034-runtime-outbox-sdlc-trace-bridge/development-summary.md
       source_type: development_summary
@@ -1685,5 +1692,50 @@ truth_snapshot:
       phase_signal_count: 0
       deferred_signal_count: 0
       non_goal_signal_count: 1
+    - path: specs/035-p0-end-to-end-acceptance-gate/spec.md
+      source_type: spec_doc
+      truth_layer: spec
+      mapped: true
+      exists: true
+      mapping_ref: 035-p0-end-to-end-acceptance-gate
+      phase_signal_count: 1
+      deferred_signal_count: 1
+      non_goal_signal_count: 0
+    - path: specs/035-p0-end-to-end-acceptance-gate/plan.md
+      source_type: plan_doc
+      truth_layer: plan
+      mapped: true
+      exists: true
+      mapping_ref: 035-p0-end-to-end-acceptance-gate
+      phase_signal_count: 4
+      deferred_signal_count: 4
+      non_goal_signal_count: 0
+    - path: specs/035-p0-end-to-end-acceptance-gate/tasks.md
+      source_type: tasks_doc
+      truth_layer: tasks
+      mapped: true
+      exists: true
+      mapping_ref: 035-p0-end-to-end-acceptance-gate
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 0
+    - path: specs/035-p0-end-to-end-acceptance-gate/task-execution-log.md
+      source_type: execution_log
+      truth_layer: execution
+      mapped: true
+      exists: true
+      mapping_ref: 035-p0-end-to-end-acceptance-gate
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 0
+    - path: specs/035-p0-end-to-end-acceptance-gate/development-summary.md
+      source_type: development_summary
+      truth_layer: close
+      mapped: true
+      exists: true
+      mapping_ref: 035-p0-end-to-end-acceptance-gate
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 0
     unmapped_paths: []
   state: ready
