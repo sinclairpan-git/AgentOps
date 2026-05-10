@@ -2,7 +2,7 @@
 
 **工作项**：`036-p1-approval-policy-grant-operations`  
 **日期**：2026-05-10  
-**状态**：formal baseline 已创建
+**状态**：实现完成，待 PR 收口
 
 ## 变更摘要
 
@@ -24,3 +24,12 @@
 - T31：已实现 Policy set version operations projection，覆盖 canary、active、rollback 和 deny priority 解释。
 - T41：已实现 Grant lifecycle query/revoke/impact summary，覆盖 consumption、binding、revocation metadata 和离线授权影响提示。
 - T51：运行 AO36 + AO2/AO13/AO33/AO35 回归、ruff、AI-SDLC constraints，并进入 PR 收口。
+
+## 验证
+
+- `uv run pytest tests/contract/test_ao36_ct_p1_governance_operations.py tests/contract/test_ao2_ct_002_approval_lifecycle.py tests/contract/test_ao2_ct_003_capability_grant.py tests/contract/test_ao13_ct_approval_grant_workbench.py tests/contract/test_ao33_ct_policy_grant_guardrail_control.py tests/contract/test_ao35_ct_p0_acceptance_gate.py -q`：PASS。
+- `uv run pytest -q`：PASS。
+- `uv run ruff check src tests`：PASS。
+- 触达文件 `uv run ruff format --check ...`：PASS。
+- `uv run ai-sdlc verify constraints`：PASS，no BLOCKERs。
+- `python -m ai_sdlc program truth audit`：PASS，truth snapshot fresh。

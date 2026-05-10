@@ -203,9 +203,9 @@ def test_ao36_ct_003_policy_operations_projection_explains_rollback(repository):
     )
 
     projection = build_policy_operations_projection(repository)
-    rolled_back = {
-        item["policy_set_version"]: item for item in projection["versions"]
-    }["policy.v3"]
+    rolled_back = {item["policy_set_version"]: item for item in projection["versions"]}[
+        "policy.v3"
+    ]
 
     assert projection["active_version"] == "policy.v2"
     assert rolled_back["state"] == "rolled_back"

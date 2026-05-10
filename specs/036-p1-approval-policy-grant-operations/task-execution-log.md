@@ -345,3 +345,80 @@
 - 当前批次 branch disposition 状态：dev 分支待提交
 - 当前批次 worktree disposition 状态：retained
 - 是否继续下一批：是，进入 T51。
+
+### Batch 2026-05-10-006 | T51
+
+#### 7.1 批次范围
+
+- 覆盖任务：`T51`
+- 覆盖阶段：Batch 5 verification, archive, PR close-out
+- 预读范围：AO36 spec/plan/tasks、AI-SDLC close/check rules
+- 激活的规则：统一验证、Program Truth、触达文件 format gate、PR close-out 固定规则
+- **验证画像**：code-change
+
+#### 7.2 统一验证命令
+
+- `V1`（AO36 + 关联回归）
+  - 命令：`uv run pytest tests/contract/test_ao36_ct_p1_governance_operations.py tests/contract/test_ao2_ct_002_approval_lifecycle.py tests/contract/test_ao2_ct_003_capability_grant.py tests/contract/test_ao13_ct_approval_grant_workbench.py tests/contract/test_ao33_ct_policy_grant_guardrail_control.py tests/contract/test_ao35_ct_p0_acceptance_gate.py -q`
+  - 结果：PASS，42 tests。
+- `V2`（全量测试）
+  - 命令：`uv run pytest -q`
+  - 结果：PASS。
+- `V3`（静态检查）
+  - 命令：`uv run ruff check src tests`
+  - 结果：PASS，All checks passed。
+- `V4`（format check）
+  - 命令：`uv run ruff format --check src/agentops/core/approvals.py src/agentops/models/approvals.py src/agentops/api/policy.py src/agentops/api/grants.py src/agentops/core/grants.py src/agentops/storage/repository.py tests/contract/test_ao36_ct_p1_governance_operations.py`
+  - 结果：PASS，7 files already formatted。
+  - 说明：全仓库 `uv run ruff format --check src tests` 仍命中既有未触碰的 AO25/AO28/AO29 测试格式漂移；本批只格式化并验证触达文件。
+- `V5`（AI-SDLC 约束）
+  - 命令：`uv run ai-sdlc verify constraints`
+  - 结果：PASS，no BLOCKERs。
+- `V6`（Program Truth）
+  - 命令：`python -m ai_sdlc program truth audit`
+  - 结果：PASS，truth snapshot fresh。
+- `V7`（dry-run）
+  - 命令：`ai-sdlc run --dry-run`
+  - 结果：open gate，reason `Final tests did not pass`；判断与全仓库既有 format 漂移相关，本批触达文件、全量 pytest、ruff check、constraints、truth 均通过。
+
+#### 7.3 任务记录
+
+##### T51 | 验证、归档和 PR 准备
+
+- 改动范围：`task-execution-log.md`、`development-summary.md`、`program-manifest.yaml`
+- 改动内容：记录 AO36 统一验证、Program Truth 和触达文件 format gate；准备提交与 PR。
+- 新增/调整的测试：无新增测试；运行 AO36 与关联回归。
+- 执行的命令：见 7.2。
+- 测试结果：通过；dry-run open gate 已归因到既有全仓库 format 漂移。
+- 是否符合任务目标：符合。
+
+#### 7.4 代码审查结论（Mandatory）
+
+- 宪章/规格对齐：符合。AO36 完成 P1-A 的 approval operations、policy operations、grant lifecycle，未执行 Runtime、未暴露 raw payload、未绕过 approval binding。
+- 代码质量：新增 API/helper 都沿用现有 repository 和 core 边界；P1 操作面为 summary-only projection。
+- 测试质量：AO36 contract tests 覆盖 registry、approval operations、policy projection、grant lifecycle，并回归 AO2/AO13/AO33/AO35。
+- 结论：未发现本地 P0/P1 阻断；可提交并进入 PR 收口。
+
+#### 7.5 任务/计划同步状态（Mandatory）
+
+- `tasks.md` 同步状态：T11、T12、T21、T31、T41、T51 均已完成。
+- `related_plan` 同步状态：实现与 Phase 0-5 对齐；HTTP route、真实通知和外部 DB 仍按 plan 延后。
+- `program-manifest.yaml` 同步状态：待本批最终 program truth sync 后提交。
+- 关联 branch/worktree disposition 计划：`feature/036-p1-approval-policy-grant-operations-dev` 承载 AO36 实现并准备 PR；docs 分支已由 dev 分支承接。
+- 说明：本批将最终归档和 Program Truth 作为一次提交收口。
+
+#### 7.6 自动决策记录（如有）
+
+无
+
+#### 7.7 批次结论
+
+- AO36 P1-A 最小运营闭环完成：Approval Center 支持 P1 操作状态机，Policy 管理台可解释版本/rollback/deny priority，Grant lifecycle 可查询消费、吊销和影响范围。
+
+#### 7.8 归档后动作
+
+- **已完成 git 提交**：是，本批归档与 Program Truth 已在当前提交中一并提交。
+- **提交哈希**：见当前 Git HEAD。
+- 当前批次 branch disposition 状态：dev 分支待提交和 PR
+- 当前批次 worktree disposition 状态：retained
+- 是否继续下一批：否，本工作项进入 PR 收口。
