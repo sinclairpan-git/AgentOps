@@ -472,7 +472,7 @@ def build_mcp_a2a_governance_projection(
     protocol: str,
     endpoint_ref: str,
     subject_agent_id: str,
-    resource_scope: str,
+    resource_scope: str = "",
     requested_by: str = "system",
     policy_check_state: str = "required",
 ) -> dict[str, Any]:

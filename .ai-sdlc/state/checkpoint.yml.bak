@@ -47,5 +47,5 @@ execute_progress: null
 ai_decisions_count: 0
 execution_mode: auto
 linked_wi_id: 039-p2-ecosystem-governance
-linked_plan_uri: specs/038-p2-replay-simulation-optimizer/plan.md
+linked_plan_uri: specs/039-p2-ecosystem-governance/plan.md
 last_synced_at: '2026-05-10T16:36:03+00:00'

@@ -112,6 +112,18 @@ def test_ao39_ct_002_non_string_protocol_is_rejected_as_domain_error():
     assert exc.value.error_code == "MCP_A2A_PROTOCOL_UNSUPPORTED"
 
 
+def test_ao39_ct_002_resource_scope_is_optional_for_mcp_a2a_projection():
+    projection = get_mcp_a2a_governance_projection(
+        protocol="a2a",
+        endpoint_ref="a2a://agents/reviewer",
+        subject_agent_id="agent.ai-sdlc",
+    )
+
+    assert projection["schema_version"] == "mcp_a2a_governance_projection.v1"
+    assert projection["resource_scope"] == ""
+    assert projection["summary"]["runtime_gateway_required"] is True
+
+
 def test_ao39_ct_003_exporter_ecosystem_is_dry_run_only():
     projection = get_exporter_ecosystem_projection(
         requested_by="ops_1",
