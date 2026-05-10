@@ -190,8 +190,11 @@ def build_runtime_budget_summary(
 
 def build_dlq_operations_projection(
     repository: InMemoryRepository,
+    *,
+    agent_id: str | None = None,
+    version: str | None = None,
 ) -> dict[str, Any]:
-    records = repository.runtime_dlq_records()
+    records = repository.runtime_dlq_records(agent_id=agent_id, version=version)
     error_summary: dict[str, int] = {}
     retry_candidates = []
     discard_candidates = []
@@ -206,6 +209,8 @@ def build_dlq_operations_projection(
 
     return {
         "schema_version": "dlq_operations_projection.v1",
+        "agent_id": agent_id or "",
+        "version": version or "",
         "backlog_count": len(records),
         "retry_candidates": retry_candidates,
         "discard_candidates": discard_candidates,
@@ -248,10 +253,23 @@ def build_runtime_slo_summary(
     repository: InMemoryRepository,
     agent_id: str,
     version: str,
+    *,
+    token_budget: int | None = None,
+    cost_budget: float | None = None,
+    latency_budget_ms: int | None = None,
 ) -> dict[str, Any]:
     health_summary = build_runtime_health_summary(repository, agent_id, version)
-    budget_summary = build_runtime_budget_summary(repository, agent_id, version)
-    dlq_summary = build_dlq_operations_projection(repository)
+    budget_summary = build_runtime_budget_summary(
+        repository,
+        agent_id,
+        version,
+        token_budget=token_budget,
+        cost_budget=cost_budget,
+        latency_budget_ms=latency_budget_ms,
+    )
+    dlq_summary = build_dlq_operations_projection(
+        repository, agent_id=agent_id, version=version
+    )
     slo_state = _slo_state(health_summary, budget_summary, dlq_summary)
     return {
         "schema_version": "runtime_slo_summary.v1",
@@ -317,6 +335,9 @@ def _redaction_preview_state(value: str) -> str:
 def _dlq_candidate(record: dict[str, Any]) -> dict[str, Any]:
     return {
         "event_id": str(record.get("event_id") or ""),
+        "run_id": str(record.get("run_id") or ""),
+        "agent_id": str(record.get("agent_id") or ""),
+        "version": str(record.get("version") or ""),
         "event_type": str(record.get("event_type") or ""),
         "error_code": str(record.get("error_code") or ""),
         "payload_hash": str(record.get("payload_hash") or ""),

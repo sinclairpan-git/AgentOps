@@ -32,3 +32,9 @@
 ## 下一步
 
 - 完成完整本地回归、AI-SDLC verify/close-check、提交、推送并创建 PR。
+
+## PR Review Fix
+
+- 修复 Codex Review P1：Runtime SLO 现在会接收并传递 token/cost/latency budget thresholds，预算超限会进入 `at_risk/review_budget`。
+- 修复 Codex Review P1：Runtime SLO 的 DLQ backlog 现在按当前 agent/version 过滤，其他 agent 的 DLQ 不会污染健康 agent 的 SLO。
+- 新增 AO37 回归：预算阈值传递、unrelated DLQ isolation。

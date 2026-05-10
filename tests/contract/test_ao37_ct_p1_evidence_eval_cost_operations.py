@@ -266,7 +266,12 @@ def test_ao37_ct_007_runtime_slo_combines_health_budget_and_dlq():
     repository = InMemoryRepository()
     write_runtime_run(repository, run_id="run_1", status="failed")
     repository.write_runtime_dlq(
-        {"event_id": "evt_retry", "payload_hash": "sha256:retry"},
+        {
+            "event_id": "evt_retry",
+            "agent_id": "agent.ai-sdlc",
+            "version": "1.0.0",
+            "payload_hash": "sha256:retry",
+        },
         error_code="TRACE_PARENT_MISSING",
         message="Parent span missing.",
     )
@@ -278,6 +283,47 @@ def test_ao37_ct_007_runtime_slo_combines_health_budget_and_dlq():
     assert slo["health_summary"]["recommended_action"] == "disable_recommended"
     assert slo["dlq_summary"]["backlog_count"] == 1
     assert slo["recommended_action"] == "open_ops_review"
+
+
+def test_ao37_ct_007_runtime_slo_passes_budget_thresholds():
+    repository = InMemoryRepository()
+    write_runtime_run(repository, run_id="run_1", status="succeeded")
+    write_full_trace(repository, run_id="run_1")
+
+    slo = get_runtime_slo_summary(
+        repository,
+        "agent.ai-sdlc",
+        "1.0.0",
+        token_budget=50,
+        cost_budget=0.02,
+        latency_budget_ms=500,
+    )
+
+    assert slo["budget_summary"]["budget_state"] == "over_budget"
+    assert slo["slo_state"] == "at_risk"
+    assert slo["recommended_action"] == "review_budget"
+
+
+def test_ao37_ct_007_runtime_slo_ignores_unrelated_dlq_backlog():
+    repository = InMemoryRepository()
+    write_runtime_run(repository, run_id="run_1", status="succeeded")
+    write_full_trace(repository, run_id="run_1")
+    repository.write_runtime_dlq(
+        {
+            "event_id": "evt_other_agent",
+            "agent_id": "agent.other",
+            "version": "9.9.9",
+            "payload_hash": "sha256:other",
+        },
+        error_code="TRACE_PARENT_MISSING",
+        message="Parent span missing.",
+    )
+
+    slo = get_runtime_slo_summary(repository, "agent.ai-sdlc", "1.0.0")
+
+    assert slo["dlq_summary"]["backlog_count"] == 0
+    assert slo["slo_state"] == "healthy"
+    assert slo["recommended_action"] == "none"
 
 
 def test_ao37_ct_008_store_governance_projection_is_display_only():

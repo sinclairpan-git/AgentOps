@@ -53,8 +53,9 @@ def get_runtime_slo_summary(
     repository: InMemoryRepository,
     agent_id: str,
     version: str,
+    **kwargs: Any,
 ) -> dict[str, Any]:
-    return build_runtime_slo_summary(repository, agent_id, version)
+    return build_runtime_slo_summary(repository, agent_id, version, **kwargs)
 
 
 def get_store_governance_projection(

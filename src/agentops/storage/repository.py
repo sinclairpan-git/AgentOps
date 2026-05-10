@@ -356,9 +356,19 @@ class InMemoryRepository:
         retryable: bool = True,
     ) -> None:
         event_id = str(event.get("event_id") or "unknown")
+        payload = event.get("payload") if isinstance(event.get("payload"), dict) else {}
         with self._lock:
             self.runtime_dlq[event_id] = {
                 "event_id": event_id,
+                "run_id": str(event.get("run_id") or payload.get("run_id") or ""),
+                "agent_id": str(event.get("agent_id") or payload.get("agent_id") or ""),
+                "version": str(
+                    event.get("version")
+                    or event.get("agent_version")
+                    or payload.get("version")
+                    or payload.get("agent_version")
+                    or ""
+                ),
                 "event_type": str(event.get("event_type") or ""),
                 "event_type_version": str(event.get("event_type_version") or ""),
                 "schema_version": str(event.get("schema_version") or ""),
@@ -816,11 +826,19 @@ class InMemoryRepository:
         with self._lock:
             return tuple(deepcopy(record) for record in self.eval_cases.values())
 
-    def runtime_dlq_records(self) -> tuple[dict[str, Any], ...]:
+    def runtime_dlq_records(
+        self, *, agent_id: str | None = None, version: str | None = None
+    ) -> tuple[dict[str, Any], ...]:
         with self._lock:
+            records = [
+                deepcopy(record)
+                for record in self.runtime_dlq.values()
+                if (agent_id is None or record.get("agent_id") == agent_id)
+                and (version is None or record.get("version") == version)
+            ]
             return tuple(
                 sorted(
-                    (deepcopy(record) for record in self.runtime_dlq.values()),
+                    records,
                     key=lambda item: (
                         _runtime_time_sort_value(item.get("received_at")),
                         str(item.get("event_id", "")),

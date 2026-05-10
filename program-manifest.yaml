@@ -138,13 +138,13 @@ specs:
   path: specs/037-p1-evidence-eval-cost-operations
   depends_on: []
 truth_snapshot:
-  generated_at: '2026-05-10T10:12:19Z'
+  generated_at: '2026-05-10T10:20:58Z'
   generated_by: ai-sdlc program truth sync
   generator_version: program_truth_snapshot_v1
-  repo_revision: b267008
+  repo_revision: d95b979
   authoring_hash: b1c6c92605a82b0db7cecc390e16dfc94a2d0abf9dd817b1a6474829b4628aed
   source_hashes: {}
-  snapshot_hash: 933369994e63bb057ad9251dc11b2d7a73120f3c7dfc35239a2603b29de0233c
+  snapshot_hash: 2d86bb68592fae76946a8a5a4b7966f1493545de732759dc97f9214488682590
   computed_capabilities: []
   source_inventory:
     state: complete
@@ -152,8 +152,8 @@ truth_snapshot:
     mapped_sources: 186
     unmapped_sources: 0
     missing_sources: 0
-    phase_signal_count: 391
-    deferred_signal_count: 540
+    phase_signal_count: 395
+    deferred_signal_count: 544
     non_goal_signal_count: 66
     layer_totals:
       blueprint: 1
@@ -1832,8 +1832,8 @@ truth_snapshot:
       mapped: true
       exists: true
       mapping_ref: 037-p1-evidence-eval-cost-operations
-      phase_signal_count: 19
-      deferred_signal_count: 20
+      phase_signal_count: 21
+      deferred_signal_count: 22
       non_goal_signal_count: 0
     - path: specs/037-p1-evidence-eval-cost-operations/development-summary.md
       source_type: development_summary
@@ -1841,8 +1841,8 @@ truth_snapshot:
       mapped: true
       exists: true
       mapping_ref: 037-p1-evidence-eval-cost-operations
-      phase_signal_count: 6
-      deferred_signal_count: 6
+      phase_signal_count: 8
+      deferred_signal_count: 8
       non_goal_signal_count: 1
     unmapped_paths: []
   state: ready
