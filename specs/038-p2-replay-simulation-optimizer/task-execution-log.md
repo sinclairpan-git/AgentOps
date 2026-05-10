@@ -131,3 +131,30 @@
 - 当前批次 branch disposition 状态：`codex/038-p2-replay-simulation-optimizer` 待提交和 PR
 - 当前批次 worktree disposition 状态：retained
 - 是否继续下一批：否，本工作项进入提交与 PR 收口。
+
+### Review Fix 2026-05-10-001 | Codex P2 optimizer and policy simulation feedback
+
+#### RF-001 | evidence threshold validation and sample run de-duplication
+
+- 覆盖任务：PR #40 Codex review P2 feedback
+- 覆盖阶段：PR close-out review fix
+- 预读范围：Codex review threads、AO38 operations implementation、AO38 contract tests
+- 激活的规则：PR close-out 固定规则、summary-only evidence/config、Runtime boundary、Policy dry-run boundary
+- **验证画像**：code-change
+- 改动范围：`src/agentops/core/operations.py`、`tests/contract/test_ao38_ct_p2_replay_simulation_optimizer.py`
+- 改动内容：`build_optimizer_recommendation` 现在拒绝 `min_eval_cases<=0`，避免无 EvalCase 时绕过 evidence gate；`build_policy_simulation_projection` 现在在查询 run 前对 `sample_run_ids` 去重，避免重复 id 放大 impact summary。
+- 新增/调整的测试：新增 non-positive evidence threshold 回归；新增 duplicate sample run ids 去重回归。
+- 统一验证命令：
+  - `uv run pytest tests/contract/test_ao38_ct_p2_replay_simulation_optimizer.py`
+  - `uv run pytest tests/contract/test_ao32_ct_evidence_health_summary_loop.py tests/contract/test_ao34_ct_runtime_outbox_sdlc_trace_bridge.py tests/contract/test_ao35_ct_p0_acceptance_gate.py tests/contract/test_ao37_ct_p1_evidence_eval_cost_operations.py tests/contract/test_ao38_ct_p2_replay_simulation_optimizer.py`
+  - `uv run ruff check src/agentops/core/operations.py tests/contract/test_ao38_ct_p2_replay_simulation_optimizer.py`
+  - `uv run ai-sdlc verify constraints`
+- 测试结果：AO38 10 passed；AO32/AO34/AO35/AO37/AO38 回归 50 passed；ruff check 通过；AI-SDLC constraints 无 BLOCKER。
+- 是否符合任务目标：是。
+- 代码审查结论：Codex 指出的两个 P2 问题已用行为回归锁定；修复保持 summary-only/dry-run，不新增 Runtime execution、policy publish 或外部写入。
+- 任务/计划同步状态：AO38 plan/spec 不变，本次为 PR review fix；branch disposition 仍为 PR #40 收口中。
+- **已完成 git 提交**：是，本次 review fix 将在当前提交中一并提交。
+- **提交哈希**：见当前 Git HEAD。
+- 当前批次 branch disposition 状态：`codex/038-p2-replay-simulation-optimizer` 待提交和 PR
+- 当前批次 worktree disposition 状态：retained
+- 是否继续下一批：否，本批继续 PR 收口。

@@ -315,6 +315,13 @@ def build_optimizer_recommendation(
     *,
     min_eval_cases: int = 1,
 ) -> dict[str, Any]:
+    if min_eval_cases <= 0:
+        raise AgentOpsError(
+            "OPTIMIZER_EVIDENCE_REQUIRED",
+            "Optimizer evidence threshold must be positive.",
+            denied_scope="optimizer.min_eval_cases",
+            audit_id=f"audit_optimizer_{agent_id}_{version}",
+        )
     eval_cases = [
         record
         for record in repository.eval_case_records()
@@ -379,9 +386,10 @@ def build_policy_simulation_projection(
             audit_id=f"audit_policy_simulation_{policy_set_version}",
         )
 
+    unique_sample_run_ids = _unique_strings(sample_run_ids)
     sampled_runs = [
         run
-        for run_id in sample_run_ids
+        for run_id in unique_sample_run_ids
         if (run := repository.get_runtime_run_fact(str(run_id))) is not None
     ]
     blocked_or_failed = sum(
@@ -601,6 +609,18 @@ def _risk_level(value: str) -> str:
     if value in {"low", "medium", "high", "critical"}:
         return value
     return "medium"
+
+
+def _unique_strings(values: list[str]) -> list[str]:
+    seen: set[str] = set()
+    unique = []
+    for value in values:
+        normalized = str(value)
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        unique.append(normalized)
+    return unique
 
 
 def _redacted_text(value: Any) -> str:

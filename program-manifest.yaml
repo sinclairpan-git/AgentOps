@@ -144,13 +144,13 @@ specs:
   - 036-p1-approval-policy-grant-operations
   - 037-p1-evidence-eval-cost-operations
 truth_snapshot:
-  generated_at: '2026-05-10T16:38:24Z'
+  generated_at: '2026-05-10T16:48:22Z'
   generated_by: ai-sdlc program truth sync
   generator_version: program_truth_snapshot_v1
-  repo_revision: cfb430a
+  repo_revision: 758d9ee
   authoring_hash: 5f8c3e4206ae3c68f7a55f20798b27e8fa76fdcf6c32cacb20cdced2c86d4259
   source_hashes: {}
-  snapshot_hash: aa525461fe3b9660c5240f34d5ab582faaefab86c572e8c770d630716a6d0e2b
+  snapshot_hash: 15d1f0c190b39b5de124fdba84721e2a59e009cc57ba3ddf46bc4a37a0de2135
   computed_capabilities: []
   source_inventory:
     state: complete
@@ -158,8 +158,8 @@ truth_snapshot:
     mapped_sources: 191
     unmapped_sources: 0
     missing_sources: 0
-    phase_signal_count: 471
-    deferred_signal_count: 623
+    phase_signal_count: 475
+    deferred_signal_count: 627
     non_goal_signal_count: 66
     layer_totals:
       blueprint: 1
@@ -1883,8 +1883,8 @@ truth_snapshot:
       mapped: true
       exists: true
       mapping_ref: 038-p2-replay-simulation-optimizer
-      phase_signal_count: 22
-      deferred_signal_count: 22
+      phase_signal_count: 26
+      deferred_signal_count: 26
       non_goal_signal_count: 0
     - path: specs/038-p2-replay-simulation-optimizer/development-summary.md
       source_type: development_summary

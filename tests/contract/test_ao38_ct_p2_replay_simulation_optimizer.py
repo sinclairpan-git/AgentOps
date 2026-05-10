@@ -173,6 +173,17 @@ def test_ao38_ct_004_optimizer_requests_more_samples_when_evidence_is_missing():
     assert recommendation["source_eval_cases"] == []
 
 
+def test_ao38_ct_004_optimizer_rejects_non_positive_evidence_threshold():
+    repository = InMemoryRepository()
+
+    with pytest.raises(AgentOpsError) as exc:
+        get_optimizer_recommendation(
+            repository, "agent.ai-sdlc", "1.0.0", min_eval_cases=0
+        )
+
+    assert exc.value.error_code == "OPTIMIZER_EVIDENCE_REQUIRED"
+
+
 def test_ao38_ct_005_policy_simulation_is_dry_run_projection():
     repository = InMemoryRepository()
     write_runtime_run(repository, run_id="run_success", status="succeeded")
@@ -200,6 +211,28 @@ def test_ao38_ct_005_policy_simulation_is_dry_run_projection():
     assert projection["summary"]["dry_run_only"] is True
     assert projection["summary"]["policy_publish_performed"] is False
     _assert_no_raw_leaks(projection)
+
+
+def test_ao38_ct_005_policy_simulation_deduplicates_sample_run_ids():
+    repository = InMemoryRepository()
+    write_runtime_run(repository, run_id="run_success", status="succeeded")
+    write_runtime_run(repository, run_id="run_blocked", status="blocked")
+
+    projection = get_policy_simulation_projection(
+        repository,
+        policy_set_version="policy.v2",
+        proposed_change={
+            "change_type": "tighten_policy",
+            "policy_ref": "policy://sets/policy.v2",
+        },
+        sample_run_ids=["run_success", "run_blocked", "run_success"],
+        requested_by="policy_owner",
+    )
+
+    assert projection["sample_run_ids"] == ["run_success", "run_blocked"]
+    assert projection["decision_impact_summary"]["sample_size"] == 2
+    assert projection["decision_impact_summary"]["succeeded"] == 1
+    assert projection["decision_impact_summary"]["blocked_or_failed"] == 1
 
 
 def test_ao38_ct_005_policy_simulation_rejects_unsupported_change_type():
