@@ -515,6 +515,13 @@ def build_exporter_ecosystem_projection(
     exporters: list[dict[str, Any]],
     requested_by: str = "system",
 ) -> dict[str, Any]:
+    if not isinstance(exporters, list | tuple):
+        raise AgentOpsError(
+            "EXPORTER_ECOSYSTEM_UNSUPPORTED",
+            "Exporters must be a list.",
+            denied_scope="exporters",
+            audit_id="audit_exporter_ecosystem",
+        )
     safe_exporters = [
         _safe_exporter_config(index, exporter)
         for index, exporter in enumerate(exporters, start=1)

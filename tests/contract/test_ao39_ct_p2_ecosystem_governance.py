@@ -169,6 +169,13 @@ def test_ao39_ct_003_non_object_exporter_is_rejected_as_domain_error():
     assert exc.value.error_code == "EXPORTER_ECOSYSTEM_UNSUPPORTED"
 
 
+def test_ao39_ct_003_non_list_exporters_is_rejected_as_domain_error():
+    with pytest.raises(AgentOpsError) as exc:
+        get_exporter_ecosystem_projection(exporters=None)
+
+    assert exc.value.error_code == "EXPORTER_ECOSYSTEM_UNSUPPORTED"
+
+
 def test_ao39_ct_004_multi_agent_handoff_evaluation_reads_summary_spans():
     repository = InMemoryRepository()
     write_runtime_run(repository, run_id="run_handoff", status="failed")
