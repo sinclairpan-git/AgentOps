@@ -134,38 +134,41 @@ specs:
 - id: 036-p1-approval-policy-grant-operations
   path: specs/036-p1-approval-policy-grant-operations
   depends_on: []
+- id: 037-p1-evidence-eval-cost-operations
+  path: specs/037-p1-evidence-eval-cost-operations
+  depends_on: []
 truth_snapshot:
-  generated_at: '2026-05-10T08:32:44Z'
+  generated_at: '2026-05-10T10:12:19Z'
   generated_by: ai-sdlc program truth sync
   generator_version: program_truth_snapshot_v1
-  repo_revision: 44c4ad2
-  authoring_hash: 3f7c587143cf0bf14fe16c259e9e9ec59033179c3d521f037a4b7442a2ae155a
+  repo_revision: b267008
+  authoring_hash: b1c6c92605a82b0db7cecc390e16dfc94a2d0abf9dd817b1a6474829b4628aed
   source_hashes: {}
-  snapshot_hash: 6586b4ea596e68d6ddb39bd058c41656255b17ba14e5c0148ce0ea226313f4d0
+  snapshot_hash: 933369994e63bb057ad9251dc11b2d7a73120f3c7dfc35239a2603b29de0233c
   computed_capabilities: []
   source_inventory:
     state: complete
-    total_sources: 181
-    mapped_sources: 181
+    total_sources: 186
+    mapped_sources: 186
     unmapped_sources: 0
     missing_sources: 0
-    phase_signal_count: 325
-    deferred_signal_count: 470
-    non_goal_signal_count: 65
+    phase_signal_count: 391
+    deferred_signal_count: 540
+    non_goal_signal_count: 66
     layer_totals:
       blueprint: 1
-      spec: 36
-      plan: 36
-      tasks: 36
-      execution: 36
-      close: 36
+      spec: 37
+      plan: 37
+      tasks: 37
+      execution: 37
+      close: 37
     layer_materialized:
       blueprint: 1
-      spec: 36
-      plan: 36
-      tasks: 36
-      execution: 36
-      close: 36
+      spec: 37
+      plan: 37
+      tasks: 37
+      execution: 37
+      close: 37
     entries:
     - path: /Users/sinclairpan/project/AI-Native底座开发文档/AgentOps_项目_PRD.md
       source_type: prd
@@ -1796,5 +1799,50 @@ truth_snapshot:
       phase_signal_count: 6
       deferred_signal_count: 6
       non_goal_signal_count: 0
+    - path: specs/037-p1-evidence-eval-cost-operations/spec.md
+      source_type: spec_doc
+      truth_layer: spec
+      mapped: true
+      exists: true
+      mapping_ref: 037-p1-evidence-eval-cost-operations
+      phase_signal_count: 21
+      deferred_signal_count: 22
+      non_goal_signal_count: 0
+    - path: specs/037-p1-evidence-eval-cost-operations/plan.md
+      source_type: plan_doc
+      truth_layer: plan
+      mapped: true
+      exists: true
+      mapping_ref: 037-p1-evidence-eval-cost-operations
+      phase_signal_count: 11
+      deferred_signal_count: 13
+      non_goal_signal_count: 0
+    - path: specs/037-p1-evidence-eval-cost-operations/tasks.md
+      source_type: tasks_doc
+      truth_layer: tasks
+      mapped: true
+      exists: true
+      mapping_ref: 037-p1-evidence-eval-cost-operations
+      phase_signal_count: 9
+      deferred_signal_count: 9
+      non_goal_signal_count: 0
+    - path: specs/037-p1-evidence-eval-cost-operations/task-execution-log.md
+      source_type: execution_log
+      truth_layer: execution
+      mapped: true
+      exists: true
+      mapping_ref: 037-p1-evidence-eval-cost-operations
+      phase_signal_count: 19
+      deferred_signal_count: 20
+      non_goal_signal_count: 0
+    - path: specs/037-p1-evidence-eval-cost-operations/development-summary.md
+      source_type: development_summary
+      truth_layer: close
+      mapped: true
+      exists: true
+      mapping_ref: 037-p1-evidence-eval-cost-operations
+      phase_signal_count: 6
+      deferred_signal_count: 6
+      non_goal_signal_count: 1
     unmapped_paths: []
   state: ready

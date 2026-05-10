@@ -105,6 +105,8 @@ class InMemoryRepository:
     grant_consumptions: dict[str, dict[str, Any]] = field(default_factory=dict)
     raw_access_requests: dict[str, dict[str, Any]] = field(default_factory=dict)
     raw_access_grants: dict[str, dict[str, Any]] = field(default_factory=dict)
+    evidence_access_operations: dict[str, dict[str, Any]] = field(default_factory=dict)
+    eval_cases: dict[str, dict[str, Any]] = field(default_factory=dict)
     agent_store_agents: dict[str, dict[str, Any]] = field(default_factory=dict)
     agent_store_skills: dict[str, dict[str, Any]] = field(default_factory=dict)
     runtime_runs: dict[str, dict[str, Any]] = field(default_factory=dict)
@@ -789,6 +791,42 @@ class InMemoryRepository:
         with self._lock:
             self.raw_access_grants[grant["raw_grant_id"]] = dict(grant)
             return dict(grant)
+
+    def store_evidence_access_operation(
+        self, operation: dict[str, Any]
+    ) -> dict[str, Any]:
+        with self._lock:
+            sequence = len(self.evidence_access_operations) + 1
+            stored = deepcopy(operation)
+            stored["operation_sequence"] = sequence
+            stored["operation_id"] = f"evidence_access_operation_{sequence}"
+            self.evidence_access_operations[stored["operation_id"]] = stored
+            return deepcopy(stored)
+
+    def store_eval_case(self, eval_case: dict[str, Any]) -> dict[str, Any]:
+        with self._lock:
+            sequence = len(self.eval_cases) + 1
+            stored = deepcopy(eval_case)
+            stored["eval_case_sequence"] = sequence
+            stored["eval_case_id"] = f"eval_case_{sequence}"
+            self.eval_cases[stored["eval_case_id"]] = stored
+            return deepcopy(stored)
+
+    def eval_case_records(self) -> tuple[dict[str, Any], ...]:
+        with self._lock:
+            return tuple(deepcopy(record) for record in self.eval_cases.values())
+
+    def runtime_dlq_records(self) -> tuple[dict[str, Any], ...]:
+        with self._lock:
+            return tuple(
+                sorted(
+                    (deepcopy(record) for record in self.runtime_dlq.values()),
+                    key=lambda item: (
+                        _runtime_time_sort_value(item.get("received_at")),
+                        str(item.get("event_id", "")),
+                    ),
+                )
+            )
 
     def upsert_agent_store_metadata(self, metadata: dict[str, Any]) -> dict[str, Any]:
         agent_id = str(metadata["agent_id"])
