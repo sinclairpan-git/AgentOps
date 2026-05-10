@@ -404,6 +404,21 @@ class InMemoryRepository:
             return None
         return sorted(candidates, key=_runtime_attempt_sort_key)[-1]
 
+    def _reconcile_runtime_dlq_identity_locked(
+        self, record: dict[str, Any]
+    ) -> dict[str, Any]:
+        run_id = str(record.get("run_id") or "")
+        if not run_id or (record.get("agent_id") and record.get("version")):
+            return record
+        run = self._latest_runtime_run_locked(run_id)
+        if run is None:
+            return record
+        if not record.get("agent_id"):
+            record["agent_id"] = str(run.get("agent_id") or "")
+        if not record.get("version"):
+            record["version"] = str(run.get("version") or "")
+        return record
+
     @staticmethod
     def _trace_span_key(
         run_id: str, trace_id: str, attempt_no: Any, span_id: str
@@ -848,12 +863,13 @@ class InMemoryRepository:
         self, *, agent_id: str | None = None, version: str | None = None
     ) -> tuple[dict[str, Any], ...]:
         with self._lock:
-            records = [
-                deepcopy(record)
-                for record in self.runtime_dlq.values()
-                if (agent_id is None or record.get("agent_id") == agent_id)
-                and (version is None or record.get("version") == version)
-            ]
+            records = []
+            for record in self.runtime_dlq.values():
+                reconciled = self._reconcile_runtime_dlq_identity_locked(record)
+                if (agent_id is None or reconciled.get("agent_id") == agent_id) and (
+                    version is None or reconciled.get("version") == version
+                ):
+                    records.append(deepcopy(reconciled))
             return tuple(
                 sorted(
                     records,

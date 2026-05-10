@@ -40,3 +40,5 @@
 - 新增 AO37 回归：预算阈值传递、unrelated DLQ isolation。
 - 修复 Codex Review P1：Runtime DLQ event 缺少 agent/version 时，会按 `run_id` 从已有 Runtime run 回填 identity，避免 SLO 按 agent/version 过滤时漏掉 `trace_span`/`sdlc_trace_event` 派生 backlog。
 - 新增 AO37 回归：缺少 agent/version 的 DLQ event 仍会计入当前 agent/version Runtime SLO。
+- 修复 Codex Review P1：Runtime DLQ scoped reads 会在过滤前按 `run_id` 再次 reconciliation，覆盖 DLQ 先于 runtime run 写入的 out-of-order 摄入场景。
+- 新增 AO37 回归：out-of-order DLQ event 在 runtime run 后到达后仍会计入当前 agent/version Runtime SLO。

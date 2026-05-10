@@ -180,3 +180,32 @@
 - 当前批次 branch disposition 状态：dev 分支待提交和 PR
 - 当前批次 worktree disposition 状态：retained
 - 是否继续下一批：否，本批继续 PR 收口。
+
+### Review Fix 2026-05-10-003 | Codex out-of-order DLQ feedback
+
+#### RF-003 | runtime DLQ identity reconciliation during scoped reads
+
+- 覆盖任务：PR #39 Codex review P1 feedback
+- 覆盖阶段：PR close-out review fix
+- 预读范围：Codex review threads、runtime DLQ scoped filtering、runtime run ordering、AO37 contract tests
+- 激活的规则：PR close-out 固定规则、Runtime boundary、summary-only DLQ projection
+- **验证画像**：code-change
+- 改动范围：`src/agentops/storage/repository.py`、`tests/contract/test_ao37_ct_p1_evidence_eval_cost_operations.py`
+- 改动内容：`runtime_dlq_records` 在按 agent/version 查询前，会对缺少 identity 的 DLQ record 按 `run_id` 再次从最新 runtime run 回填 metadata；这覆盖 DLQ event 先于 runtime run 摄入的 out-of-order 场景，避免 scoped Runtime SLO 漏算 backlog。
+- 新增/调整的测试：新增 out-of-order DLQ identity reconciliation 回归，先写入缺少 agent/version 的 DLQ event，再写入 runtime run，确认 scoped DLQ records 与 Runtime SLO 均计入 backlog。
+- 执行的命令：
+  - `uv run pytest tests/contract/test_ao37_ct_p1_evidence_eval_cost_operations.py -q`
+  - `uv run pytest tests/contract/test_ao32_ct_evidence_health_summary_loop.py tests/contract/test_ao34_ct_runtime_outbox_sdlc_trace_bridge.py tests/contract/test_ao35_ct_p0_acceptance_gate.py tests/contract/test_ao37_ct_p1_evidence_eval_cost_operations.py -q`
+  - `uv run ruff check src/agentops/storage/repository.py tests/contract/test_ao37_ct_p1_evidence_eval_cost_operations.py`
+  - `uv run ruff format --check src/agentops/storage/repository.py tests/contract/test_ao37_ct_p1_evidence_eval_cost_operations.py`
+  - `uv run pytest -q`
+  - `uv run ai-sdlc verify constraints`
+- 测试结果：AO37 14 passed；AO32/AO34/AO35/AO37 回归 39 passed；ruff check/format 通过；完整 pytest 通过；AI-SDLC constraints 无 BLOCKER。
+- 是否符合任务目标：是。
+- 代码审查结论：Codex 指出的 out-of-order DLQ identity 漏算问题已用 scoped read reconciliation 与行为回归锁定；修复仍保持 display-only summary projection，不新增 Runtime action 或外部写入。
+- 任务/计划同步状态：AO37 plan/spec 不变，本次为 PR review fix；branch disposition 仍为 dev 分支待 PR 收口。
+- **已完成 git 提交**：是，本次 review fix 将在当前提交中一并提交。
+- **提交哈希**：见当前 Git HEAD。
+- 当前批次 branch disposition 状态：dev 分支待提交和 PR
+- 当前批次 worktree disposition 状态：retained
+- 是否继续下一批：否，本批继续 PR 收口。
