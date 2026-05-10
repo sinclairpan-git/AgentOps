@@ -437,6 +437,29 @@ CONTRACT_REGISTRY: dict[str, ContractRegistryEntry] = {
         error_codes=("HEALTH_SUMMARY_EXPIRED",),
         contract_tests=("AO31-CT-001",),
     ),
+    "p0_acceptance_gate.v1": _entry(
+        "p0_acceptance_gate.v1",
+        domain_owner="AgentOps",
+        producer="AgentOps",
+        consumers=("Ops", "Agent Store", "Ai_AutoSDLC"),
+        schema_version="p0_acceptance_gate.v1",
+        required_fields=(
+            "gate_id",
+            "run_id",
+            "agent_id",
+            "version",
+            "gate_status",
+            "required_checks",
+            "summary",
+            "audit_id",
+        ),
+        enum_fields={
+            "gate_status": ("passed", "failed"),
+        },
+        state_registry_refs=("degraded", "blocked"),
+        error_codes=("P0_ACCEPTANCE_FAILED",),
+        contract_tests=("AO35-CT-001", "AO35-CT-002"),
+    ),
 }
 
 
@@ -683,6 +706,14 @@ ERROR_CODE_REGISTRY: dict[str, ErrorCodeDefinition] = {
         False,
         "SDLC trace 事件无效。",
         "Ai_AutoSDLC trace event failed bridge validation.",
+        True,
+    ),
+    "P0_ACCEPTANCE_FAILED": ErrorCodeDefinition(
+        "P0_ACCEPTANCE_FAILED",
+        409,
+        False,
+        "P0 端到端验收未通过。",
+        "One or more P0 acceptance gate checks failed.",
         True,
     ),
 }
