@@ -209,3 +209,32 @@
 - 当前批次 branch disposition 状态：dev 分支待提交和 PR
 - 当前批次 worktree disposition 状态：retained
 - 是否继续下一批：否，本批继续 PR 收口。
+
+### Review Fix 2026-05-10-004 | Codex at-risk budget SLO feedback
+
+#### RF-004 | runtime SLO warns on at-risk budgets
+
+- 覆盖任务：PR #39 Codex review P1 feedback
+- 覆盖阶段：PR close-out review fix
+- 预读范围：Codex review threads、Runtime SLO projection、budget summary thresholds、AO37 contract tests
+- 激活的规则：PR close-out 固定规则、Runtime boundary、summary-only operations projection
+- **验证画像**：code-change
+- 改动范围：`src/agentops/core/operations.py`、`tests/contract/test_ao37_ct_p1_evidence_eval_cost_operations.py`
+- 改动内容：`_slo_state` 现在将 `budget_state` 为 `at_risk` 或 `over_budget` 的 Runtime budget summary 都映射为 SLO `at_risk`，保持推荐动作 `review_budget`，避免预算压力被误报为 healthy。
+- 新增/调整的测试：新增 at-risk budget threshold 回归，覆盖 80%-99% 使用率下 SLO 不应返回 healthy/none。
+- 执行的命令：
+  - `uv run pytest tests/contract/test_ao37_ct_p1_evidence_eval_cost_operations.py -q`
+  - `uv run pytest tests/contract/test_ao32_ct_evidence_health_summary_loop.py tests/contract/test_ao34_ct_runtime_outbox_sdlc_trace_bridge.py tests/contract/test_ao35_ct_p0_acceptance_gate.py tests/contract/test_ao37_ct_p1_evidence_eval_cost_operations.py -q`
+  - `uv run ruff check src/agentops/core/operations.py tests/contract/test_ao37_ct_p1_evidence_eval_cost_operations.py`
+  - `uv run ruff format --check src/agentops/core/operations.py tests/contract/test_ao37_ct_p1_evidence_eval_cost_operations.py`
+  - `uv run pytest -q`
+  - `uv run ai-sdlc verify constraints`
+- 测试结果：AO37 15 passed；AO32/AO34/AO35/AO37 回归 40 passed；ruff check/format 通过；完整 pytest 通过；AI-SDLC constraints 无 BLOCKER。
+- 是否符合任务目标：是。
+- 代码审查结论：Codex 指出的 at-risk budget SLO 漏警问题已用行为回归锁定；修复仅调整 summary projection 状态映射，不新增 Runtime action 或外部写入。
+- 任务/计划同步状态：AO37 plan/spec 不变，本次为 PR review fix；branch disposition 仍为 dev 分支待 PR 收口。
+- **已完成 git 提交**：是，本次 review fix 将在当前提交中一并提交。
+- **提交哈希**：见当前 Git HEAD。
+- 当前批次 branch disposition 状态：dev 分支待提交和 PR
+- 当前批次 worktree disposition 状态：retained
+- 是否继续下一批：否，本批继续 PR 收口。

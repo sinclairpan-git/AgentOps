@@ -42,3 +42,5 @@
 - 新增 AO37 回归：缺少 agent/version 的 DLQ event 仍会计入当前 agent/version Runtime SLO。
 - 修复 Codex Review P1：Runtime DLQ scoped reads 会在过滤前按 `run_id` 再次 reconciliation，覆盖 DLQ 先于 runtime run 写入的 out-of-order 摄入场景。
 - 新增 AO37 回归：out-of-order DLQ event 在 runtime run 后到达后仍会计入当前 agent/version Runtime SLO。
+- 修复 Codex Review P1：Runtime SLO 现在将 `budget_state=at_risk` 映射为 `slo_state=at_risk` 与 `review_budget`，避免预算压力被误报为 healthy。
+- 新增 AO37 回归：80%-99% budget 使用率下 Runtime SLO 返回 at-risk warning。

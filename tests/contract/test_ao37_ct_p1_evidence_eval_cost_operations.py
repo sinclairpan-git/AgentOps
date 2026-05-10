@@ -304,6 +304,25 @@ def test_ao37_ct_007_runtime_slo_passes_budget_thresholds():
     assert slo["recommended_action"] == "review_budget"
 
 
+def test_ao37_ct_007_runtime_slo_warns_on_at_risk_budget():
+    repository = InMemoryRepository()
+    write_runtime_run(repository, run_id="run_1", status="succeeded")
+    write_full_trace(repository, run_id="run_1")
+
+    slo = get_runtime_slo_summary(
+        repository,
+        "agent.ai-sdlc",
+        "1.0.0",
+        token_budget=100,
+        cost_budget=0.05,
+        latency_budget_ms=2000,
+    )
+
+    assert slo["budget_summary"]["budget_state"] == "at_risk"
+    assert slo["slo_state"] == "at_risk"
+    assert slo["recommended_action"] == "review_budget"
+
+
 def test_ao37_ct_007_runtime_slo_ignores_unrelated_dlq_backlog():
     repository = InMemoryRepository()
     write_runtime_run(repository, run_id="run_1", status="succeeded")

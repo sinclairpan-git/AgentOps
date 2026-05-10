@@ -383,7 +383,7 @@ def _slo_state(
         return "breached"
     if dlq_summary.get("backlog_count", 0) > 0:
         return "breached"
-    if budget_summary.get("budget_state") == "over_budget":
+    if budget_summary.get("budget_state") in {"at_risk", "over_budget"}:
         return "at_risk"
     if health_action in {"use_with_caution", "expired"}:
         return "at_risk"
