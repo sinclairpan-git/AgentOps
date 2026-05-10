@@ -476,7 +476,7 @@ def build_mcp_a2a_governance_projection(
     requested_by: str = "system",
     policy_check_state: str = "required",
 ) -> dict[str, Any]:
-    normalized_protocol = protocol.lower()
+    normalized_protocol = protocol.lower() if isinstance(protocol, str) else ""
     if normalized_protocol not in SUPPORTED_ECOSYSTEM_PROTOCOLS:
         raise AgentOpsError(
             "MCP_A2A_PROTOCOL_UNSUPPORTED",
@@ -756,6 +756,13 @@ def _safe_experiment_variant(index: int, variant: dict[str, Any]) -> dict[str, A
 
 
 def _safe_exporter_config(index: int, exporter: dict[str, Any]) -> dict[str, Any]:
+    if not isinstance(exporter, dict):
+        raise AgentOpsError(
+            "EXPORTER_ECOSYSTEM_UNSUPPORTED",
+            "Exporter config must be an object.",
+            denied_scope="exporter",
+            audit_id="audit_exporter_ecosystem",
+        )
     exporter_type = str(exporter.get("exporter_type") or exporter.get("type") or "")
     if exporter_type not in SUPPORTED_ECOSYSTEM_EXPORTERS:
         raise AgentOpsError(

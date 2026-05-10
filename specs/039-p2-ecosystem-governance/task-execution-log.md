@@ -120,3 +120,30 @@
 - 当前批次 branch disposition 状态：`codex/039-p2-ecosystem-governance` 待提交和 PR
 - 当前批次 worktree disposition 状态：retained
 - 是否继续下一批：否，本工作项进入提交与 PR 收口。
+
+### Review Fix 2026-05-10-001 | Codex P2 malformed input feedback
+
+#### RF-001 | reject malformed protocol and exporter inputs as domain errors
+
+- 覆盖任务：PR #41 Codex review P2 feedback
+- 覆盖阶段：PR close-out review fix
+- 预读范围：Codex review threads、AO39 operations implementation、AO39 contract tests
+- 激活的规则：PR close-out 固定规则、summary-only evidence/config、Runtime boundary、Exporter dry-run boundary
+- **验证画像**：code-change
+- 改动范围：`src/agentops/core/operations.py`、`tests/contract/test_ao39_ct_p2_ecosystem_governance.py`
+- 改动内容：`build_mcp_a2a_governance_projection` 现在对非字符串 protocol 返回 `MCP_A2A_PROTOCOL_UNSUPPORTED`；`_safe_exporter_config` 现在对非 object exporter 返回 `EXPORTER_ECOSYSTEM_UNSUPPORTED`，避免 malformed payload 触发 AttributeError。
+- 新增/调整的测试：新增 non-string protocol 回归；新增 non-object exporter 回归。
+- 统一验证命令：
+  - `uv run pytest tests/contract/test_ao39_ct_p2_ecosystem_governance.py`
+  - `uv run pytest tests/contract/test_ao32_ct_evidence_health_summary_loop.py tests/contract/test_ao34_ct_runtime_outbox_sdlc_trace_bridge.py tests/contract/test_ao37_ct_p1_evidence_eval_cost_operations.py tests/contract/test_ao38_ct_p2_replay_simulation_optimizer.py tests/contract/test_ao39_ct_p2_ecosystem_governance.py`
+  - `uv run ruff check src/agentops/core/operations.py tests/contract/test_ao39_ct_p2_ecosystem_governance.py`
+  - `uv run ai-sdlc verify constraints`
+- 测试结果：AO39 9 passed；AO32/AO34/AO37/AO38/AO39 回归 54 passed；ruff check 通过；AI-SDLC constraints 无 BLOCKER。
+- 是否符合任务目标：是。
+- 代码审查结论：Codex 指出的两个 P2 malformed-input 问题已用行为回归锁定；修复保持 summary-only/dry-run，不新增 Runtime execution、gateway execution 或 exporter dispatch。
+- 任务/计划同步状态：AO39 plan/spec 不变，本次为 PR review fix；branch disposition 仍为 PR #41 收口中。
+- **已完成 git 提交**：是，本次 review fix 将在当前提交中一并提交。
+- **提交哈希**：见当前 Git HEAD。
+- 当前批次 branch disposition 状态：`codex/039-p2-ecosystem-governance` 待提交和 PR
+- 当前批次 worktree disposition 状态：retained
+- 是否继续下一批：否，本批继续 PR 收口。

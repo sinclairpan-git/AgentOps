@@ -100,6 +100,18 @@ def test_ao39_ct_002_unsupported_ecosystem_protocol_is_rejected():
     assert exc.value.error_code == "MCP_A2A_PROTOCOL_UNSUPPORTED"
 
 
+def test_ao39_ct_002_non_string_protocol_is_rejected_as_domain_error():
+    with pytest.raises(AgentOpsError) as exc:
+        get_mcp_a2a_governance_projection(
+            protocol=None,
+            endpoint_ref="mcp://tools/safe-search",
+            subject_agent_id="agent.ai-sdlc",
+            resource_scope="tools.safe_search",
+        )
+
+    assert exc.value.error_code == "MCP_A2A_PROTOCOL_UNSUPPORTED"
+
+
 def test_ao39_ct_003_exporter_ecosystem_is_dry_run_only():
     projection = get_exporter_ecosystem_projection(
         requested_by="ops_1",
@@ -134,6 +146,13 @@ def test_ao39_ct_003_unsupported_exporter_type_is_rejected():
         get_exporter_ecosystem_projection(
             exporters=[{"exporter_type": "raw_http", "endpoint_ref": "raw://sink"}],
         )
+
+    assert exc.value.error_code == "EXPORTER_ECOSYSTEM_UNSUPPORTED"
+
+
+def test_ao39_ct_003_non_object_exporter_is_rejected_as_domain_error():
+    with pytest.raises(AgentOpsError) as exc:
+        get_exporter_ecosystem_projection(exporters=[None])
 
     assert exc.value.error_code == "EXPORTER_ECOSYSTEM_UNSUPPORTED"
 
