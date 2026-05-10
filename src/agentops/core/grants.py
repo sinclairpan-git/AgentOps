@@ -28,7 +28,7 @@ def issue_capability_grant(
 
     _validate_approval_binding(approval, grant_request)
 
-    now = now or datetime.now(UTC)
+    now = _normalize_time(now or datetime.now(UTC))
     grant = {
         "grant_id": grant_request.get("grant_id", f"grant_{approval_id}"),
         "decision_id": grant_request.get(
@@ -77,7 +77,7 @@ def consume_capability_grant(
     *,
     now: datetime | None = None,
 ) -> dict[str, Any]:
-    now = now or datetime.now(UTC)
+    now = _normalize_time(now or datetime.now(UTC))
     grant = repository.consume_grant_atomically(
         grant_id,
         lambda stored_grant: _consume_grant_use(stored_grant, policy_request, now),
@@ -146,14 +146,82 @@ def revoke_capability_grant(
     repository: InMemoryRepository,
     *,
     now: datetime | None = None,
+    actor: str = "system",
+    reason: str = "",
 ) -> dict[str, Any]:
-    now = now or datetime.now(UTC)
+    now = _normalize_time(now or datetime.now(UTC))
     grant = repository.get_grant(grant_id)
     if not grant:
         raise AgentOpsError("GRANT_NOT_FOUND", "Capability Grant does not exist.")
     grant["status"] = "revoked"
     grant["revoked_at"] = now.isoformat()
+    grant["revoked_by"] = actor
+    grant["revocation_reason"] = reason
     return repository.update_grant(grant)
+
+
+def build_grant_lifecycle(
+    grant_id: str, repository: InMemoryRepository, *, now: datetime | None = None
+) -> dict[str, Any]:
+    now = _normalize_time(now or datetime.now(UTC))
+    grant = repository.get_grant(grant_id)
+    if not grant:
+        raise AgentOpsError("GRANT_NOT_FOUND", "Capability Grant does not exist.")
+    consumptions = repository.grant_consumption_records(grant_id)
+    status = _grant_lifecycle_status(grant, now)
+    affected_runs = sorted({str(grant["run_id"])} if grant.get("run_id") else set())
+    affected_sessions = sorted(
+        {str(grant.get("session_id"))} if grant.get("session_id") else set()
+    )
+    offline_allowed = bool(grant.get("offline_allowed", False))
+    owner_notification_state = (
+        "pending" if status in {"revoked", "expired"} else "not_required"
+    )
+    return {
+        "schema_version": "grant_lifecycle.v1",
+        "grant_id": grant_id,
+        "status": status,
+        "binding": {
+            field: grant.get(field)
+            for field in (
+                "approval_id",
+                "policy_check_id",
+                "action",
+                "requester",
+                "agent_id",
+                "version",
+                "artifact_hash",
+                "installation_id",
+                "device_id",
+                "user_id",
+                "session_id",
+                "run_id",
+                "skill_id",
+                "resource_scope",
+                "policy_version",
+            )
+        },
+        "remaining_uses": _remaining_uses(grant.get("remaining_uses", 0)),
+        "expires_at": grant.get("expires_at", ""),
+        "revoked_at": grant.get("revoked_at", ""),
+        "revoked_by": grant.get("revoked_by", ""),
+        "revocation_reason": grant.get("revocation_reason", ""),
+        "consumption_summary": {
+            "consumption_count": len(consumptions),
+            "last_consumed_at": consumptions[-1]["consumed_at"] if consumptions else "",
+        },
+        "impact_summary": {
+            "affected_runs": affected_runs,
+            "affected_sessions": affected_sessions,
+            "offline_allowed": offline_allowed,
+            "owner_notification_state": owner_notification_state,
+        },
+        "summary": {
+            "raw_payload_access": "forbidden",
+            "scope_expansion_allowed": False,
+        },
+        "audit_id": grant.get("audit_id", f"audit_grant_{grant_id}"),
+    }
 
 
 def _validate_approval_binding(
@@ -186,6 +254,16 @@ def _validate_approval_binding(
             )
 
 
+def _grant_lifecycle_status(grant: dict[str, Any], now: datetime) -> str:
+    if grant.get("status") == "revoked":
+        return "revoked"
+    if grant.get("status") == "expired" or _parse_time(grant["expires_at"]) <= now:
+        return "expired"
+    if _remaining_uses(grant.get("remaining_uses", 0)) <= 0:
+        return "exhausted"
+    return "active"
+
+
 def _request_matches_grant(
     grant: dict[str, Any], policy_request: dict[str, Any]
 ) -> bool:
@@ -205,7 +283,13 @@ def _request_matches_grant(
 
 
 def _parse_time(value: str) -> datetime:
-    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    return _normalize_time(datetime.fromisoformat(value.replace("Z", "+00:00")))
+
+
+def _normalize_time(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
 
 
 def _approval_context_value(approval: dict[str, Any], field: str) -> Any:

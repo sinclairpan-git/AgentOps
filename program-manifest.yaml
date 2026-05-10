@@ -131,38 +131,41 @@ specs:
   - 032-evidence-health-summary-loop
   - 033-policy-grant-approval-minimum-control
   - 034-runtime-outbox-sdlc-trace-bridge
+- id: 036-p1-approval-policy-grant-operations
+  path: specs/036-p1-approval-policy-grant-operations
+  depends_on: []
 truth_snapshot:
-  generated_at: '2026-05-10T07:13:30Z'
+  generated_at: '2026-05-10T08:32:44Z'
   generated_by: ai-sdlc program truth sync
   generator_version: program_truth_snapshot_v1
-  repo_revision: 8a0da04
-  authoring_hash: 5465ddc59066bb97c58b7f2e28c9c9d41b3781a150a5c66240d9eb84191d395e
+  repo_revision: 44c4ad2
+  authoring_hash: 3f7c587143cf0bf14fe16c259e9e9ec59033179c3d521f037a4b7442a2ae155a
   source_hashes: {}
-  snapshot_hash: 8d5a6c227f1ae6fe0fde923fd79649e1945abbd9d4aef1c53fdabd7428bb75ca
+  snapshot_hash: 6586b4ea596e68d6ddb39bd058c41656255b17ba14e5c0148ce0ea226313f4d0
   computed_capabilities: []
   source_inventory:
     state: complete
-    total_sources: 176
-    mapped_sources: 176
+    total_sources: 181
+    mapped_sources: 181
     unmapped_sources: 0
     missing_sources: 0
-    phase_signal_count: 240
-    deferred_signal_count: 369
+    phase_signal_count: 325
+    deferred_signal_count: 470
     non_goal_signal_count: 65
     layer_totals:
       blueprint: 1
-      spec: 35
-      plan: 35
-      tasks: 35
-      execution: 35
-      close: 35
+      spec: 36
+      plan: 36
+      tasks: 36
+      execution: 36
+      close: 36
     layer_materialized:
       blueprint: 1
-      spec: 35
-      plan: 35
-      tasks: 35
-      execution: 35
-      close: 35
+      spec: 36
+      plan: 36
+      tasks: 36
+      execution: 36
+      close: 36
     entries:
     - path: /Users/sinclairpan/project/AI-Native底座开发文档/AgentOps_项目_PRD.md
       source_type: prd
@@ -1747,6 +1750,51 @@ truth_snapshot:
       mapping_ref: 035-p0-end-to-end-acceptance-gate
       phase_signal_count: 3
       deferred_signal_count: 3
+      non_goal_signal_count: 0
+    - path: specs/036-p1-approval-policy-grant-operations/spec.md
+      source_type: spec_doc
+      truth_layer: spec
+      mapped: true
+      exists: true
+      mapping_ref: 036-p1-approval-policy-grant-operations
+      phase_signal_count: 13
+      deferred_signal_count: 16
+      non_goal_signal_count: 0
+    - path: specs/036-p1-approval-policy-grant-operations/plan.md
+      source_type: plan_doc
+      truth_layer: plan
+      mapped: true
+      exists: true
+      mapping_ref: 036-p1-approval-policy-grant-operations
+      phase_signal_count: 21
+      deferred_signal_count: 22
+      non_goal_signal_count: 0
+    - path: specs/036-p1-approval-policy-grant-operations/tasks.md
+      source_type: tasks_doc
+      truth_layer: tasks
+      mapped: true
+      exists: true
+      mapping_ref: 036-p1-approval-policy-grant-operations
+      phase_signal_count: 10
+      deferred_signal_count: 10
+      non_goal_signal_count: 0
+    - path: specs/036-p1-approval-policy-grant-operations/task-execution-log.md
+      source_type: execution_log
+      truth_layer: execution
+      mapped: true
+      exists: true
+      mapping_ref: 036-p1-approval-policy-grant-operations
+      phase_signal_count: 35
+      deferred_signal_count: 47
+      non_goal_signal_count: 0
+    - path: specs/036-p1-approval-policy-grant-operations/development-summary.md
+      source_type: development_summary
+      truth_layer: close
+      mapped: true
+      exists: true
+      mapping_ref: 036-p1-approval-policy-grant-operations
+      phase_signal_count: 6
+      deferred_signal_count: 6
       non_goal_signal_count: 0
     unmapped_paths: []
   state: ready

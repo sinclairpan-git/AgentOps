@@ -100,6 +100,7 @@ class InMemoryRepository:
     used_bootstrap_nonces: set[str] = field(default_factory=set)
     approvals: dict[str, dict[str, Any]] = field(default_factory=dict)
     approval_decisions: dict[str, dict[str, Any]] = field(default_factory=dict)
+    policy_set_versions: dict[str, dict[str, Any]] = field(default_factory=dict)
     grants: dict[str, dict[str, Any]] = field(default_factory=dict)
     grant_consumptions: dict[str, dict[str, Any]] = field(default_factory=dict)
     raw_access_requests: dict[str, dict[str, Any]] = field(default_factory=dict)
@@ -686,6 +687,54 @@ class InMemoryRepository:
             self.approval_decisions[decision["approval_decision_id"]] = dict(decision)
             return dict(decision)
 
+    def store_approval_operation_decision(
+        self, approval_id: str, operation: str, decision: dict[str, Any]
+    ) -> dict[str, Any]:
+        with self._lock:
+            operation_sequence = (
+                sum(
+                    1
+                    for record in self.approval_decisions.values()
+                    if record.get("approval_id") == approval_id
+                )
+                + 1
+            )
+            operation_ref = f"{operation}_{operation_sequence}"
+            stored = dict(decision)
+            stored["operation_sequence"] = operation_sequence
+            stored["approval_decision_id"] = (
+                f"approval_decision_{approval_id}_{operation_ref}"
+            )
+            stored["operation_id"] = f"approval_operation_{approval_id}_{operation_ref}"
+            self.approval_decisions[stored["approval_decision_id"]] = stored
+            return dict(stored)
+
+    def approval_operation_records(self) -> tuple[dict[str, Any], ...]:
+        with self._lock:
+            return tuple(dict(record) for record in self.approval_decisions.values())
+
+    def store_policy_set_version(self, record: dict[str, Any]) -> dict[str, Any]:
+        with self._lock:
+            policy_set_version = str(record["policy_set_version"])
+            transition_sequence = (
+                sum(
+                    1
+                    for item in self.policy_set_versions.values()
+                    if item.get("policy_set_version") == policy_set_version
+                )
+                + 1
+            )
+            record_id = f"{policy_set_version}:{transition_sequence}"
+            stored = dict(record)
+            stored["policy_set_version_record_id"] = record_id
+            stored["transition_sequence"] = transition_sequence
+            self.policy_set_versions[record_id] = stored
+            return dict(stored)
+
+    def policy_set_version_records(self) -> tuple[dict[str, Any], ...]:
+        with self._lock:
+            return tuple(dict(record) for record in self.policy_set_versions.values())
+
     def store_grant(self, grant: dict[str, Any]) -> dict[str, Any]:
         with self._lock:
             self.grants[grant["grant_id"]] = dict(grant)
@@ -716,6 +765,15 @@ class InMemoryRepository:
         with self._lock:
             self.grant_consumptions[consumption["consumption_id"]] = dict(consumption)
             return dict(consumption)
+
+    def grant_consumption_records(self, grant_id: str) -> tuple[dict[str, Any], ...]:
+        with self._lock:
+            records = [
+                dict(record)
+                for record in self.grant_consumptions.values()
+                if record.get("grant_id") == grant_id
+            ]
+            return tuple(sorted(records, key=lambda item: str(item.get("consumed_at"))))
 
     def store_raw_access_request(self, request: dict[str, Any]) -> dict[str, Any]:
         with self._lock:

@@ -8,6 +8,7 @@ from typing import Any
 from agentops.core.errors import AgentOpsError
 from agentops.core.policy_engine import evaluate_policy_check as _evaluate_policy_check
 from agentops.models.policy import HIGH_RISK_ACTIONS
+from agentops.storage.repository import InMemoryRepository
 
 
 def evaluate_policy_check(request: dict[str, Any], **kwargs: Any) -> dict[str, Any]:
@@ -131,6 +132,88 @@ def build_policy_requirement_summary(
     }
 
 
+def register_policy_set_version(
+    repository: InMemoryRepository,
+    *,
+    policy_set_version: str,
+    state: str,
+    risk_templates: list[str],
+    fallback_action: str,
+    traffic_scope: dict[str, Any] | None = None,
+    owner: str = "Security/IAM",
+    rollback_from: str = "",
+    rollback_reason: str = "",
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    if state not in {"draft", "canary", "active", "rolled_back", "retired"}:
+        raise AgentOpsError(
+            "POLICY_VERSION_INVALID", "Policy set version state is unsupported."
+        )
+    if fallback_action not in {"allow", "warn", "require_online", "block"}:
+        raise AgentOpsError(
+            "POLICY_VERSION_INVALID", "Policy fallback action is unsupported."
+        )
+
+    now = now or datetime.now(UTC)
+    record = {
+        "schema_version": "policy_set_version.v1",
+        "policy_set_version": policy_set_version,
+        "state": state,
+        "risk_templates": list(risk_templates),
+        "fallback_action": fallback_action,
+        "traffic_scope": dict(traffic_scope or {}),
+        "owner": owner,
+        "rollback_from": rollback_from,
+        "rollback_reason": rollback_reason,
+        "deny_priority": {
+            "deny_overrides_grant": True,
+            "explanation": "deny/block policy signals have priority over active grants.",
+        },
+        "summary": {
+            "raw_payload_access": "forbidden",
+            "rollback_recorded": bool(rollback_from or rollback_reason),
+        },
+        "registered_at": now.isoformat(),
+        "audit_id": f"audit_policy_set_{policy_set_version}",
+    }
+    return repository.store_policy_set_version(record)
+
+
+def build_policy_operations_projection(
+    repository: InMemoryRepository,
+) -> dict[str, Any]:
+    versions = sorted(
+        repository.policy_set_version_records(),
+        key=_policy_registered_sort_key,
+    )
+    current_versions: dict[str, tuple[int, dict[str, Any]]] = {}
+    for index, version in enumerate(versions):
+        current_versions[str(version["policy_set_version"])] = (index, version)
+    active_version = next(
+        (
+            str(item["policy_set_version"])
+            for _, item in sorted(
+                current_versions.values(),
+                key=lambda current: current[0],
+                reverse=True,
+            )
+            if item.get("state") == "active"
+        ),
+        "",
+    )
+    return {
+        "schema_version": "policy_operations_projection.v1",
+        "active_version": active_version,
+        "versions": versions,
+        "summary": {
+            "version_count": len(versions),
+            "raw_payload_access": "forbidden",
+            "deny_overrides_grant": True,
+        },
+        "audit_id": "audit_policy_operations_projection",
+    }
+
+
 def _policy_plain_language(decision: str) -> str:
     return {
         "block": "该动作被策略阻断，需要联系安全/IAM 负责人。",
@@ -183,7 +266,17 @@ def _parse_policy_time(value: Any) -> datetime | None:
         parsed = datetime.fromisoformat(raw_value.replace("Z", "+00:00"))
     except ValueError:
         return None
-    return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=UTC)
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
+
+
+def _policy_registered_sort_key(record: dict[str, Any]) -> tuple[int, float, str]:
+    registered_at = str(record.get("registered_at", ""))
+    parsed = _parse_policy_time(registered_at)
+    if parsed is None:
+        return (-1, 0.0, registered_at)
+    return (0, parsed.timestamp(), registered_at)
 
 
 def _policy_reason_code(decision: dict[str, Any], p0_decision: str) -> str:

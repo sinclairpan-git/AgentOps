@@ -1,5 +1,5 @@
 pipeline_started_at: '2026-05-04T06:14:47+00:00'
-pipeline_last_updated: '2026-05-10T07:14:11+00:00'
+pipeline_last_updated: '2026-05-10T08:18:05+00:00'
 current_stage: close
 feature:
   id: 035-p0-end-to-end-acceptance-gate
@@ -46,6 +46,6 @@ completed_stages:
 execute_progress: null
 ai_decisions_count: 0
 execution_mode: auto
-linked_wi_id: 035-p0-end-to-end-acceptance-gate
-linked_plan_uri: specs/035-p0-end-to-end-acceptance-gate/plan.md
-last_synced_at: '2026-05-10T07:13:26+00:00'
+linked_wi_id: 036-p1-approval-policy-grant-operations
+linked_plan_uri: specs/036-p1-approval-policy-grant-operations/plan.md
+last_synced_at: '2026-05-10T08:18:05+00:00'
