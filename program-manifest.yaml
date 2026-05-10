@@ -137,38 +137,44 @@ specs:
 - id: 037-p1-evidence-eval-cost-operations
   path: specs/037-p1-evidence-eval-cost-operations
   depends_on: []
+- id: 038-p2-replay-simulation-optimizer
+  path: specs/038-p2-replay-simulation-optimizer
+  depends_on:
+  - 032-evidence-health-summary-loop
+  - 036-p1-approval-policy-grant-operations
+  - 037-p1-evidence-eval-cost-operations
 truth_snapshot:
-  generated_at: '2026-05-10T10:53:21Z'
+  generated_at: '2026-05-10T16:48:22Z'
   generated_by: ai-sdlc program truth sync
   generator_version: program_truth_snapshot_v1
-  repo_revision: 18c5350
-  authoring_hash: b1c6c92605a82b0db7cecc390e16dfc94a2d0abf9dd817b1a6474829b4628aed
+  repo_revision: 758d9ee
+  authoring_hash: 5f8c3e4206ae3c68f7a55f20798b27e8fa76fdcf6c32cacb20cdced2c86d4259
   source_hashes: {}
-  snapshot_hash: b6481fe0d7c46af4c0360c25dab3966f1a05fb62a17691f99392091b8eccd463
+  snapshot_hash: 15d1f0c190b39b5de124fdba84721e2a59e009cc57ba3ddf46bc4a37a0de2135
   computed_capabilities: []
   source_inventory:
     state: complete
-    total_sources: 186
-    mapped_sources: 186
+    total_sources: 191
+    mapped_sources: 191
     unmapped_sources: 0
     missing_sources: 0
-    phase_signal_count: 401
-    deferred_signal_count: 551
+    phase_signal_count: 475
+    deferred_signal_count: 627
     non_goal_signal_count: 66
     layer_totals:
       blueprint: 1
-      spec: 37
-      plan: 37
-      tasks: 37
-      execution: 37
-      close: 37
+      spec: 38
+      plan: 38
+      tasks: 38
+      execution: 38
+      close: 38
     layer_materialized:
       blueprint: 1
-      spec: 37
-      plan: 37
-      tasks: 37
-      execution: 37
-      close: 37
+      spec: 38
+      plan: 38
+      tasks: 38
+      execution: 38
+      close: 38
     entries:
     - path: /Users/sinclairpan/project/AI-Native底座开发文档/AgentOps_项目_PRD.md
       source_type: prd
@@ -1844,5 +1850,50 @@ truth_snapshot:
       phase_signal_count: 11
       deferred_signal_count: 11
       non_goal_signal_count: 1
+    - path: specs/038-p2-replay-simulation-optimizer/spec.md
+      source_type: spec_doc
+      truth_layer: spec
+      mapped: true
+      exists: true
+      mapping_ref: 038-p2-replay-simulation-optimizer
+      phase_signal_count: 17
+      deferred_signal_count: 18
+      non_goal_signal_count: 0
+    - path: specs/038-p2-replay-simulation-optimizer/plan.md
+      source_type: plan_doc
+      truth_layer: plan
+      mapped: true
+      exists: true
+      mapping_ref: 038-p2-replay-simulation-optimizer
+      phase_signal_count: 16
+      deferred_signal_count: 17
+      non_goal_signal_count: 0
+    - path: specs/038-p2-replay-simulation-optimizer/tasks.md
+      source_type: tasks_doc
+      truth_layer: tasks
+      mapped: true
+      exists: true
+      mapping_ref: 038-p2-replay-simulation-optimizer
+      phase_signal_count: 12
+      deferred_signal_count: 12
+      non_goal_signal_count: 0
+    - path: specs/038-p2-replay-simulation-optimizer/task-execution-log.md
+      source_type: execution_log
+      truth_layer: execution
+      mapped: true
+      exists: true
+      mapping_ref: 038-p2-replay-simulation-optimizer
+      phase_signal_count: 26
+      deferred_signal_count: 26
+      non_goal_signal_count: 0
+    - path: specs/038-p2-replay-simulation-optimizer/development-summary.md
+      source_type: development_summary
+      truth_layer: close
+      mapped: true
+      exists: true
+      mapping_ref: 038-p2-replay-simulation-optimizer
+      phase_signal_count: 3
+      deferred_signal_count: 3
+      non_goal_signal_count: 0
     unmapped_paths: []
   state: ready

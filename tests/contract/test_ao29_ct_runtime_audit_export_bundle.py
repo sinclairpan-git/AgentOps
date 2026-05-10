@@ -72,7 +72,9 @@ def _start_server(
     return server
 
 
-def _auth_headers(*, roles: str = "agentops-operator", scopes: str = "") -> dict[str, str]:
+def _auth_headers(
+    *, roles: str = "agentops-operator", scopes: str = ""
+) -> dict[str, str]:
     headers = {
         "X-AgentOps-Principal": "audit.exporter@example.com",
         "X-AgentOps-Request-Id": "req_ao29",
@@ -191,7 +193,10 @@ def test_ao29_ct_001_operator_materializes_manifest_gated_bundle(tmp_path: Path)
     records = JsonlAuditLog(audit_path).records()
     assert response.status == 200
     assert payload["schema_version"] == "agentops.runtime_audit.export_bundle.v1"
-    assert payload["bundle_format"] == "application/vnd.agentops.runtime-audit.metadata+json"
+    assert (
+        payload["bundle_format"]
+        == "application/vnd.agentops.runtime-audit.metadata+json"
+    )
     assert payload["digest_algorithm"] == "sha256"
     assert len(payload["bundle_digest"]) == 64
     assert payload["manifest_id"] == manifest["manifest_id"]
@@ -204,7 +209,9 @@ def test_ao29_ct_001_operator_materializes_manifest_gated_bundle(tmp_path: Path)
         "audit_runtime_2",
     ]
     assert all(set(record) == ALLOWED_AUDIT_FIELDS for record in payload["records"])
-    assert payload["records"][1]["resource"] == "/v1/bootstrap/credentials/boot-2/revoke"
+    assert (
+        payload["records"][1]["resource"] == "/v1/bootstrap/credentials/boot-2/revoke"
+    )
     assert payload["download_url"] == ""
     assert records[-1].action == "runtime.audit.export.bundle"
     assert records[-1].outcome == "accepted"
@@ -351,7 +358,9 @@ def test_ao29_ct_006_invalid_filters_are_rejected_and_audited(tmp_path: Path):
             payload={
                 "manifest_id": "audit_export_fake",
                 "content_digest": "0" * 64,
-                "filters": {"resource": "/v1/bootstrap/credentials/boot-2?token=secret"},
+                "filters": {
+                    "resource": "/v1/bootstrap/credentials/boot-2?token=secret"
+                },
                 "limit": 2,
             },
         )
