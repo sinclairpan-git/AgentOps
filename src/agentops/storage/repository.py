@@ -105,6 +105,8 @@ class InMemoryRepository:
     grant_consumptions: dict[str, dict[str, Any]] = field(default_factory=dict)
     raw_access_requests: dict[str, dict[str, Any]] = field(default_factory=dict)
     raw_access_grants: dict[str, dict[str, Any]] = field(default_factory=dict)
+    evidence_access_operations: dict[str, dict[str, Any]] = field(default_factory=dict)
+    eval_cases: dict[str, dict[str, Any]] = field(default_factory=dict)
     agent_store_agents: dict[str, dict[str, Any]] = field(default_factory=dict)
     agent_store_skills: dict[str, dict[str, Any]] = field(default_factory=dict)
     runtime_runs: dict[str, dict[str, Any]] = field(default_factory=dict)
@@ -354,9 +356,27 @@ class InMemoryRepository:
         retryable: bool = True,
     ) -> None:
         event_id = str(event.get("event_id") or "unknown")
+        payload = event.get("payload") if isinstance(event.get("payload"), dict) else {}
+        run_id = str(event.get("run_id") or payload.get("run_id") or "")
+        agent_id = str(event.get("agent_id") or payload.get("agent_id") or "")
+        version = str(
+            event.get("version")
+            or event.get("agent_version")
+            or payload.get("version")
+            or payload.get("agent_version")
+            or ""
+        )
         with self._lock:
+            if run_id and (not agent_id or not version):
+                run = self._latest_runtime_run_locked(run_id)
+                if run is not None:
+                    agent_id = agent_id or str(run.get("agent_id") or "")
+                    version = version or str(run.get("version") or "")
             self.runtime_dlq[event_id] = {
                 "event_id": event_id,
+                "run_id": run_id,
+                "agent_id": agent_id,
+                "version": version,
                 "event_type": str(event.get("event_type") or ""),
                 "event_type_version": str(event.get("event_type_version") or ""),
                 "schema_version": str(event.get("schema_version") or ""),
@@ -373,6 +393,31 @@ class InMemoryRepository:
                 "retryable": retryable,
                 "received_at": utc_now(),
             }
+
+    def _latest_runtime_run_locked(self, run_id: str) -> dict[str, Any] | None:
+        candidates = [
+            record
+            for record in self.runtime_runs.values()
+            if record.get("run_id") == run_id
+        ]
+        if not candidates:
+            return None
+        return sorted(candidates, key=_runtime_attempt_sort_key)[-1]
+
+    def _reconcile_runtime_dlq_identity_locked(
+        self, record: dict[str, Any]
+    ) -> dict[str, Any]:
+        run_id = str(record.get("run_id") or "")
+        if not run_id or (record.get("agent_id") and record.get("version")):
+            return record
+        run = self._latest_runtime_run_locked(run_id)
+        if run is None:
+            return record
+        if not record.get("agent_id"):
+            record["agent_id"] = str(run.get("agent_id") or "")
+        if not record.get("version"):
+            record["version"] = str(run.get("version") or "")
+        return record
 
     @staticmethod
     def _trace_span_key(
@@ -789,6 +834,51 @@ class InMemoryRepository:
         with self._lock:
             self.raw_access_grants[grant["raw_grant_id"]] = dict(grant)
             return dict(grant)
+
+    def store_evidence_access_operation(
+        self, operation: dict[str, Any]
+    ) -> dict[str, Any]:
+        with self._lock:
+            sequence = len(self.evidence_access_operations) + 1
+            stored = deepcopy(operation)
+            stored["operation_sequence"] = sequence
+            stored["operation_id"] = f"evidence_access_operation_{sequence}"
+            self.evidence_access_operations[stored["operation_id"]] = stored
+            return deepcopy(stored)
+
+    def store_eval_case(self, eval_case: dict[str, Any]) -> dict[str, Any]:
+        with self._lock:
+            sequence = len(self.eval_cases) + 1
+            stored = deepcopy(eval_case)
+            stored["eval_case_sequence"] = sequence
+            stored["eval_case_id"] = f"eval_case_{sequence}"
+            self.eval_cases[stored["eval_case_id"]] = stored
+            return deepcopy(stored)
+
+    def eval_case_records(self) -> tuple[dict[str, Any], ...]:
+        with self._lock:
+            return tuple(deepcopy(record) for record in self.eval_cases.values())
+
+    def runtime_dlq_records(
+        self, *, agent_id: str | None = None, version: str | None = None
+    ) -> tuple[dict[str, Any], ...]:
+        with self._lock:
+            records = []
+            for record in self.runtime_dlq.values():
+                reconciled = self._reconcile_runtime_dlq_identity_locked(record)
+                if (agent_id is None or reconciled.get("agent_id") == agent_id) and (
+                    version is None or reconciled.get("version") == version
+                ):
+                    records.append(deepcopy(reconciled))
+            return tuple(
+                sorted(
+                    records,
+                    key=lambda item: (
+                        _runtime_time_sort_value(item.get("received_at")),
+                        str(item.get("event_id", "")),
+                    ),
+                )
+            )
 
     def upsert_agent_store_metadata(self, metadata: dict[str, Any]) -> dict[str, Any]:
         agent_id = str(metadata["agent_id"])
