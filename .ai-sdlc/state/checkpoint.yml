@@ -1,12 +1,12 @@
 pipeline_started_at: '2026-05-04T06:14:47+00:00'
-pipeline_last_updated: '2026-05-10T07:14:11+00:00'
+pipeline_last_updated: '2026-05-10T08:18:44+00:00'
 current_stage: close
 feature:
-  id: 035-p0-end-to-end-acceptance-gate
-  spec_dir: specs/035-p0-end-to-end-acceptance-gate
-  design_branch: design/035-p0-end-to-end-acceptance-gate-docs
-  feature_branch: feature/035-p0-end-to-end-acceptance-gate-dev
-  current_branch: codex/035-p0-end-to-end-acceptance-gate-closeout
+  id: 036-p1-approval-policy-grant-operations
+  spec_dir: specs/036-p1-approval-policy-grant-operations
+  design_branch: design/036-p1-approval-policy-grant-operations-docs
+  feature_branch: feature/036-p1-approval-policy-grant-operations-dev
+  current_branch: feature/036-p1-approval-policy-grant-operations-docs
   docs_baseline_ref: ''
   docs_baseline_at: ''
 multi_agent:
@@ -16,36 +16,33 @@ multi_agent:
 prd_source: /Users/sinclairpan/project/AI-Native底座开发文档/AgentOps_项目_PRD.md
 completed_stages:
 - stage: init
-  completed_at: '2026-05-10T07:13:53+00:00'
+  completed_at: '2026-05-10T08:18:44+00:00'
   artifacts: []
 - stage: refine
-  completed_at: '2026-05-10T07:13:53+00:00'
+  completed_at: '2026-05-10T08:18:44+00:00'
   artifacts:
   - spec.md
 - stage: design
-  completed_at: '2026-05-10T07:13:53+00:00'
+  completed_at: '2026-05-10T08:18:44+00:00'
   artifacts:
   - plan.md
 - stage: decompose
-  completed_at: '2026-05-10T07:13:53+00:00'
+  completed_at: '2026-05-10T08:18:44+00:00'
   artifacts:
   - tasks.md
 - stage: verify
-  completed_at: '2026-05-10T07:13:53+00:00'
+  completed_at: '2026-05-10T08:18:44+00:00'
   artifacts:
   - task-execution-log.md
   - tasks.md
 - stage: execute
-  completed_at: '2026-05-10T07:13:53+00:00'
+  completed_at: '2026-05-10T08:18:44+00:00'
   artifacts:
   - development-summary.md
   - task-execution-log.md
-- stage: close
-  completed_at: '2026-05-10T07:14:11+00:00'
-  artifacts: []
 execute_progress: null
 ai_decisions_count: 0
 execution_mode: auto
-linked_wi_id: 035-p0-end-to-end-acceptance-gate
-linked_plan_uri: specs/035-p0-end-to-end-acceptance-gate/plan.md
-last_synced_at: '2026-05-10T07:13:26+00:00'
+linked_wi_id: 036-p1-approval-policy-grant-operations
+linked_plan_uri: specs/036-p1-approval-policy-grant-operations/plan.md
+last_synced_at: '2026-05-10T08:18:05+00:00'
