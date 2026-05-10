@@ -1,6 +1,10 @@
 from __future__ import annotations
 
 from agentops.api.approvals import decide_approval_request
+from agentops.api.policy import (
+    build_policy_operations_projection,
+    register_policy_set_version,
+)
 from agentops.core.runtime_contracts import get_contract
 from tests.contract.test_ao2_ct_002_approval_lifecycle import create_pending_approval
 
@@ -146,3 +150,55 @@ def test_ao36_ct_002_break_glass_approval_requires_audit_reason(repository):
     assert operation["actor"] == approval["requester"]
     assert operation["break_glass_reason"] == "incident_commander_override"
     assert operation["summary"]["break_glass"] is True
+
+
+def test_ao36_ct_003_policy_operations_projection_explains_canary(repository):
+    register_policy_set_version(
+        repository,
+        policy_set_version="policy.v3",
+        state="canary",
+        risk_templates=["deploy_prod", "raw_evidence_access"],
+        fallback_action="require_online",
+        traffic_scope={"percent": 10, "agents": ["agent_1"]},
+        owner="Security/IAM",
+    )
+
+    projection = build_policy_operations_projection(repository)
+
+    assert projection["schema_version"] == "policy_set_version.v1"
+    assert projection["active_version"] == ""
+    assert projection["versions"][0]["policy_set_version"] == "policy.v3"
+    assert projection["versions"][0]["state"] == "canary"
+    assert projection["versions"][0]["deny_priority"]["deny_overrides_grant"] is True
+    assert projection["versions"][0]["fallback_action"] == "require_online"
+    assert projection["versions"][0]["summary"]["raw_payload_access"] == "forbidden"
+
+
+def test_ao36_ct_003_policy_operations_projection_explains_rollback(repository):
+    register_policy_set_version(
+        repository,
+        policy_set_version="policy.v2",
+        state="active",
+        risk_templates=["deploy_prod"],
+        fallback_action="require_online",
+    )
+    register_policy_set_version(
+        repository,
+        policy_set_version="policy.v3",
+        state="rolled_back",
+        risk_templates=["deploy_prod"],
+        fallback_action="block",
+        rollback_from="policy.v3",
+        rollback_reason="elevated false positives",
+    )
+
+    projection = build_policy_operations_projection(repository)
+    rolled_back = {
+        item["policy_set_version"]: item for item in projection["versions"]
+    }["policy.v3"]
+
+    assert projection["active_version"] == "policy.v2"
+    assert rolled_back["state"] == "rolled_back"
+    assert rolled_back["rollback_from"] == "policy.v3"
+    assert rolled_back["rollback_reason"] == "elevated false positives"
+    assert rolled_back["summary"]["rollback_recorded"] is True

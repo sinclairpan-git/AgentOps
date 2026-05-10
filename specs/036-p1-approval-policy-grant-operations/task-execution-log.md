@@ -221,3 +221,65 @@
 - 当前批次 branch disposition 状态：dev 分支待提交
 - 当前批次 worktree disposition 状态：retained
 - 是否继续下一批：是，进入 T31。
+
+### Batch 2026-05-10-004 | T31
+
+#### 5.1 批次范围
+
+- 覆盖任务：`T31`
+- 覆盖阶段：Batch 3 policy operations projection
+- 预读范围：AO36 spec/plan/tasks、`src/agentops/api/policy.py`、AO33 policy regression
+- 激活的规则：policy version projection 不替代策略引擎、deny 优先级高于 grant、summary-only projection
+
+#### 5.2 统一验证命令
+
+- `R1`（红灯验证）
+  - 命令：`uv run pytest tests/contract/test_ao36_ct_p1_governance_operations.py -q`
+  - 结果：失败，`build_policy_operations_projection` / `register_policy_set_version` 尚不存在，红灯生效。
+- `V1`（定向验证）
+  - 命令：`uv run pytest tests/contract/test_ao36_ct_p1_governance_operations.py tests/contract/test_ao33_ct_policy_grant_guardrail_control.py -q`
+  - 结果：PASS，20 tests。
+- `V2`（静态检查）
+  - 命令：`uv run ruff check src/agentops/api/policy.py src/agentops/storage/repository.py tests/contract/test_ao36_ct_p1_governance_operations.py`
+  - 结果：PASS，All checks passed。
+
+#### 5.3 任务记录
+
+##### T31 | 实现 Policy set version operations projection
+
+- 改动范围：`src/agentops/api/policy.py`、`src/agentops/storage/repository.py`、`tests/contract/test_ao36_ct_p1_governance_operations.py`
+- 改动内容：新增 policy set version record 存储；新增 `register_policy_set_version()` 和 `build_policy_operations_projection()`，输出 canary/active/rolled_back、risk_templates、fallback_action、traffic_scope、rollback metadata、deny priority 和 summary-only audit。
+- 新增/调整的测试：AO36-CT-003 覆盖 canary 策略解释和 rollback 摘要。
+- 执行的命令：AO36 + AO33 policy regression、ruff focused check。
+- 测试结果：通过。
+- 是否符合任务目标：符合。
+
+#### 5.4 代码审查结论（Mandatory）
+
+- 宪章/规格对齐：符合。Policy operations 只登记和解释版本状态，不改变 P0 policy evaluation 逻辑。
+- 代码质量：API 以显式函数承载 P1 projection，repository 只保存 summary record；错误输入使用结构化 AgentOpsError。
+- 测试质量：先红后绿，并回归 AO33，确保 deny/grant P0 行为不漂移。
+- 结论：T31 可提交，后续进入 T41 Grant lifecycle。
+
+#### 5.5 任务/计划同步状态（Mandatory）
+
+- `tasks.md` 同步状态：T31 已完成，T41/T51 待执行。
+- `related_plan` 同步状态：与 Phase 3 Policy operations 对齐。
+- 关联 branch/worktree disposition 计划：当前 dev 分支继续承载 T41。
+- 说明：真实 policy engine 管理仍在外部；本批仅提供 AgentOps 操作面投影。
+
+#### 5.6 自动决策记录（如有）
+
+无
+
+#### 5.7 批次结论
+
+- Policy set version operations projection 已具备 P1 最小能力，支持 canary、active、rollback 和 deny priority 解释。
+
+#### 5.8 归档后动作
+
+- 已完成 git 提交：否（须与本批代码、测试和归档一并提交）
+- 提交哈希：待本批提交后生成
+- 当前批次 branch disposition 状态：dev 分支待提交
+- 当前批次 worktree disposition 状态：retained
+- 是否继续下一批：是，进入 T41。

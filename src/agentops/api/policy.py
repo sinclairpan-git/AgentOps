@@ -8,6 +8,7 @@ from typing import Any
 from agentops.core.errors import AgentOpsError
 from agentops.core.policy_engine import evaluate_policy_check as _evaluate_policy_check
 from agentops.models.policy import HIGH_RISK_ACTIONS
+from agentops.storage.repository import InMemoryRepository
 
 
 def evaluate_policy_check(request: dict[str, Any], **kwargs: Any) -> dict[str, Any]:
@@ -128,6 +129,81 @@ def build_policy_requirement_summary(
         "primary_action": "处理审批" if decision == "approval_required" else "查看策略",
         "secondary_action": "返回 Agent Store",
         "audit_id": policy_decision["audit_id"],
+    }
+
+
+def register_policy_set_version(
+    repository: InMemoryRepository,
+    *,
+    policy_set_version: str,
+    state: str,
+    risk_templates: list[str],
+    fallback_action: str,
+    traffic_scope: dict[str, Any] | None = None,
+    owner: str = "Security/IAM",
+    rollback_from: str = "",
+    rollback_reason: str = "",
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    if state not in {"draft", "canary", "active", "rolled_back", "retired"}:
+        raise AgentOpsError(
+            "POLICY_VERSION_INVALID", "Policy set version state is unsupported."
+        )
+    if fallback_action not in {"allow", "warn", "require_online", "block"}:
+        raise AgentOpsError(
+            "POLICY_VERSION_INVALID", "Policy fallback action is unsupported."
+        )
+
+    now = now or datetime.now(UTC)
+    record = {
+        "schema_version": "policy_set_version.v1",
+        "policy_set_version": policy_set_version,
+        "state": state,
+        "risk_templates": list(risk_templates),
+        "fallback_action": fallback_action,
+        "traffic_scope": dict(traffic_scope or {}),
+        "owner": owner,
+        "rollback_from": rollback_from,
+        "rollback_reason": rollback_reason,
+        "deny_priority": {
+            "deny_overrides_grant": True,
+            "explanation": "deny/block policy signals have priority over active grants.",
+        },
+        "summary": {
+            "raw_payload_access": "forbidden",
+            "rollback_recorded": bool(rollback_from or rollback_reason),
+        },
+        "registered_at": now.isoformat(),
+        "audit_id": f"audit_policy_set_{policy_set_version}",
+    }
+    return repository.store_policy_set_version(record)
+
+
+def build_policy_operations_projection(
+    repository: InMemoryRepository,
+) -> dict[str, Any]:
+    versions = sorted(
+        repository.policy_set_version_records(),
+        key=lambda item: str(item.get("registered_at", "")),
+    )
+    active_version = next(
+        (
+            str(item["policy_set_version"])
+            for item in reversed(versions)
+            if item.get("state") == "active"
+        ),
+        "",
+    )
+    return {
+        "schema_version": "policy_set_version.v1",
+        "active_version": active_version,
+        "versions": versions,
+        "summary": {
+            "version_count": len(versions),
+            "raw_payload_access": "forbidden",
+            "deny_overrides_grant": True,
+        },
+        "audit_id": "audit_policy_operations_projection",
     }
 
 

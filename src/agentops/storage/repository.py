@@ -100,6 +100,7 @@ class InMemoryRepository:
     used_bootstrap_nonces: set[str] = field(default_factory=set)
     approvals: dict[str, dict[str, Any]] = field(default_factory=dict)
     approval_decisions: dict[str, dict[str, Any]] = field(default_factory=dict)
+    policy_set_versions: dict[str, dict[str, Any]] = field(default_factory=dict)
     grants: dict[str, dict[str, Any]] = field(default_factory=dict)
     grant_consumptions: dict[str, dict[str, Any]] = field(default_factory=dict)
     raw_access_requests: dict[str, dict[str, Any]] = field(default_factory=dict)
@@ -689,6 +690,15 @@ class InMemoryRepository:
     def approval_operation_records(self) -> tuple[dict[str, Any], ...]:
         with self._lock:
             return tuple(dict(record) for record in self.approval_decisions.values())
+
+    def store_policy_set_version(self, record: dict[str, Any]) -> dict[str, Any]:
+        with self._lock:
+            self.policy_set_versions[record["policy_set_version"]] = dict(record)
+            return dict(record)
+
+    def policy_set_version_records(self) -> tuple[dict[str, Any], ...]:
+        with self._lock:
+            return tuple(dict(record) for record in self.policy_set_versions.values())
 
     def store_grant(self, grant: dict[str, Any]) -> dict[str, Any]:
         with self._lock:
