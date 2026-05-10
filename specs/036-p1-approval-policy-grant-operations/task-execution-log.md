@@ -97,3 +97,65 @@
 - 当前批次 branch disposition 状态：docs 分支承载 formal baseline，待提交；后续 dev 分支承载代码实现。
 - 当前批次 worktree disposition 状态：当前工作树继续用于 T12 前置。
 - 是否继续下一批：是，进入 T12。
+
+### Batch 2026-05-10-002 | T12
+
+#### 3.1 批次范围
+
+- 覆盖任务：`T12`
+- 覆盖阶段：Batch 1 contract registry
+- 预读范围：AO36 spec/plan/tasks、`src/agentops/core/runtime_contracts.py`、AO35 registry test 形态
+- 激活的规则：Contract-first、P1 backward-compatible registry、summary-only operation payload
+
+#### 3.2 统一验证命令
+
+- `R1`（红灯验证）
+  - 命令：`uv run pytest tests/contract/test_ao36_ct_p1_governance_operations.py -q`
+  - 结果：失败，缺少 `approval_operation.v1`、`policy_set_version.v1`、`grant_lifecycle.v1` registry entries，红灯生效。
+- `V1`（定向验证）
+  - 命令：`uv run pytest tests/contract/test_ao36_ct_p1_governance_operations.py -q`
+  - 结果：PASS，3 tests。
+- `V2`（静态检查）
+  - 命令：`uv run ruff check src/agentops/core/runtime_contracts.py tests/contract/test_ao36_ct_p1_governance_operations.py`
+  - 结果：PASS，All checks passed。
+
+#### 3.3 任务记录
+
+##### T12 | 登记 P1 governance operations contracts
+
+- 改动范围：`src/agentops/core/runtime_contracts.py`、`tests/contract/test_ao36_ct_p1_governance_operations.py`
+- 改动内容：新增 `approval_operation.v1`、`policy_set_version.v1`、`grant_lifecycle.v1` contract registry entries；锁定 required fields、枚举、error codes、contract test references 和 P1 compatibility policy。
+- 新增/调整的测试：新增 AO36-CT-001 registry tests，覆盖三类 P1 governance operations contract。
+- 执行的命令：AO36 registry tests、ruff focused check。
+- 测试结果：通过。
+- 是否符合任务目标：符合。
+
+#### 3.4 代码审查结论（Mandatory）
+
+- 宪章/规格对齐：符合。新增 contract 只描述审批、策略版本和 Grant lifecycle 操作面，不引入 Runtime 执行能力。
+- 代码质量：改动集中在 registry 数据，复用现有 `_entry` helper；compatibility policy 显式标为 P1 backward-compatible。
+- 测试质量：先红后绿，三类 contract 的 owner、producer、consumer、required fields 和 enum 均被锁定。
+- 结论：T12 可提交，后续进入 T21 Approval operations 状态机实现。
+
+#### 3.5 任务/计划同步状态（Mandatory）
+
+- `tasks.md` 同步状态：T12 已完成，T21/T31/T41/T51 待执行。
+- `related_plan` 同步状态：与 Phase 1 Contracts and repository surface 对齐。
+- 关联 branch/worktree disposition 计划：当前 dev 分支承载 T12 代码与测试，后续继续 T21。
+- 说明：T12 仅登记 contract，不实现状态机。
+
+#### 3.6 自动决策记录（如有）
+
+无
+
+#### 3.7 批次结论
+
+- AO36 P1 governance operations contract registry 已完成，Approval/Policy/Grant 三条 P1 操作面具备测试锁定的契约入口。
+
+#### 3.8 归档后动作
+
+- 已完成 git 提交：否（须与本批代码、测试和归档一并提交）
+- 提交哈希：待本批提交后生成
+- 当前批次 branch disposition 状态：dev 分支待提交
+- 当前批次 worktree disposition 状态：retained
+- 是否继续下一批：是，进入 T21。

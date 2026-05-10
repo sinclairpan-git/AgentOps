@@ -135,13 +135,13 @@ specs:
   path: specs/036-p1-approval-policy-grant-operations
   depends_on: []
 truth_snapshot:
-  generated_at: '2026-05-10T08:19:24Z'
+  generated_at: '2026-05-10T08:21:34Z'
   generated_by: ai-sdlc program truth sync
   generator_version: program_truth_snapshot_v1
-  repo_revision: 7ed9ea3
+  repo_revision: c6f2488
   authoring_hash: 3f7c587143cf0bf14fe16c259e9e9ec59033179c3d521f037a4b7442a2ae155a
   source_hashes: {}
-  snapshot_hash: a016c6fd0279ca57e0a96051103db1fdb9814511bd18c5070029618517209ae2
+  snapshot_hash: c6051285f5e15b9111fcd266b84751fae05888b1adeee7409617eb5dd786ac28
   computed_capabilities: []
   source_inventory:
     state: complete
@@ -149,8 +149,8 @@ truth_snapshot:
     mapped_sources: 181
     unmapped_sources: 0
     missing_sources: 0
-    phase_signal_count: 304
-    deferred_signal_count: 444
+    phase_signal_count: 311
+    deferred_signal_count: 453
     non_goal_signal_count: 65
     layer_totals:
       blueprint: 1
@@ -1784,8 +1784,8 @@ truth_snapshot:
       mapped: true
       exists: true
       mapping_ref: 036-p1-approval-policy-grant-operations
-      phase_signal_count: 14
-      deferred_signal_count: 21
+      phase_signal_count: 21
+      deferred_signal_count: 30
       non_goal_signal_count: 0
     - path: specs/036-p1-approval-policy-grant-operations/development-summary.md
       source_type: development_summary
