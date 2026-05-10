@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from typing import Any
 
 from agentops.api.runtime import (
@@ -15,6 +14,15 @@ from agentops.core.runtime_summary import build_runtime_health_summary
 from agentops.storage.repository import InMemoryRepository
 
 REQUIRED_P0_SPAN_KINDS = frozenset({"model", "tool", "guardrail", "artifact"})
+SENSITIVE_RAW_KEYS = frozenset(
+    {
+        "raw_payload",
+        "credential_secret",
+        "token_secret",
+        "device_key",
+        "prompt",
+    }
+)
 RAW_LEAK_MARKERS = (
     "raw_payload",
     "credential_secret",
@@ -108,6 +116,9 @@ def _outbox_receipt_summary(receipt: dict[str, Any] | None) -> dict[str, Any]:
 def _policy_decision_summary(decision: dict[str, Any] | None) -> dict[str, Any]:
     if not decision:
         return {"state": "missing"}
+    constraints = decision.get("constraints")
+    constraints = constraints if isinstance(constraints, dict) else {}
+    boundary_declared = "agentops_executes_runtime" in constraints
     return {
         "schema_version": str(decision.get("schema_version") or ""),
         "decision_id": str(decision.get("decision_id") or ""),
@@ -117,9 +128,10 @@ def _policy_decision_summary(decision: dict[str, Any] | None) -> dict[str, Any]:
         "ttl": _safe_int(decision.get("ttl")),
         "fallback_action": str(decision.get("fallback_action") or ""),
         "audit_id": str(decision.get("audit_id") or ""),
-        "agentops_executes_runtime": bool(
-            (decision.get("constraints") or {}).get("agentops_executes_runtime")
-        ),
+        "agentops_runtime_boundary_declared": boundary_declared,
+        "agentops_executes_runtime": constraints.get("agentops_executes_runtime")
+        if boundary_declared
+        else None,
     }
 
 
@@ -236,6 +248,7 @@ def _policy_decision_check(decision: dict[str, Any]) -> dict[str, Any]:
         decision.get("schema_version") == "policy_decision.v1"
         and decision.get("decision") in {"allow", "warn"}
         and decision.get("ttl", 0) > 0
+        and decision.get("agentops_runtime_boundary_declared") is True
         and decision.get("agentops_executes_runtime") is False
     )
     return _check(
@@ -306,8 +319,7 @@ def _store_echo_check(summary: dict[str, Any], run_id: str) -> dict[str, Any]:
 
 
 def _no_raw_leak_check(context: dict[str, Any]) -> dict[str, Any]:
-    serialized = json.dumps(context, ensure_ascii=False, sort_keys=True)
-    marker = next((item for item in RAW_LEAK_MARKERS if item in serialized), "")
+    marker = _find_sensitive_raw_key(context)
     return _check(
         "summary_only_no_raw_leaks",
         not marker,
@@ -325,6 +337,23 @@ def _check(
         "reason_code": "ok" if passed else reason_code,
         "evidence_ref": evidence_ref,
     }
+
+
+def _find_sensitive_raw_key(value: Any) -> str:
+    if isinstance(value, dict):
+        for key, item in value.items():
+            key_text = str(key)
+            if key_text in SENSITIVE_RAW_KEYS:
+                return key_text
+            nested = _find_sensitive_raw_key(item)
+            if nested:
+                return nested
+    if isinstance(value, list | tuple):
+        for item in value:
+            nested = _find_sensitive_raw_key(item)
+            if nested:
+                return nested
+    return ""
 
 
 def _safe_int(value: Any) -> int:

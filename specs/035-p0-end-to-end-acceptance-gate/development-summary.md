@@ -24,3 +24,8 @@
 - `uv run ruff check src tests`：PASS。
 - `uv run ai-sdlc verify constraints`：PASS，no BLOCKERs。
 - `uv run pytest -q`：PASS。
+
+## Review Fixes
+
+- 修复 Codex Review P1：P0 policy check 现在要求 `constraints.agentops_executes_runtime` 显式存在且为 `False`，缺失约束不会被默认视为合规。
+- 修复 Codex Review P2：summary-only raw leak check 改为按敏感字段名递归检查，避免普通 metadata 中出现 `prompt` 字样导致误失败。

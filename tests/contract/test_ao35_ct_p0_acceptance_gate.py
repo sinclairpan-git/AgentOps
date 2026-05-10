@@ -17,6 +17,7 @@ from tests.contract.test_ao2_ct_002_approval_lifecycle import (
 from tests.contract.test_ao31_ct_runtime_governance_foundation import (
     runtime_batch,
     runtime_event,
+    trace_span_payload,
 )
 from tests.contract.test_ao32_ct_evidence_health_summary_loop import (
     register_agent,
@@ -83,6 +84,18 @@ def test_ao35_ct_002_acceptance_gate_passes_complete_p0_loop():
                     sequence_no=51,
                     idempotency_key="sdlc:p0:gate",
                 ),
+                runtime_event(
+                    "evt_prompt_named_metadata_span",
+                    "trace_span",
+                    trace_span_payload(
+                        span_id="span_prompt_metadata",
+                        span_kind="system",
+                        operation_name="prompt.metadata_router",
+                    ),
+                    schema_version="trace_span.v1",
+                    sequence_no=52,
+                    idempotency_key="runtime:p0:prompt-metadata-span",
+                ),
             ],
             batch_id="batch_p0_acceptance",
             outbox_id="outbox_p0_acceptance",
@@ -128,6 +141,82 @@ def test_ao35_ct_002_acceptance_gate_passes_complete_p0_loop():
     assert "token_secret" not in serialized
     assert "device_key" not in serialized
     assert "prompt" not in serialized
+
+
+def test_ao35_ct_002_policy_gate_fails_when_runtime_boundary_missing():
+    repository = InMemoryRepository()
+    register_agent(repository)
+    write_runtime_run(repository, status="succeeded")
+    write_full_trace(repository)
+    receipt = ingest_runtime_events(
+        runtime_batch(
+            [
+                runtime_event(
+                    "evt_guardrail_boundary_missing",
+                    "guardrail_result",
+                    guardrail_result_payload(status="passed", severity="info"),
+                    schema_version="guardrail_result.v1",
+                    sequence_no=50,
+                    idempotency_key="runtime:p0:guardrail-boundary-missing",
+                ),
+                canonical_sdlc_event(
+                    "evt_sdlc_boundary_missing",
+                    sdlc_trace_payload(
+                        sdlc_event_id="sdlc_gate_boundary_missing",
+                        trace_id="trace_1",
+                        span_id="sdlc_gate_boundary_missing",
+                        parent_span_id="",
+                        sdlc_event_type="gate",
+                        stage_name="verify",
+                        status="passed",
+                        evidence_ref="vault://sdlc/p0/boundary-missing",
+                    ),
+                    sequence_no=51,
+                    idempotency_key="sdlc:p0:boundary-missing",
+                ),
+            ],
+            batch_id="batch_p0_boundary_missing",
+            outbox_id="outbox_p0_boundary_missing",
+            producer="Ai_AutoSDLC",
+        ),
+        repository,
+    )
+    grant = _issue_and_consume_bound_grant(repository)
+    policy_decision = evaluate_policy_decision_v1(
+        policy_request(),
+        grant=active_grant(
+            grant_id=grant["grant_id"],
+            expires_at=grant["expires_at"],
+            version=grant["version"],
+            artifact_hash=grant["artifact_hash"],
+            installation_id=grant["installation_id"],
+            device_id=grant["device_id"],
+            user_id=grant["user_id"],
+            session_id=grant["session_id"],
+            run_id=grant["run_id"],
+        ),
+    )
+    policy_decision.pop("constraints")
+
+    gate = build_p0_acceptance_gate(
+        repository,
+        "agent.ai-sdlc",
+        "1.0.0",
+        "run_1",
+        outbox_receipt=receipt,
+        policy_decision=policy_decision,
+    )
+
+    failed_checks = {
+        check["check_id"]: check["reason_code"]
+        for check in gate["required_checks"]
+        if check["status"] == "failed"
+    }
+    assert gate["gate_status"] == "failed"
+    assert (
+        failed_checks["policy_decision_allows_under_constraints"]
+        == "policy_decision_not_acceptable"
+    )
 
 
 def test_ao35_ct_003_acceptance_gate_fails_when_store_summary_is_degraded():
