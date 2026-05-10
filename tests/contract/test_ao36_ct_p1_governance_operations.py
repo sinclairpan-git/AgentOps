@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
+
 from agentops.api.approvals import decide_approval_request
 from agentops.api.grants import (
     build_grant_lifecycle_view,
@@ -152,6 +154,7 @@ def test_ao36_ct_002_approval_operation_can_escalate_and_withdraw(repository):
     assert withdrawn["status"] == "withdrawn"
     operations = repository.approval_operation_records()
     assert [item["operation"] for item in operations[-2:]] == ["escalate", "withdraw"]
+    assert operations[-2]["sla_state"] == "escalated"
     assert operations[-1]["state_before"] == "escalated"
     assert operations[-1]["state_after"] == "withdrawn"
 
@@ -217,6 +220,33 @@ def test_ao36_ct_002_repeated_approval_operations_keep_full_history(repository):
     ]
     assert len({item["approval_decision_id"] for item in matching}) == 2
     assert len({item["operation_id"] for item in matching}) == 2
+
+
+def test_ao36_ct_002_concurrent_approval_operations_get_unique_ids(repository):
+    approval = create_pending_approval(repository)
+
+    def request_more_info(index: int) -> None:
+        decide_approval_request(
+            approval["approval_id"],
+            action="request_more_info",
+            actor=f"security_{index}",
+            reason=f"Need follow-up evidence {index}.",
+            repository=repository,
+        )
+
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        list(executor.map(request_more_info, range(8)))
+
+    matching = [
+        item
+        for item in repository.approval_operation_records()
+        if item["approval_id"] == approval["approval_id"]
+    ]
+
+    assert len(matching) == 8
+    assert len({item["approval_decision_id"] for item in matching}) == 8
+    assert len({item["operation_id"] for item in matching}) == 8
+    assert {item["operation_sequence"] for item in matching} == set(range(1, 9))
 
 
 def test_ao36_ct_003_policy_operations_projection_explains_canary(repository):

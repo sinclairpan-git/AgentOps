@@ -121,18 +121,7 @@ def decide_approval(
     repository.store_approval(approval)
 
     operation = "break_glass_approve" if action == "approve" and break_glass else action
-    operation_sequence = (
-        sum(
-            1
-            for record in repository.approval_operation_records()
-            if record.get("approval_id") == approval_id
-        )
-        + 1
-    )
-    operation_ref = f"{operation}_{operation_sequence}"
     decision = {
-        "approval_decision_id": f"approval_decision_{approval_id}_{operation_ref}",
-        "operation_id": f"approval_operation_{approval_id}_{operation_ref}",
         "approval_id": approval_id,
         "actor": actor,
         "action": action,
@@ -155,5 +144,7 @@ def decide_approval(
         decision["notification_intent"] = dict(notification_intent)
     if break_glass_reason:
         decision["break_glass_reason"] = break_glass_reason
-    repository.store_approval_decision(decision)
+    if action == "escalate":
+        decision["sla_state"] = approval["sla_state"]
+    repository.store_approval_operation_decision(approval_id, operation, decision)
     return approval

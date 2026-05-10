@@ -404,6 +404,7 @@ CONTRACT_REGISTRY: dict[str, ContractRegistryEntry] = {
             "sla_state",
             "notification_intent",
             "break_glass_reason",
+            "operation_sequence",
         ),
         enum_fields={
             "operation": (

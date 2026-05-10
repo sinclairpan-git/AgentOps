@@ -687,6 +687,28 @@ class InMemoryRepository:
             self.approval_decisions[decision["approval_decision_id"]] = dict(decision)
             return dict(decision)
 
+    def store_approval_operation_decision(
+        self, approval_id: str, operation: str, decision: dict[str, Any]
+    ) -> dict[str, Any]:
+        with self._lock:
+            operation_sequence = (
+                sum(
+                    1
+                    for record in self.approval_decisions.values()
+                    if record.get("approval_id") == approval_id
+                )
+                + 1
+            )
+            operation_ref = f"{operation}_{operation_sequence}"
+            stored = dict(decision)
+            stored["operation_sequence"] = operation_sequence
+            stored["approval_decision_id"] = (
+                f"approval_decision_{approval_id}_{operation_ref}"
+            )
+            stored["operation_id"] = f"approval_operation_{approval_id}_{operation_ref}"
+            self.approval_decisions[stored["approval_decision_id"]] = stored
+            return dict(stored)
+
     def approval_operation_records(self) -> tuple[dict[str, Any], ...]:
         with self._lock:
             return tuple(dict(record) for record in self.approval_decisions.values())
