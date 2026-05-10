@@ -1,5 +1,5 @@
 schema_version: '2'
-prd_path: ''
+prd_path: /Users/sinclairpan/project/AI-Native底座开发文档/AgentOps_项目_PRD.md
 program:
   goal: ''
 specs:
@@ -132,36 +132,47 @@ specs:
   - 033-policy-grant-approval-minimum-control
   - 034-runtime-outbox-sdlc-trace-bridge
 truth_snapshot:
-  generated_at: '2026-05-10T03:43:33Z'
+  generated_at: '2026-05-10T07:13:30Z'
   generated_by: ai-sdlc program truth sync
   generator_version: program_truth_snapshot_v1
-  repo_revision: 25373e1
-  authoring_hash: bef2442754589c69ac5236258adcb85cda40783999a1efe567424b6a30729280
+  repo_revision: 8a0da04
+  authoring_hash: 5465ddc59066bb97c58b7f2e28c9c9d41b3781a150a5c66240d9eb84191d395e
   source_hashes: {}
-  snapshot_hash: 3f15264fc21515f8e5884b10a3e81a550a54ab0eea8895a986539f4546a34391
+  snapshot_hash: 8d5a6c227f1ae6fe0fde923fd79649e1945abbd9d4aef1c53fdabd7428bb75ca
   computed_capabilities: []
   source_inventory:
     state: complete
-    total_sources: 175
-    mapped_sources: 175
+    total_sources: 176
+    mapped_sources: 176
     unmapped_sources: 0
     missing_sources: 0
-    phase_signal_count: 230
-    deferred_signal_count: 359
-    non_goal_signal_count: 62
+    phase_signal_count: 240
+    deferred_signal_count: 369
+    non_goal_signal_count: 65
     layer_totals:
+      blueprint: 1
       spec: 35
       plan: 35
       tasks: 35
       execution: 35
       close: 35
     layer_materialized:
+      blueprint: 1
       spec: 35
       plan: 35
       tasks: 35
       execution: 35
       close: 35
     entries:
+    - path: /Users/sinclairpan/project/AI-Native底座开发文档/AgentOps_项目_PRD.md
+      source_type: prd
+      truth_layer: blueprint
+      mapped: true
+      exists: true
+      mapping_ref: prd_path
+      phase_signal_count: 2
+      deferred_signal_count: 2
+      non_goal_signal_count: 3
     - path: specs/001-agentops-trusted-loop/spec.md
       source_type: spec_doc
       truth_layer: spec
@@ -1725,8 +1736,8 @@ truth_snapshot:
       mapped: true
       exists: true
       mapping_ref: 035-p0-end-to-end-acceptance-gate
-      phase_signal_count: 0
-      deferred_signal_count: 0
+      phase_signal_count: 5
+      deferred_signal_count: 5
       non_goal_signal_count: 0
     - path: specs/035-p0-end-to-end-acceptance-gate/development-summary.md
       source_type: development_summary
@@ -1734,8 +1745,8 @@ truth_snapshot:
       mapped: true
       exists: true
       mapping_ref: 035-p0-end-to-end-acceptance-gate
-      phase_signal_count: 0
-      deferred_signal_count: 0
+      phase_signal_count: 3
+      deferred_signal_count: 3
       non_goal_signal_count: 0
     unmapped_paths: []
   state: ready
