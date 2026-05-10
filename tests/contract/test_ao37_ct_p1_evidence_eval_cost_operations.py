@@ -326,6 +326,28 @@ def test_ao37_ct_007_runtime_slo_ignores_unrelated_dlq_backlog():
     assert slo["recommended_action"] == "none"
 
 
+def test_ao37_ct_007_runtime_slo_backfills_dlq_identity_from_run():
+    repository = InMemoryRepository()
+    write_runtime_run(repository, run_id="run_1", status="succeeded")
+    write_full_trace(repository, run_id="run_1")
+    repository.write_runtime_dlq(
+        {
+            "event_id": "evt_missing_parent",
+            "event_type": "trace_span",
+            "payload": {"run_id": "run_1", "trace_id": "trace_1"},
+            "payload_hash": "sha256:missing-parent",
+        },
+        error_code="TRACE_PARENT_MISSING",
+        message="Parent span missing.",
+    )
+
+    slo = get_runtime_slo_summary(repository, "agent.ai-sdlc", "1.0.0")
+
+    assert slo["dlq_summary"]["backlog_count"] == 1
+    assert slo["slo_state"] == "breached"
+    assert slo["recommended_action"] == "open_ops_review"
+
+
 def test_ao37_ct_008_store_governance_projection_is_display_only():
     repository = InMemoryRepository()
     write_runtime_run(repository, run_id="run_1", status="blocked")

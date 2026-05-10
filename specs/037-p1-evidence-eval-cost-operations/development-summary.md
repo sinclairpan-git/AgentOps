@@ -38,3 +38,5 @@
 - 修复 Codex Review P1：Runtime SLO 现在会接收并传递 token/cost/latency budget thresholds，预算超限会进入 `at_risk/review_budget`。
 - 修复 Codex Review P1：Runtime SLO 的 DLQ backlog 现在按当前 agent/version 过滤，其他 agent 的 DLQ 不会污染健康 agent 的 SLO。
 - 新增 AO37 回归：预算阈值传递、unrelated DLQ isolation。
+- 修复 Codex Review P1：Runtime DLQ event 缺少 agent/version 时，会按 `run_id` 从已有 Runtime run 回填 identity，避免 SLO 按 agent/version 过滤时漏掉 `trace_span`/`sdlc_trace_event` 派生 backlog。
+- 新增 AO37 回归：缺少 agent/version 的 DLQ event 仍会计入当前 agent/version Runtime SLO。

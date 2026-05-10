@@ -357,18 +357,26 @@ class InMemoryRepository:
     ) -> None:
         event_id = str(event.get("event_id") or "unknown")
         payload = event.get("payload") if isinstance(event.get("payload"), dict) else {}
+        run_id = str(event.get("run_id") or payload.get("run_id") or "")
+        agent_id = str(event.get("agent_id") or payload.get("agent_id") or "")
+        version = str(
+            event.get("version")
+            or event.get("agent_version")
+            or payload.get("version")
+            or payload.get("agent_version")
+            or ""
+        )
         with self._lock:
+            if run_id and (not agent_id or not version):
+                run = self._latest_runtime_run_locked(run_id)
+                if run is not None:
+                    agent_id = agent_id or str(run.get("agent_id") or "")
+                    version = version or str(run.get("version") or "")
             self.runtime_dlq[event_id] = {
                 "event_id": event_id,
-                "run_id": str(event.get("run_id") or payload.get("run_id") or ""),
-                "agent_id": str(event.get("agent_id") or payload.get("agent_id") or ""),
-                "version": str(
-                    event.get("version")
-                    or event.get("agent_version")
-                    or payload.get("version")
-                    or payload.get("agent_version")
-                    or ""
-                ),
+                "run_id": run_id,
+                "agent_id": agent_id,
+                "version": version,
                 "event_type": str(event.get("event_type") or ""),
                 "event_type_version": str(event.get("event_type_version") or ""),
                 "schema_version": str(event.get("schema_version") or ""),
@@ -385,6 +393,16 @@ class InMemoryRepository:
                 "retryable": retryable,
                 "received_at": utc_now(),
             }
+
+    def _latest_runtime_run_locked(self, run_id: str) -> dict[str, Any] | None:
+        candidates = [
+            record
+            for record in self.runtime_runs.values()
+            if record.get("run_id") == run_id
+        ]
+        if not candidates:
+            return None
+        return sorted(candidates, key=_runtime_attempt_sort_key)[-1]
 
     @staticmethod
     def _trace_span_key(
