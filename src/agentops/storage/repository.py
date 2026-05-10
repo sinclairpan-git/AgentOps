@@ -731,6 +731,15 @@ class InMemoryRepository:
             self.grant_consumptions[consumption["consumption_id"]] = dict(consumption)
             return dict(consumption)
 
+    def grant_consumption_records(self, grant_id: str) -> tuple[dict[str, Any], ...]:
+        with self._lock:
+            records = [
+                dict(record)
+                for record in self.grant_consumptions.values()
+                if record.get("grant_id") == grant_id
+            ]
+            return tuple(sorted(records, key=lambda item: str(item.get("consumed_at"))))
+
     def store_raw_access_request(self, request: dict[str, Any]) -> dict[str, Any]:
         with self._lock:
             self.raw_access_requests[request["request_id"]] = dict(request)

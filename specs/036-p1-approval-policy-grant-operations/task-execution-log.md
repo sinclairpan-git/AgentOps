@@ -283,3 +283,65 @@
 - 当前批次 branch disposition 状态：dev 分支待提交
 - 当前批次 worktree disposition 状态：retained
 - 是否继续下一批：是，进入 T41。
+
+### Batch 2026-05-10-005 | T41
+
+#### 6.1 批次范围
+
+- 覆盖任务：`T41`
+- 覆盖阶段：Batch 4 grant lifecycle operations
+- 预读范围：AO36 spec/plan/tasks、`src/agentops/core/grants.py`、AO2/AO13 grant regressions
+- 激活的规则：Grant binding 不扩大、revocation 必须审计、impact summary 不暴露 raw payload
+
+#### 6.2 统一验证命令
+
+- `R1`（红灯验证）
+  - 命令：`uv run pytest tests/contract/test_ao36_ct_p1_governance_operations.py -q`
+  - 结果：失败，`build_grant_lifecycle_view` 尚不存在，红灯生效。
+- `V1`（定向验证）
+  - 命令：`uv run pytest tests/contract/test_ao36_ct_p1_governance_operations.py tests/contract/test_ao2_ct_003_capability_grant.py tests/contract/test_ao13_ct_approval_grant_workbench.py -q`
+  - 结果：PASS，20 tests。
+- `V2`（静态检查）
+  - 命令：`uv run ruff check src/agentops/core/grants.py src/agentops/api/grants.py src/agentops/storage/repository.py tests/contract/test_ao36_ct_p1_governance_operations.py`
+  - 结果：PASS，All checks passed。
+
+#### 6.3 任务记录
+
+##### T41 | 实现 Grant lifecycle query/revoke/impact
+
+- 改动范围：`src/agentops/core/grants.py`、`src/agentops/api/grants.py`、`src/agentops/storage/repository.py`、`tests/contract/test_ao36_ct_p1_governance_operations.py`
+- 改动内容：新增 Grant consumption query helper；新增 `build_grant_lifecycle_view()`，返回 binding、status、remaining_uses、consumption_summary、impact_summary、revocation metadata；`revoke_grant()` 支持 actor/reason 并写入审计字段。
+- 新增/调整的测试：AO36-CT-004 覆盖 consumption/binding lifecycle 和 revocation impact summary。
+- 执行的命令：AO36 + AO2/AO13 Grant 回归、ruff focused check。
+- 测试结果：通过。
+- 是否符合任务目标：符合。
+
+#### 6.4 代码审查结论（Mandatory）
+
+- 宪章/规格对齐：符合。Grant lifecycle 只查询、吊销和投影授权状态，不扩大 approval scope，不执行 Runtime。
+- 代码质量：复用现有 Grant 消费和 revoke 路径；新增 lifecycle builder 为 summary-only projection。
+- 测试质量：先红后绿，并回归 AO2/AO13，覆盖 active consumption 和 revoked impact。
+- 结论：T41 可提交，后续进入 T51 最终验证和 PR 收口。
+
+#### 6.5 任务/计划同步状态（Mandatory）
+
+- `tasks.md` 同步状态：T41 已完成，T51 待执行。
+- `related_plan` 同步状态：与 Phase 4 Grant lifecycle 对齐。
+- 关联 branch/worktree disposition 计划：当前 dev 分支进入最终验证。
+- 说明：离线授权只进入 impact summary，不改变 Runtime 消费执行逻辑。
+
+#### 6.6 自动决策记录（如有）
+
+无
+
+#### 6.7 批次结论
+
+- Grant lifecycle P1 最小能力已完成，可查询消费、绑定、吊销元数据和影响范围。
+
+#### 6.8 归档后动作
+
+- 已完成 git 提交：否（须与本批代码、测试和归档一并提交）
+- 提交哈希：待本批提交后生成
+- 当前批次 branch disposition 状态：dev 分支待提交
+- 当前批次 worktree disposition 状态：retained
+- 是否继续下一批：是，进入 T51。

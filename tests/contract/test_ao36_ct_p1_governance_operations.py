@@ -1,12 +1,22 @@
 from __future__ import annotations
 
 from agentops.api.approvals import decide_approval_request
+from agentops.api.grants import (
+    build_grant_lifecycle_view,
+    consume_grant,
+    issue_grant,
+    revoke_grant,
+)
 from agentops.api.policy import (
     build_policy_operations_projection,
     register_policy_set_version,
 )
 from agentops.core.runtime_contracts import get_contract
-from tests.contract.test_ao2_ct_002_approval_lifecycle import create_pending_approval
+from tests.contract.test_ao2_ct_001_policy_check import policy_request
+from tests.contract.test_ao2_ct_002_approval_lifecycle import (
+    create_pending_approval,
+    grant_request_from_approval,
+)
 
 
 def test_ao36_ct_001_contract_registry_has_approval_operation():
@@ -202,3 +212,78 @@ def test_ao36_ct_003_policy_operations_projection_explains_rollback(repository):
     assert rolled_back["rollback_from"] == "policy.v3"
     assert rolled_back["rollback_reason"] == "elevated false positives"
     assert rolled_back["summary"]["rollback_recorded"] is True
+
+
+def test_ao36_ct_004_grant_lifecycle_tracks_consumption_and_binding(repository):
+    grant = _issue_active_grant(repository, remaining_uses=2)
+    consume_grant(
+        grant["grant_id"],
+        _policy_request_for_grant(grant),
+        repository,
+    )
+
+    lifecycle = build_grant_lifecycle_view(grant["grant_id"], repository)
+
+    assert lifecycle["schema_version"] == "grant_lifecycle.v1"
+    assert lifecycle["status"] == "active"
+    assert lifecycle["binding"]["agent_id"] == grant["agent_id"]
+    assert lifecycle["binding"]["resource_scope"] == grant["resource_scope"]
+    assert lifecycle["remaining_uses"] == 1
+    assert lifecycle["consumption_summary"]["consumption_count"] == 1
+    assert lifecycle["impact_summary"]["affected_runs"] == [grant["run_id"]]
+    assert lifecycle["summary"]["raw_payload_access"] == "forbidden"
+
+
+def test_ao36_ct_004_grant_lifecycle_records_revocation_impact(repository):
+    grant = _issue_active_grant(repository, offline_allowed=True)
+
+    revoked = revoke_grant(
+        grant["grant_id"],
+        repository,
+        actor="security_1",
+        reason="risk containment",
+    )
+    lifecycle = build_grant_lifecycle_view(grant["grant_id"], repository)
+
+    assert revoked["status"] == "revoked"
+    assert lifecycle["status"] == "revoked"
+    assert lifecycle["revoked_by"] == "security_1"
+    assert lifecycle["revocation_reason"] == "risk containment"
+    assert lifecycle["impact_summary"]["offline_allowed"] is True
+    assert lifecycle["impact_summary"]["owner_notification_state"] == "pending"
+
+
+def _issue_active_grant(repository, **grant_overrides):
+    approval = create_pending_approval(repository)
+    approved = decide_approval_request(
+        approval["approval_id"],
+        action="approve",
+        actor="security_1",
+        reason="approved for deploy",
+        repository=repository,
+    )
+    grant_request = grant_request_from_approval(
+        approved,
+        version=approved["version"],
+        artifact_hash=approved["artifact_hash"],
+        installation_id=approved["installation_id"],
+        device_id=approved["device_id"],
+        user_id=approved["user_id"],
+        session_id=approved["session_id"],
+        run_id=approved["run_id"],
+        **grant_overrides,
+    )
+    return issue_grant(approved["approval_id"], grant_request, repository)
+
+
+def _policy_request_for_grant(grant):
+    return policy_request(
+        policy_check_id=grant["policy_check_id"],
+        version=grant["version"],
+        artifact_hash=grant["artifact_hash"],
+        installation_id=grant["installation_id"],
+        device_id=grant["device_id"],
+        user_id=grant["user_id"],
+        session_id=grant["session_id"],
+        run_id=grant["run_id"],
+    )
