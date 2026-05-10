@@ -40,3 +40,40 @@
 ## Review Fix 2026-05-10-002
 
 - Codex Review P1：`guardrail_result_projected` 可被 SDLC bridge 生成的 guardrail span summary 误满足，即使没有真实 `guardrail_result` fact。已改为必须存在 `guardrail_result_id` 且状态为 passed/warn/blocked，并新增缺少 guardrail result 时 gate 失败的回归。
+
+## Close-out 2026-05-10-001
+
+- **验证画像**：code-change
+- **批次范围**：AO35 close-check 元数据补齐；不新增运行时行为。
+
+### 统一验证命令
+
+- `ai-sdlc adapter status`：OK，codex instructions 已安装并完成宿主验证。
+- `ai-sdlc run --dry-run`：PASS，Stage close 预演通过。
+- `uv run pytest tests/contract/test_ao31_ct_runtime_governance_foundation.py tests/contract/test_ao32_ct_evidence_health_summary_loop.py tests/contract/test_ao33_ct_policy_grant_guardrail_control.py tests/contract/test_ao34_ct_runtime_outbox_sdlc_trace_bridge.py tests/contract/test_ao35_ct_p0_acceptance_gate.py -q`：PASS，AO31-AO35 定向回归通过。
+- `uv run ruff check src tests`：PASS，All checks passed。
+- `uv run ai-sdlc verify constraints`：PASS，no BLOCKERs。
+- `ai-sdlc program truth audit`：PASS，truth snapshot ready/fresh。
+
+### 代码审查
+
+- 宪章/规格对齐：符合。AO35 acceptance gate 维持只读 projection 边界，不执行 Runtime，不读取 raw payload，不替代 Runtime / Ai_AutoSDLC / Agent Store 事实源。
+- 代码质量：当前增量为 close-out 文档和 program truth/ checkpoint 元数据；既有 AO35 代码路径已覆盖 policy boundary、guardrail result、summary-only raw leak 检查。
+- 测试质量：AO31-AO35 定向回归、ruff、AI-SDLC constraints 均通过。
+- 结论：未发现本地 P0/P1 阻断，可进入最终提交和 PR 收口。
+
+### 任务/计划同步状态
+
+- `tasks.md` 同步状态：T11、T12、T21、T22、T31 均已有执行证据，本批补齐 close-check 要求的归档字段。
+- `related_plan` 同步状态：`plan.md` Phase 0-2 与实现和验证记录一致；P1 HTTP route / persisted gate result 仍按计划延后。
+- `program-manifest.yaml` 同步状态：已补齐 `prd_path` 并刷新 truth snapshot，program truth audit 为 ready/fresh。
+- 当前批次 branch disposition 状态：当前 checkout 位于 `main`；待提交后按项目 PR 收口规则创建功能分支/PR 或绑定现有 AO35 PR。
+- 当前批次 worktree disposition 状态：当前工作树保留用于 AO35 close-out。
+
+### Git close-out
+
+- **已完成 git 提交**：是，本批 close-out 元数据与当前工作树改动将在当前提交中一并提交。
+- **提交哈希**：见当前 Git HEAD。
+- 当前批次 branch disposition 状态：pending close-out commit / PR。
+- 当前批次 worktree disposition 状态：retained。
+- 是否继续下一批：否，本批目标是让 AO35 close-check 具备完整收口证据。

@@ -1,12 +1,12 @@
 pipeline_started_at: '2026-05-04T06:14:47+00:00'
-pipeline_last_updated: '2026-05-09T13:29:49+00:00'
+pipeline_last_updated: '2026-05-10T07:14:11+00:00'
 current_stage: close
 feature:
-  id: 033-policy-grant-approval-minimum-control
-  spec_dir: specs/033-policy-grant-approval-minimum-control
-  design_branch: design/033-policy-grant-approval-minimum-control-docs
-  feature_branch: feature/033-policy-grant-approval-minimum-control-dev
-  current_branch: feature/033-policy-grant-approval-minimum-control-dev
+  id: 035-p0-end-to-end-acceptance-gate
+  spec_dir: specs/035-p0-end-to-end-acceptance-gate
+  design_branch: design/035-p0-end-to-end-acceptance-gate-docs
+  feature_branch: feature/035-p0-end-to-end-acceptance-gate-dev
+  current_branch: codex/035-p0-end-to-end-acceptance-gate-closeout
   docs_baseline_ref: ''
   docs_baseline_at: ''
 multi_agent:
@@ -16,33 +16,36 @@ multi_agent:
 prd_source: /Users/sinclairpan/project/AI-Native底座开发文档/AgentOps_项目_PRD.md
 completed_stages:
 - stage: init
-  completed_at: '2026-05-09T13:29:49+00:00'
+  completed_at: '2026-05-10T07:13:53+00:00'
   artifacts: []
 - stage: refine
-  completed_at: '2026-05-09T13:29:49+00:00'
+  completed_at: '2026-05-10T07:13:53+00:00'
   artifacts:
   - spec.md
 - stage: design
-  completed_at: '2026-05-09T13:29:49+00:00'
+  completed_at: '2026-05-10T07:13:53+00:00'
   artifacts:
   - plan.md
 - stage: decompose
-  completed_at: '2026-05-09T13:29:49+00:00'
+  completed_at: '2026-05-10T07:13:53+00:00'
   artifacts:
   - tasks.md
 - stage: verify
-  completed_at: '2026-05-09T13:29:49+00:00'
+  completed_at: '2026-05-10T07:13:53+00:00'
   artifacts:
   - task-execution-log.md
   - tasks.md
 - stage: execute
-  completed_at: '2026-05-09T13:29:49+00:00'
+  completed_at: '2026-05-10T07:13:53+00:00'
   artifacts:
   - development-summary.md
   - task-execution-log.md
+- stage: close
+  completed_at: '2026-05-10T07:14:11+00:00'
+  artifacts: []
 execute_progress: null
 ai_decisions_count: 0
 execution_mode: auto
-linked_wi_id: 033-policy-grant-approval-minimum-control
-linked_plan_uri: specs/033-policy-grant-approval-minimum-control/plan.md
-last_synced_at: '2026-05-09T11:22:35+00:00'
+linked_wi_id: 035-p0-end-to-end-acceptance-gate
+linked_plan_uri: specs/035-p0-end-to-end-acceptance-gate/plan.md
+last_synced_at: '2026-05-10T07:13:26+00:00'
