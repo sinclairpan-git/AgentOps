@@ -159,3 +159,65 @@
 - 当前批次 branch disposition 状态：dev 分支待提交
 - 当前批次 worktree disposition 状态：retained
 - 是否继续下一批：是，进入 T21。
+
+### Batch 2026-05-10-003 | T21
+
+#### 4.1 批次范围
+
+- 覆盖任务：`T21`
+- 覆盖阶段：Batch 2 approval operations state machine
+- 预读范围：AO36 spec/plan/tasks、`src/agentops/core/approvals.py`、AO2 approval lifecycle tests
+- 激活的规则：审批状态绑定、self-approval 防线、break-glass 必须审计、summary-only operation record
+
+#### 4.2 统一验证命令
+
+- `R1`（红灯验证）
+  - 命令：`uv run pytest tests/contract/test_ao36_ct_p1_governance_operations.py -q`
+  - 结果：失败，`decide_approval()` 尚不支持 `required_materials` / `break_glass_reason`，且 `withdraw` 未登记，红灯生效。
+- `V1`（定向验证）
+  - 命令：`uv run pytest tests/contract/test_ao36_ct_p1_governance_operations.py tests/contract/test_ao2_ct_002_approval_lifecycle.py -q`
+  - 结果：PASS，11 tests。
+- `V2`（静态检查）
+  - 命令：`uv run ruff check src/agentops/core/approvals.py src/agentops/models/approvals.py src/agentops/storage/repository.py tests/contract/test_ao36_ct_p1_governance_operations.py`
+  - 结果：PASS，All checks passed。
+
+#### 4.3 任务记录
+
+##### T21 | 扩展 Approval Center 状态转换
+
+- 改动范围：`src/agentops/core/approvals.py`、`src/agentops/models/approvals.py`、`src/agentops/storage/repository.py`、`tests/contract/test_ao36_ct_p1_governance_operations.py`
+- 改动内容：新增 `request_input -> needs_input`、`withdraw -> withdrawn`、`escalate` SLA state、break-glass approve audit reason；审批 operation record 现在包含 operation/state_before/state_after/summary/audit_id，repository 可查询 approval operation records。
+- 新增/调整的测试：AO36-CT-002 覆盖补充材料请求、升级后撤回、break-glass approve 审计原因。
+- 执行的命令：AO36 + AO2 approval regression、ruff focused check。
+- 测试结果：通过。
+- 是否符合任务目标：符合。
+
+#### 4.4 代码审查结论（Mandatory）
+
+- 宪章/规格对齐：符合。P1 approval operations 只改变审批状态和审计投影，不签发 Grant、不执行 Runtime。
+- 代码质量：保留 AO2 approve/reject/expire 旧行为；新增 P1 状态通过同一 `decide_approval()` 路径记录审计，避免第二套状态机。
+- 测试质量：先红后绿，并回归 AO2 approval lifecycle。
+- 结论：T21 可提交，后续进入 T31 Policy operations projection。
+
+#### 4.5 任务/计划同步状态（Mandatory）
+
+- `tasks.md` 同步状态：T21 已完成，T31/T41/T51 待执行。
+- `related_plan` 同步状态：与 Phase 2 Approval operations 对齐。
+- 关联 branch/worktree disposition 计划：当前 dev 分支继续承载 T31/T41。
+- 说明：HTTP route 与真实通知系统仍按 plan 延后。
+
+#### 4.6 自动决策记录（如有）
+
+无
+
+#### 4.7 批次结论
+
+- Approval Center 已具备 P1 操作状态机基础：补材料、升级、撤回和 break-glass 审计均有 contract tests。
+
+#### 4.8 归档后动作
+
+- 已完成 git 提交：否（须与本批代码、测试和归档一并提交）
+- 提交哈希：待本批提交后生成
+- 当前批次 branch disposition 状态：dev 分支待提交
+- 当前批次 worktree disposition 状态：retained
+- 是否继续下一批：是，进入 T31。

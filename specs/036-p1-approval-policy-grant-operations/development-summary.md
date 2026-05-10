@@ -20,5 +20,6 @@
 ## 下一步
 
 - T12：已登记 P1 governance operations contracts，并新增 AO36 registry contract tests。
-- T21/T31/T41：分别实现 Approval operations、Policy operations、Grant lifecycle。
+- T21：已实现 Approval operations 状态机基础，包括补材料、升级、撤回和 break-glass 审计。
+- T31/T41：后续分别实现 Policy operations、Grant lifecycle。
 - T51：运行 AO36 + AO2/AO13/AO33/AO35 回归、ruff、AI-SDLC constraints，并进入 PR 收口。

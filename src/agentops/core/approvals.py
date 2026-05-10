@@ -73,10 +73,15 @@ def decide_approval(
     repository: InMemoryRepository,
     now: datetime | None = None,
     break_glass: bool = False,
+    break_glass_reason: str = "",
+    required_materials: list[str] | None = None,
+    supplemental_materials: list[str] | None = None,
+    notification_intent: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     approval = repository.get_approval(approval_id)
     if not approval:
         raise AgentOpsError("APPROVAL_NOT_FOUND", "Approval does not exist.")
+    state_before = approval["status"]
     if approval["status"] in APPROVAL_TERMINAL_STATUSES:
         raise AgentOpsError(
             "APPROVAL_STATE_INVALID", "Terminal approval cannot transition."
@@ -92,21 +97,54 @@ def decide_approval(
             denied_scope="approval.self",
             audit_id=f"audit_{approval_id}",
         )
+    if action == "approve" and break_glass and not break_glass_reason:
+        raise AgentOpsError(
+            "APPROVAL_BREAK_GLASS_REASON_REQUIRED",
+            "Break-glass approval requires an audit reason.",
+            denied_scope="approval.break_glass_reason",
+            audit_id=f"audit_{approval_id}",
+        )
 
     now = now or datetime.now(UTC)
     status = APPROVAL_ACTION_TO_STATUS[action]
     approval["status"] = status
     approval["decided_at"] = now.isoformat()
+    if action == "request_input":
+        approval["required_materials"] = list(required_materials or [])
+        if supplemental_materials is not None:
+            approval["supplemental_materials"] = list(supplemental_materials)
+    if action == "escalate":
+        approval["sla_state"] = "escalated"
+    if action == "approve" and break_glass:
+        approval["break_glass"] = True
+        approval["break_glass_reason"] = break_glass_reason
     repository.store_approval(approval)
 
+    operation = "break_glass_approve" if action == "approve" and break_glass else action
     decision = {
         "approval_decision_id": f"approval_decision_{approval_id}_{action}",
+        "operation_id": f"approval_operation_{approval_id}_{operation}",
         "approval_id": approval_id,
         "actor": actor,
         "action": action,
+        "operation": operation,
         "reason": reason,
+        "state_before": state_before,
+        "state_after": status,
+        "summary": {
+            "raw_payload_access": "forbidden",
+            "break_glass": bool(action == "approve" and break_glass),
+        },
         "created_at": now.isoformat(),
         "audit_id": f"audit_{approval_id}_{action}",
     }
+    if required_materials is not None:
+        decision["required_materials"] = list(required_materials)
+    if supplemental_materials is not None:
+        decision["supplemental_materials"] = list(supplemental_materials)
+    if notification_intent is not None:
+        decision["notification_intent"] = dict(notification_intent)
+    if break_glass_reason:
+        decision["break_glass_reason"] = break_glass_reason
     repository.store_approval_decision(decision)
     return approval

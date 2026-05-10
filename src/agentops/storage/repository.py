@@ -686,6 +686,10 @@ class InMemoryRepository:
             self.approval_decisions[decision["approval_decision_id"]] = dict(decision)
             return dict(decision)
 
+    def approval_operation_records(self) -> tuple[dict[str, Any], ...]:
+        with self._lock:
+            return tuple(dict(record) for record in self.approval_decisions.values())
+
     def store_grant(self, grant: dict[str, Any]) -> dict[str, Any]:
         with self._lock:
             self.grants[grant["grant_id"]] = dict(grant)
