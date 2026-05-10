@@ -219,6 +219,70 @@ def test_ao35_ct_002_policy_gate_fails_when_runtime_boundary_missing():
     )
 
 
+def test_ao35_ct_002_guardrail_check_requires_guardrail_result_fact():
+    repository = InMemoryRepository()
+    register_agent(repository)
+    write_runtime_run(repository, status="succeeded")
+    write_full_trace(repository)
+    receipt = ingest_runtime_events(
+        runtime_batch(
+            [
+                canonical_sdlc_event(
+                    "evt_sdlc_without_guardrail_result",
+                    sdlc_trace_payload(
+                        sdlc_event_id="sdlc_gate_without_guardrail_result",
+                        trace_id="trace_1",
+                        span_id="sdlc_gate_without_guardrail_result",
+                        parent_span_id="",
+                        sdlc_event_type="gate",
+                        stage_name="verify",
+                        status="passed",
+                        evidence_ref="vault://sdlc/p0/without-guardrail-result",
+                    ),
+                    sequence_no=51,
+                    idempotency_key="sdlc:p0:without-guardrail-result",
+                ),
+            ],
+            batch_id="batch_p0_without_guardrail_result",
+            outbox_id="outbox_p0_without_guardrail_result",
+            producer="Ai_AutoSDLC",
+        ),
+        repository,
+    )
+    grant = _issue_and_consume_bound_grant(repository)
+    policy_decision = evaluate_policy_decision_v1(
+        policy_request(),
+        grant=active_grant(
+            grant_id=grant["grant_id"],
+            expires_at=grant["expires_at"],
+            version=grant["version"],
+            artifact_hash=grant["artifact_hash"],
+            installation_id=grant["installation_id"],
+            device_id=grant["device_id"],
+            user_id=grant["user_id"],
+            session_id=grant["session_id"],
+            run_id=grant["run_id"],
+        ),
+    )
+
+    gate = build_p0_acceptance_gate(
+        repository,
+        "agent.ai-sdlc",
+        "1.0.0",
+        "run_1",
+        outbox_receipt=receipt,
+        policy_decision=policy_decision,
+    )
+
+    failed_checks = {
+        check["check_id"]: check["reason_code"]
+        for check in gate["required_checks"]
+        if check["status"] == "failed"
+    }
+    assert gate["gate_status"] == "failed"
+    assert failed_checks["guardrail_result_projected"] == "guardrail_result_missing"
+
+
 def test_ao35_ct_003_acceptance_gate_fails_when_store_summary_is_degraded():
     repository = InMemoryRepository()
     register_agent(repository)

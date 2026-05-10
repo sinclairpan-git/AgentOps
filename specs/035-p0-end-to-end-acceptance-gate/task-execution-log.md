@@ -36,3 +36,7 @@
 
 - Codex Review P1：`_policy_decision_summary()` 会把缺失的 `constraints.agentops_executes_runtime` 强制转成 `False`，导致不完整 policy decision 也能通过 P0 acceptance gate。已改为要求 runtime boundary 显式声明且值为 `False` 才通过，并新增缺失约束失败回归。
 - Codex Review P2：raw leak check 使用序列化字符串子串扫描，普通 metadata 出现 `prompt` 会误失败。已改为递归检查敏感字段名，并新增 `prompt.metadata_router` 非敏感 metadata 回归。
+
+## Review Fix 2026-05-10-002
+
+- Codex Review P1：`guardrail_result_projected` 可被 SDLC bridge 生成的 guardrail span summary 误满足，即使没有真实 `guardrail_result` fact。已改为必须存在 `guardrail_result_id` 且状态为 passed/warn/blocked，并新增缺少 guardrail result 时 gate 失败的回归。

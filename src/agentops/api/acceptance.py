@@ -277,8 +277,8 @@ def _grant_check(grant: dict[str, Any]) -> dict[str, Any]:
 def _guardrail_check(run_detail: dict[str, Any]) -> dict[str, Any]:
     guardrails = run_detail.get("guardrail_summary") or []
     passed = any(
-        item.get("status") in {"passed", "warn"}
-        or item.get("status_code") in {"ok", "blocked"}
+        item.get("guardrail_result_id")
+        and item.get("status") in {"passed", "warn", "blocked"}
         for item in guardrails
     )
     return _check(
