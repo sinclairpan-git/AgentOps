@@ -23,6 +23,13 @@ SUPPORTED_POLICY_SIMULATION_CHANGES = {
     "canary_policy",
     "rollback_policy",
 }
+SUPPORTED_ECOSYSTEM_PROTOCOLS = {"mcp", "a2a"}
+SUPPORTED_ECOSYSTEM_EXPORTERS = {
+    "otlp",
+    "openinference",
+    "apm",
+    "data_lake",
+}
 FORBIDDEN_SUMMARY_KEYS = {
     "raw_payload",
     "prompt",
@@ -460,6 +467,164 @@ def build_dlq_operations_projection(
     }
 
 
+def build_mcp_a2a_governance_projection(
+    *,
+    protocol: str,
+    endpoint_ref: str,
+    subject_agent_id: str,
+    resource_scope: str,
+    requested_by: str = "system",
+    policy_check_state: str = "required",
+) -> dict[str, Any]:
+    normalized_protocol = protocol.lower()
+    if normalized_protocol not in SUPPORTED_ECOSYSTEM_PROTOCOLS:
+        raise AgentOpsError(
+            "MCP_A2A_PROTOCOL_UNSUPPORTED",
+            "MCP/A2A protocol is unsupported.",
+            denied_scope="ecosystem.protocol",
+            audit_id=f"audit_mcp_a2a_{subject_agent_id}",
+        )
+    safe_policy_state = (
+        policy_check_state
+        if policy_check_state in {"required", "passed", "blocked"}
+        else "required"
+    )
+    return {
+        "schema_version": "mcp_a2a_governance_projection.v1",
+        "protocol": normalized_protocol,
+        "endpoint_ref": str(endpoint_ref or ""),
+        "subject_agent_id": subject_agent_id,
+        "resource_scope": resource_scope,
+        "requested_by": requested_by,
+        "gateway_state": "configured" if endpoint_ref else "required",
+        "policy_check_state": safe_policy_state,
+        "evidence_state": "summary_only" if endpoint_ref else "missing",
+        "summary": {
+            "raw_payload_access": "forbidden",
+            "direct_connection_allowed": False,
+            "runtime_gateway_required": True,
+            "runtime_execution_performed": False,
+            "external_side_effects_enabled": False,
+        },
+        "audit_id": f"audit_mcp_a2a_{normalized_protocol}_{subject_agent_id}",
+    }
+
+
+def build_exporter_ecosystem_projection(
+    *,
+    exporters: list[dict[str, Any]],
+    requested_by: str = "system",
+) -> dict[str, Any]:
+    safe_exporters = [
+        _safe_exporter_config(index, exporter)
+        for index, exporter in enumerate(exporters, start=1)
+    ]
+    ecosystem_state = "configured" if safe_exporters else "not_configured"
+    return {
+        "schema_version": "exporter_ecosystem_projection.v1",
+        "exporters": safe_exporters,
+        "requested_by": requested_by,
+        "ecosystem_state": ecosystem_state,
+        "external_write_enabled": False,
+        "summary": {
+            "raw_payload_access": "forbidden",
+            "network_dispatch_performed": False,
+            "dry_run_only": True,
+            "exporter_material": "hash_ref_summary_only",
+        },
+        "audit_id": "audit_exporter_ecosystem",
+    }
+
+
+def build_multi_agent_handoff_evaluation(
+    repository: InMemoryRepository,
+    agent_id: str,
+    version: str,
+) -> dict[str, Any]:
+    runs = repository.runtime_run_records_for_agent_version(agent_id, version)
+    handoff_spans = []
+    for run in runs:
+        for span in repository.trace_span_records_for_run(
+            str(run.get("run_id") or ""), attempt_no=run.get("attempt_no")
+        ):
+            if span.get("span_kind") == "handoff":
+                handoff_spans.append(span)
+
+    failed_handoffs = [
+        span
+        for span in handoff_spans
+        if span.get("status_code") in {"error", "blocked"}
+        or bool(span.get("error_code"))
+    ]
+    if not handoff_spans:
+        quality_state = "insufficient_data"
+    elif failed_handoffs:
+        quality_state = "needs_review"
+    else:
+        quality_state = "healthy"
+
+    return {
+        "schema_version": "multi_agent_handoff_evaluation.v1",
+        "agent_id": agent_id,
+        "version": version,
+        "source_run_ids": _unique_strings(
+            [str(span.get("run_id") or "") for span in handoff_spans]
+        ),
+        "handoff_count": len(handoff_spans),
+        "failed_handoff_count": len(failed_handoffs),
+        "handoff_quality_state": quality_state,
+        "handoff_candidates": [_handoff_candidate(span) for span in handoff_spans],
+        "summary": {
+            "raw_payload_access": "forbidden",
+            "automatic_handoff_action": False,
+            "runtime_execution_performed": False,
+            "derived_from": "trace_span_summary_fields",
+        },
+        "audit_id": f"audit_handoff_evaluation_{agent_id}_{version}",
+    }
+
+
+def build_complex_risk_profile(
+    repository: InMemoryRepository,
+    agent_id: str,
+    version: str,
+) -> dict[str, Any]:
+    health_summary = build_runtime_health_summary(repository, agent_id, version)
+    dlq_summary = build_dlq_operations_projection(
+        repository, agent_id=agent_id, version=version
+    )
+    handoff_evaluation = build_multi_agent_handoff_evaluation(
+        repository, agent_id, version
+    )
+    risk_factors = _risk_factors(health_summary, dlq_summary, handoff_evaluation)
+    risk_profile_state = _risk_profile_state(risk_factors)
+    return {
+        "schema_version": "complex_risk_profile.v1",
+        "agent_id": agent_id,
+        "version": version,
+        "risk_profile_state": risk_profile_state,
+        "risk_factors": risk_factors,
+        "recommended_action": _risk_profile_action(risk_profile_state),
+        "health_summary": health_summary,
+        "handoff_evaluation": {
+            "handoff_count": handoff_evaluation["handoff_count"],
+            "failed_handoff_count": handoff_evaluation["failed_handoff_count"],
+            "handoff_quality_state": handoff_evaluation["handoff_quality_state"],
+        },
+        "dlq_summary": {
+            "backlog_count": dlq_summary["backlog_count"],
+            "error_summary": dict(dlq_summary["error_summary"]),
+        },
+        "summary": {
+            "raw_payload_access": "forbidden",
+            "automatic_runtime_action": False,
+            "automatic_store_action": False,
+            "risk_model": "summary_projection_only",
+        },
+        "audit_id": f"audit_complex_risk_profile_{agent_id}_{version}",
+    }
+
+
 def build_exporter_operation(
     *,
     exporter_type: str,
@@ -588,6 +753,104 @@ def _safe_experiment_variant(index: int, variant: dict[str, Any]) -> dict[str, A
         "config_hash": _stable_hash(safe_source),
         "execution_state": "not_started",
     }
+
+
+def _safe_exporter_config(index: int, exporter: dict[str, Any]) -> dict[str, Any]:
+    exporter_type = str(exporter.get("exporter_type") or exporter.get("type") or "")
+    if exporter_type not in SUPPORTED_ECOSYSTEM_EXPORTERS:
+        raise AgentOpsError(
+            "EXPORTER_ECOSYSTEM_UNSUPPORTED",
+            "Exporter type is unsupported.",
+            denied_scope="exporter.type",
+            audit_id="audit_exporter_ecosystem",
+        )
+    endpoint_ref = str(exporter.get("endpoint_ref") or "")
+    safe_source = {
+        key: value
+        for key, value in exporter.items()
+        if key not in {"config", "payload", "raw", "raw_payload"}
+    }
+    return {
+        "exporter_id": str(exporter.get("exporter_id") or f"exporter_{index}"),
+        "exporter_type": exporter_type,
+        "endpoint_ref": endpoint_ref,
+        "configuration_state": "configured" if endpoint_ref else "not_configured",
+        "dispatch_state": "not_started",
+        "external_write_enabled": False,
+        "configuration_hash": _stable_hash(safe_source),
+    }
+
+
+def _handoff_candidate(span: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "run_id": str(span.get("run_id") or ""),
+        "trace_id": str(span.get("trace_id") or ""),
+        "span_id": str(span.get("span_id") or ""),
+        "operation_name": str(span.get("operation_name") or ""),
+        "status_code": str(span.get("status_code") or ""),
+        "error_code": str(span.get("error_code") or ""),
+        "retryable": bool(span.get("retryable", False)),
+    }
+
+
+def _risk_factors(
+    health_summary: dict[str, Any],
+    dlq_summary: dict[str, Any],
+    handoff_evaluation: dict[str, Any],
+) -> list[dict[str, Any]]:
+    factors = []
+    health_action = str(health_summary.get("recommended_action") or "watching")
+    if health_action in {"disable_recommended", "disabled"}:
+        factors.append(
+            {
+                "factor": "runtime_health",
+                "severity": "critical",
+                "state": health_action,
+            }
+        )
+    elif health_action in {"use_with_caution", "expired", "watching"}:
+        factors.append(
+            {"factor": "runtime_health", "severity": "medium", "state": health_action}
+        )
+    if dlq_summary.get("backlog_count", 0) > 0:
+        factors.append(
+            {
+                "factor": "runtime_dlq",
+                "severity": "high",
+                "state": "backlog_present",
+            }
+        )
+    if handoff_evaluation.get("failed_handoff_count", 0) > 0:
+        factors.append(
+            {
+                "factor": "multi_agent_handoff",
+                "severity": "high",
+                "state": "handoff_failures",
+            }
+        )
+    if not factors:
+        factors.append({"factor": "baseline", "severity": "low", "state": "clear"})
+    return factors
+
+
+def _risk_profile_state(factors: list[dict[str, Any]]) -> str:
+    severities = {str(factor.get("severity") or "") for factor in factors}
+    if "critical" in severities:
+        return "critical"
+    if "high" in severities:
+        return "high"
+    if "medium" in severities:
+        return "medium"
+    return "low"
+
+
+def _risk_profile_action(risk_profile_state: str) -> str:
+    return {
+        "low": "none",
+        "medium": "watch",
+        "high": "open_ops_review",
+        "critical": "disable_recommended",
+    }[risk_profile_state]
 
 
 def _safe_policy_change(change: dict[str, Any]) -> dict[str, Any]:

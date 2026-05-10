@@ -5,8 +5,12 @@ from __future__ import annotations
 from typing import Any
 
 from agentops.core.operations import (
+    build_complex_risk_profile,
     build_dlq_operations_projection,
+    build_exporter_ecosystem_projection,
     build_exporter_operation,
+    build_mcp_a2a_governance_projection,
+    build_multi_agent_handoff_evaluation,
     build_optimizer_recommendation,
     build_policy_simulation_projection,
     build_runtime_budget_summary,
@@ -67,6 +71,30 @@ def get_policy_simulation_projection(
     **kwargs: Any,
 ) -> dict[str, Any]:
     return build_policy_simulation_projection(repository, **kwargs)
+
+
+def get_mcp_a2a_governance_projection(**kwargs: Any) -> dict[str, Any]:
+    return build_mcp_a2a_governance_projection(**kwargs)
+
+
+def get_exporter_ecosystem_projection(**kwargs: Any) -> dict[str, Any]:
+    return build_exporter_ecosystem_projection(**kwargs)
+
+
+def get_multi_agent_handoff_evaluation(
+    repository: InMemoryRepository,
+    agent_id: str,
+    version: str,
+) -> dict[str, Any]:
+    return build_multi_agent_handoff_evaluation(repository, agent_id, version)
+
+
+def get_complex_risk_profile(
+    repository: InMemoryRepository,
+    agent_id: str,
+    version: str,
+) -> dict[str, Any]:
+    return build_complex_risk_profile(repository, agent_id, version)
 
 
 def get_runtime_budget_summary(

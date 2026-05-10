@@ -143,38 +143,45 @@ specs:
   - 032-evidence-health-summary-loop
   - 036-p1-approval-policy-grant-operations
   - 037-p1-evidence-eval-cost-operations
+- id: 039-p2-ecosystem-governance
+  path: specs/039-p2-ecosystem-governance
+  depends_on:
+  - 032-evidence-health-summary-loop
+  - 034-runtime-outbox-sdlc-trace-bridge
+  - 037-p1-evidence-eval-cost-operations
+  - 038-p2-replay-simulation-optimizer
 truth_snapshot:
-  generated_at: '2026-05-10T16:48:22Z'
+  generated_at: '2026-05-10T17:36:29Z'
   generated_by: ai-sdlc program truth sync
   generator_version: program_truth_snapshot_v1
-  repo_revision: 758d9ee
-  authoring_hash: 5f8c3e4206ae3c68f7a55f20798b27e8fa76fdcf6c32cacb20cdced2c86d4259
+  repo_revision: 453e52b
+  authoring_hash: f27e559db6248d80a889c493468206f7ca6ef9bc04148e4af41b46d49582c077
   source_hashes: {}
-  snapshot_hash: 15d1f0c190b39b5de124fdba84721e2a59e009cc57ba3ddf46bc4a37a0de2135
+  snapshot_hash: 3543feb1a8bf5799d7b9519def7bd983dad1df1060fe760d81e55cb90c885fef
   computed_capabilities: []
   source_inventory:
     state: complete
-    total_sources: 191
-    mapped_sources: 191
+    total_sources: 196
+    mapped_sources: 196
     unmapped_sources: 0
     missing_sources: 0
-    phase_signal_count: 475
-    deferred_signal_count: 627
+    phase_signal_count: 543
+    deferred_signal_count: 695
     non_goal_signal_count: 66
     layer_totals:
       blueprint: 1
-      spec: 38
-      plan: 38
-      tasks: 38
-      execution: 38
-      close: 38
+      spec: 39
+      plan: 39
+      tasks: 39
+      execution: 39
+      close: 39
     layer_materialized:
       blueprint: 1
-      spec: 38
-      plan: 38
-      tasks: 38
-      execution: 38
-      close: 38
+      spec: 39
+      plan: 39
+      tasks: 39
+      execution: 39
+      close: 39
     entries:
     - path: /Users/sinclairpan/project/AI-Native底座开发文档/AgentOps_项目_PRD.md
       source_type: prd
@@ -1892,6 +1899,51 @@ truth_snapshot:
       mapped: true
       exists: true
       mapping_ref: 038-p2-replay-simulation-optimizer
+      phase_signal_count: 3
+      deferred_signal_count: 3
+      non_goal_signal_count: 0
+    - path: specs/039-p2-ecosystem-governance/spec.md
+      source_type: spec_doc
+      truth_layer: spec
+      mapped: true
+      exists: true
+      mapping_ref: 039-p2-ecosystem-governance
+      phase_signal_count: 18
+      deferred_signal_count: 18
+      non_goal_signal_count: 0
+    - path: specs/039-p2-ecosystem-governance/plan.md
+      source_type: plan_doc
+      truth_layer: plan
+      mapped: true
+      exists: true
+      mapping_ref: 039-p2-ecosystem-governance
+      phase_signal_count: 16
+      deferred_signal_count: 16
+      non_goal_signal_count: 0
+    - path: specs/039-p2-ecosystem-governance/tasks.md
+      source_type: tasks_doc
+      truth_layer: tasks
+      mapped: true
+      exists: true
+      mapping_ref: 039-p2-ecosystem-governance
+      phase_signal_count: 12
+      deferred_signal_count: 12
+      non_goal_signal_count: 0
+    - path: specs/039-p2-ecosystem-governance/task-execution-log.md
+      source_type: execution_log
+      truth_layer: execution
+      mapped: true
+      exists: true
+      mapping_ref: 039-p2-ecosystem-governance
+      phase_signal_count: 19
+      deferred_signal_count: 19
+      non_goal_signal_count: 0
+    - path: specs/039-p2-ecosystem-governance/development-summary.md
+      source_type: development_summary
+      truth_layer: close
+      mapped: true
+      exists: true
+      mapping_ref: 039-p2-ecosystem-governance
       phase_signal_count: 3
       deferred_signal_count: 3
       non_goal_signal_count: 0
