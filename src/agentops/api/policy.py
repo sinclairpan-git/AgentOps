@@ -186,13 +186,17 @@ def build_policy_operations_projection(
         repository.policy_set_version_records(),
         key=lambda item: str(item.get("registered_at", "")),
     )
-    current_versions: dict[str, dict[str, Any]] = {}
-    for version in versions:
-        current_versions[str(version["policy_set_version"])] = version
+    current_versions: dict[str, tuple[int, dict[str, Any]]] = {}
+    for index, version in enumerate(versions):
+        current_versions[str(version["policy_set_version"])] = (index, version)
     active_version = next(
         (
             str(item["policy_set_version"])
-            for item in reversed(list(current_versions.values()))
+            for _, item in sorted(
+                current_versions.values(),
+                key=lambda current: current[0],
+                reverse=True,
+            )
             if item.get("state") == "active"
         ),
         "",

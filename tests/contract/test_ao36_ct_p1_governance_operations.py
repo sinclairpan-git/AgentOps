@@ -364,6 +364,36 @@ def test_ao36_ct_003_policy_operations_projection_uses_current_active_state(
     assert projection["active_version"] == ""
 
 
+def test_ao36_ct_003_policy_operations_projection_uses_latest_active_transition(
+    repository,
+):
+    register_policy_set_version(
+        repository,
+        policy_set_version="policy.v5",
+        state="active",
+        risk_templates=["deploy_prod"],
+        fallback_action="require_online",
+    )
+    register_policy_set_version(
+        repository,
+        policy_set_version="policy.v6",
+        state="active",
+        risk_templates=["deploy_prod"],
+        fallback_action="require_online",
+    )
+    register_policy_set_version(
+        repository,
+        policy_set_version="policy.v5",
+        state="active",
+        risk_templates=["deploy_prod"],
+        fallback_action="block",
+    )
+
+    projection = build_policy_operations_projection(repository)
+
+    assert projection["active_version"] == "policy.v5"
+
+
 def test_ao36_ct_004_grant_lifecycle_tracks_consumption_and_binding(repository):
     grant = _issue_active_grant(repository, remaining_uses=2)
     consume_grant(
