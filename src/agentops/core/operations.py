@@ -1749,7 +1749,11 @@ def _quality_center_review_items(
             )
         )
     comparison_state = str(comparison.get("comparison_state") or "")
-    if comparison_state in {"ready_for_manual_approval", "needs_human_review"}:
+    if comparison_state in {
+        "ready_for_manual_approval",
+        "needs_human_review",
+        "insufficient_evidence",
+    }:
         items.append(
             _quality_center_review_item(
                 agent_id,

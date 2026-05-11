@@ -8,6 +8,7 @@
 
 - 新增 `quality_center_workbench.v1` runtime contract，明确 Quality Center Workbench 的 required fields、状态枚举、错误码和 AO42 contract tests。
 - 新增 `build_quality_center_workbench` 与 API wrapper，聚合 AO40 质量生命周期、AO41 scorer version/comparison、review queue 和 trend summary。
+- 处理 Codex review P2 建议：`insufficient_evidence` scorer comparison 现在进入 `scorer_rollout` 人工 follow-up 队列。
 - 保持 summary-only 边界：不输出 raw evidence、prompt、diff、terminal 原文，不自动 rollout、不写 Store、不发布通知。
 
 ## 未进入本批

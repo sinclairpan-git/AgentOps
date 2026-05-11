@@ -158,6 +158,36 @@ def test_ao42_ct_004_quality_center_empty_and_malformed_inputs():
     assert exc.value.denied_scope == "agent_refs[0]"
 
 
+def test_ao42_ct_005_quality_center_queues_insufficient_scorer_evidence():
+    repository = InMemoryRepository()
+
+    workbench = get_quality_center_workbench(
+        repository,
+        report_period="2026-05",
+        agent_refs=[
+            {
+                "agent_id": "agent.ai-sdlc",
+                "version": "1.0.0",
+                "owner_team": "Quality",
+                "min_eval_cases": 2,
+            }
+        ],
+    )
+
+    scorer_items = [
+        item
+        for item in workbench["review_queue"]
+        if item["review_type"] == "scorer_rollout"
+    ]
+    assert workbench["scorer_rollout_panel"]["insufficient_evidence_count"] == 1
+    assert workbench["scorer_rollout_panel"]["manual_approval_queue_size"] == 1
+    assert scorer_items[0]["reason"] == "insufficient_evidence"
+    assert scorer_items[0]["recommended_action"] == "collect_more_samples"
+    assert scorer_items[0]["manual_review_required"] is True
+    assert scorer_items[0]["automatic_action_performed"] is False
+    _assert_no_raw_leaks(workbench)
+
+
 def _assert_no_raw_leaks(payload: dict) -> None:
     forbidden_keys = {
         "raw_payload",
