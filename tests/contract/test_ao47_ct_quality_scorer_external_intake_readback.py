@@ -27,6 +27,7 @@ def test_ao47_ct_001_contract_registry_and_app_route_declared():
 
     assert contract.domain_owner == "AgentOps"
     assert contract.enum_fields["method"] == frozenset({"GET"})
+    assert "401" in contract.enum_fields["status_code"]
     assert {
         "route",
         "method",

@@ -1361,7 +1361,7 @@ CONTRACT_REGISTRY: dict[str, ContractRegistryEntry] = {
         optional_fields=("producer", "accepted_execution_id", "received_at"),
         enum_fields={
             "method": ("GET",),
-            "status_code": ("200", "400", "403", "404", "409"),
+            "status_code": ("200", "400", "401", "403", "404", "409"),
         },
         state_registry_refs=("degraded", "blocked"),
         error_codes=(

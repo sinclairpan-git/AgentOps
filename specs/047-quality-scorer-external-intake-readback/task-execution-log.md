@@ -74,3 +74,42 @@
 - 当前批次 branch disposition 状态：待提交/PR
 - 当前批次 worktree disposition 状态：保留
 - 是否继续下一批：否，本工作项进入提交/PR 收口。
+
+## Review Fix 2026-05-11-001 | Codex readback status enum feedback
+
+### RF-001 | readback contract status_code enum 补 401
+
+- 触发来源：PR #49 Codex review P2 inline comment。
+- 问题：`quality_scorer_external_intake_readback.v1` 声明 `UPSTREAM_IDENTITY_REQUIRED`，生产模式缺少上游身份时 `_send_auth_error()` 会返回 `401`，但 readback contract 的 `status_code` enum 未包含 `401`。
+- 改动范围：`src/agentops/core/runtime_contracts.py`、`tests/contract/test_ao47_ct_quality_scorer_external_intake_readback.py`、`specs/047-quality-scorer-external-intake-readback/task-execution-log.md`。
+- 改动内容：readback contract `status_code` enum 增加 `401`；AO47 registry test 显式断言 `401` 已登记。
+
+### 统一验证命令
+
+- `uv run pytest tests/contract/test_ao47_ct_quality_scorer_external_intake_readback.py tests/unit/test_runtime_contracts.py::test_runtime_contract_registry_covers_p0_contracts -q`：通过，6 passed。
+- `uv run ruff check src/agentops/core/runtime_contracts.py tests/contract/test_ao47_ct_quality_scorer_external_intake_readback.py`：通过。
+- `uv run ruff format --check src/agentops/core/runtime_contracts.py tests/contract/test_ao47_ct_quality_scorer_external_intake_readback.py`：通过。
+- `python -m ai_sdlc program truth sync --execute --yes`：待执行。
+- `uv run ai-sdlc verify constraints`：待执行。
+- `python -m ai_sdlc workitem close-check --wi specs/047-quality-scorer-external-intake-readback --json`：待执行。
+
+### 代码审查结论
+
+- 宪章/规格对齐：符合。修复只补 contract status enum，与生产 auth behavior 对齐，不改变 readback 只读行为。
+- 代码质量：符合。变更集中在 registry enum 与对应 contract regression。
+- 测试质量：AO47 registry test 锁定缺身份 `401` status code。
+- 结论：待验证后推送并重新触发 Codex review。
+
+### 任务/计划同步状态
+
+- `tasks.md` 同步状态：047 任务仍为完成；review fix 不新增 scope。
+- `plan.md` 同步状态：Phase 2 route/contract 语义补齐 401 status enum。
+- 关联 branch/worktree disposition 计划：当前分支保留待 PR review fix 推送。
+
+### 归档后动作
+
+- **已完成 git 提交**：是，本 review fix 将作为当前提交追加。
+- **提交哈希**：见当前 Git HEAD。
+- 当前批次 branch disposition 状态：待 PR review fix 推送
+- 当前批次 worktree disposition 状态：保留
+- 是否继续下一批：否，继续 PR 收口。
