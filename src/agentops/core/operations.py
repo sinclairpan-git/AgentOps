@@ -952,6 +952,231 @@ def create_quality_scorer_execution(
     return repository.store_quality_scorer_execution(_without_forbidden_keys(execution))
 
 
+def ingest_quality_scorer_external_execution(
+    repository: InMemoryRepository,
+    agent_id: str,
+    version: str,
+    *,
+    scorer: dict[str, Any] | None = None,
+    external_result: dict[str, Any],
+    idempotency_key: str,
+    source_trust: str = "signed",
+    signature: str = "",
+    producer: str = "external_scorer",
+    min_eval_cases: int = 1,
+    pass_threshold: float = 0.8,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    safe_idempotency_key = _safe_label(idempotency_key)
+    audit_id = (
+        "audit_quality_scorer_external_intake_"
+        f"{_stable_hash([agent_id, version, idempotency_key])[-12:]}"
+    )
+    if not safe_idempotency_key:
+        raise AgentOpsError(
+            "QUALITY_SCORER_INTAKE_IDEMPOTENCY_REQUIRED",
+            "External scorer intake requires an idempotency key.",
+            denied_scope="quality_scorer_external_intake.idempotency_key",
+            audit_id=audit_id,
+        )
+    existing_receipt = repository.quality_scorer_external_receipt_by_idempotency(
+        safe_idempotency_key
+    )
+    if existing_receipt:
+        deduplicated = dict(existing_receipt)
+        deduplicated["intake_state"] = "deduplicated"
+        return deduplicated
+
+    if not isinstance(external_result, dict) or _contains_forbidden_material(
+        external_result
+    ):
+        raise AgentOpsError(
+            "QUALITY_SCORER_INTAKE_RAW_INPUT",
+            "External scorer intake accepts summary-only payloads without raw material.",
+            denied_scope="quality_scorer_external_intake.external_result",
+            audit_id=audit_id,
+        )
+    normalized_trust = str(source_trust or "").lower()
+    if normalized_trust not in {"signed", "verified"}:
+        raise AgentOpsError(
+            "QUALITY_SCORER_INTAKE_UNTRUSTED",
+            "External scorer intake requires signed or verified source trust.",
+            denied_scope="quality_scorer_external_intake.source_trust",
+            audit_id=audit_id,
+        )
+    if not signature or _safe_label(signature) == "[redacted]":
+        raise AgentOpsError(
+            "QUALITY_SCORER_INTAKE_SIGNATURE_INVALID",
+            "External scorer intake requires a non-sensitive signature reference.",
+            denied_scope="quality_scorer_external_intake.signature",
+            audit_id=audit_id,
+        )
+    if min_eval_cases <= 0:
+        raise AgentOpsError(
+            "QUALITY_SCORER_EXECUTION_UNAVAILABLE",
+            "Scorer execution evidence threshold must be positive.",
+            denied_scope="scorer_execution.min_eval_cases",
+            audit_id=audit_id,
+        )
+
+    scorer_version = _coerce_scorer_version(
+        scorer,
+        default_scorer_id="quality_summary_stage5_candidate",
+        default_scorer_version="1.1.0",
+        default_policy={"evidence_weight": 24, "failure_sensitivity": 32},
+    )
+    eval_cases = [
+        record
+        for record in repository.eval_case_records()
+        if (record.get("source_run") or {}).get("agent_id") == agent_id
+        and (record.get("source_run") or {}).get("version") == version
+    ]
+    eval_cases_by_id = {
+        str(record.get("eval_case_id") or ""): record for record in eval_cases
+    }
+    source_eval_cases = _external_source_eval_case_ids(external_result)
+    if not source_eval_cases or any(
+        eval_case_id not in eval_cases_by_id for eval_case_id in source_eval_cases
+    ):
+        raise AgentOpsError(
+            "QUALITY_SCORER_INTAKE_SAMPLE_INVALID",
+            "External scorer result must reference EvalCases for the target agent/version.",
+            denied_scope="quality_scorer_external_intake.source_eval_cases",
+            audit_id=audit_id,
+        )
+
+    case_results = _external_scorer_case_results(
+        external_result, source_eval_cases, eval_cases_by_id
+    )
+    outcome_counts = {
+        "passed": sum(1 for item in case_results if item["outcome"] == "passed"),
+        "warning": sum(1 for item in case_results if item["outcome"] == "warning"),
+        "failed": sum(1 for item in case_results if item["outcome"] == "failed"),
+        "blocked": sum(1 for item in case_results if item["outcome"] == "blocked"),
+    }
+    sample_size = len(case_results)
+    safe_threshold = min(max(_safe_float(pass_threshold), 0.0), 1.0)
+    pass_rate = round(outcome_counts["passed"] / sample_size, 4) if sample_size else 0.0
+    execution_state, recommendation = _scorer_execution_decision(
+        sample_size=sample_size,
+        min_eval_cases=min_eval_cases,
+        pass_rate=pass_rate,
+        pass_threshold=safe_threshold,
+        outcome_counts=outcome_counts,
+    )
+    scores = [item["score"] for item in case_results]
+    received_at = _normalize_time(now or datetime.now(UTC)).isoformat()
+    execution = repository.store_quality_scorer_execution(
+        _without_forbidden_keys(
+            {
+                "schema_version": "quality_scorer_execution.v1",
+                "execution_id": "",
+                "agent_id": _safe_label(agent_id),
+                "version": _safe_label(version),
+                "lookup_identity": {
+                    "agent_id_hash": _quality_scorer_lookup_hash("agent_id", agent_id),
+                    "version_hash": _quality_scorer_lookup_hash("version", version),
+                },
+                "scorer": {
+                    "scorer_id": scorer_version["scorer_id"],
+                    "scorer_version": scorer_version["scorer_version"],
+                    "score_template_id": scorer_version["score_template_id"],
+                    "rollout_state": scorer_version["rollout_state"],
+                },
+                "source_eval_cases": source_eval_cases,
+                "sample_size": sample_size,
+                "execution_state": execution_state,
+                "outcome_counts": outcome_counts,
+                "pass_rate": pass_rate,
+                "score_summary": {
+                    "average": round(sum(scores) / len(scores), 4) if scores else 0.0,
+                    "minimum": min(scores) if scores else 0.0,
+                    "maximum": max(scores) if scores else 0.0,
+                    "threshold": safe_threshold,
+                },
+                "evidence_window": {
+                    "type": "external_eval_case_summary",
+                    "minimum_required": min_eval_cases,
+                    "sample_size": sample_size,
+                    "input_boundary": {
+                        "accepted_inputs": [
+                            "external_scorer_summary_result",
+                            "eval_case_summary",
+                            "scorer_version_summary",
+                        ],
+                        "raw_payload_access": "forbidden",
+                        "raw_prompt_access": "forbidden",
+                        "raw_diff_access": "forbidden",
+                        "terminal_output_access": "forbidden",
+                    },
+                },
+                "recommendation": recommendation,
+                "executed_by": _safe_label(producer),
+                "executed_at": received_at,
+                "execution_source": "external_intake",
+                "summary": {
+                    "raw_payload_access": "forbidden",
+                    "raw_prompt_access": "forbidden",
+                    "raw_diff_access": "forbidden",
+                    "terminal_output_access": "forbidden",
+                    "summary_only_execution": True,
+                    "external_scorer_result_received": True,
+                    "agentops_scorer_invoked": False,
+                    "automatic_rollout_enabled": False,
+                    "automatic_template_switch": False,
+                    "automatic_lifecycle_action": False,
+                    "store_write_performed": False,
+                    "notification_sent": False,
+                    "manual_approval_required": True,
+                },
+                "case_results": case_results,
+                "audit_id": (
+                    "audit_quality_scorer_execution_external_"
+                    f"{_stable_hash([agent_id, version, safe_idempotency_key])[-12:]}"
+                ),
+            }
+        )
+    )
+    receipt = {
+        "schema_version": "quality_scorer_external_intake.v1",
+        "intake_id": "",
+        "idempotency_key": safe_idempotency_key,
+        "agent_id": _safe_label(agent_id),
+        "version": _safe_label(version),
+        "lookup_identity": {
+            "agent_id_hash": _quality_scorer_lookup_hash("agent_id", agent_id),
+            "version_hash": _quality_scorer_lookup_hash("version", version),
+        },
+        "scorer": dict(execution["scorer"]),
+        "source_trust": normalized_trust,
+        "signature_state": "verified",
+        "intake_state": "accepted",
+        "payload_hash": _stable_hash(external_result),
+        "accepted_execution_id": str(execution.get("execution_id") or ""),
+        "producer": _safe_label(producer),
+        "received_at": received_at,
+        "sample_size": sample_size,
+        "pass_rate": pass_rate,
+        "summary": {
+            "raw_payload_access": "forbidden",
+            "raw_prompt_access": "forbidden",
+            "raw_diff_access": "forbidden",
+            "terminal_output_access": "forbidden",
+            "summary_only_intake": True,
+            "agentops_scorer_invoked": False,
+            "automatic_rollout_enabled": False,
+            "automatic_template_switch": False,
+            "store_write_performed": False,
+            "notification_sent": False,
+            "manual_approval_required": True,
+        },
+        "audit_id": audit_id,
+    }
+    return repository.store_quality_scorer_external_receipt(
+        _without_forbidden_keys(receipt)
+    )
+
+
 def build_adoption_roi_projection(
     *,
     agent_id: str,
@@ -1795,6 +2020,87 @@ def _scorer_execution_case_result(
     }
 
 
+def _external_source_eval_case_ids(external_result: dict[str, Any]) -> list[str]:
+    source_eval_cases = external_result.get("source_eval_cases")
+    if isinstance(source_eval_cases, list | tuple):
+        return _unique_strings([_safe_label(item) for item in source_eval_cases])
+    case_results = external_result.get("case_results")
+    if not isinstance(case_results, list | tuple):
+        return []
+    return _unique_strings(
+        [
+            _safe_label(item.get("eval_case_id") if isinstance(item, dict) else "")
+            for item in case_results
+        ]
+    )
+
+
+def _external_scorer_case_results(
+    external_result: dict[str, Any],
+    source_eval_cases: list[str],
+    eval_cases_by_id: dict[str, dict[str, Any]],
+) -> list[dict[str, Any]]:
+    raw_case_results = external_result.get("case_results")
+    if not isinstance(raw_case_results, list | tuple):
+        raw_case_results = []
+    raw_by_id = {
+        _safe_label(item.get("eval_case_id")): item
+        for item in raw_case_results
+        if isinstance(item, dict)
+    }
+    results = []
+    for eval_case_id in source_eval_cases:
+        raw_result = raw_by_id.get(eval_case_id, {})
+        eval_case = eval_cases_by_id[eval_case_id]
+        source_run = (
+            eval_case.get("source_run")
+            if isinstance(eval_case.get("source_run"), dict)
+            else {}
+        )
+        evidence_summary = (
+            eval_case.get("evidence_summary")
+            if isinstance(eval_case.get("evidence_summary"), dict)
+            else {}
+        )
+        missing_evidence = evidence_summary.get("missing_evidence")
+        if not isinstance(missing_evidence, list):
+            missing_evidence = []
+        outcome = _external_outcome(raw_result.get("outcome"))
+        score = min(max(_safe_float(raw_result.get("score")), 0.0), 1.0)
+        source_run_id = str(source_run.get("run_id") or "")
+        results.append(
+            {
+                "eval_case_id": eval_case_id,
+                "source_run_identity": {
+                    "run_id_hash": _quality_scorer_lookup_hash("run_id", source_run_id),
+                },
+                "outcome": outcome,
+                "score": round(score, 4),
+                "evidence_level": _safe_label(
+                    raw_result.get("evidence_level")
+                    or evidence_summary.get("evidence_level")
+                    or ""
+                ),
+                "missing_evidence_count": max(
+                    0,
+                    _safe_int(
+                        raw_result.get("missing_evidence_count")
+                        if "missing_evidence_count" in raw_result
+                        else len(missing_evidence)
+                    ),
+                ),
+            }
+        )
+    return results
+
+
+def _external_outcome(value: Any) -> str:
+    outcome = str(value or "").lower()
+    if outcome in {"passed", "warning", "failed", "blocked"}:
+        return outcome
+    return "blocked"
+
+
 def _scorer_execution_decision(
     *,
     sample_size: int,
@@ -2195,6 +2501,22 @@ def _without_forbidden_keys(value: Any) -> Any:
     if isinstance(value, list | tuple):
         return [_without_forbidden_keys(child) for child in value]
     return value
+
+
+def _contains_forbidden_material(value: Any) -> bool:
+    if isinstance(value, dict):
+        for key, child in value.items():
+            if str(key) in FORBIDDEN_SUMMARY_KEYS:
+                return True
+            if _contains_forbidden_material(child):
+                return True
+        return False
+    if isinstance(value, list | tuple):
+        return any(_contains_forbidden_material(child) for child in value)
+    if isinstance(value, str):
+        normalized = value.lower()
+        return any(marker.lower() in normalized for marker in FORBIDDEN_TEXT_MARKERS)
+    return False
 
 
 def _dlq_candidate(record: dict[str, Any]) -> dict[str, Any]:

@@ -116,6 +116,10 @@ class InMemoryRepository:
     safe_replay_plans: dict[str, dict[str, Any]] = field(default_factory=dict)
     experiment_plans: dict[str, dict[str, Any]] = field(default_factory=dict)
     quality_scorer_executions: dict[str, dict[str, Any]] = field(default_factory=dict)
+    quality_scorer_external_receipts: dict[str, dict[str, Any]] = field(
+        default_factory=dict
+    )
+    quality_scorer_external_idempotency: dict[str, str] = field(default_factory=dict)
     agent_store_agents: dict[str, dict[str, Any]] = field(default_factory=dict)
     agent_store_skills: dict[str, dict[str, Any]] = field(default_factory=dict)
     runtime_runs: dict[str, dict[str, Any]] = field(default_factory=dict)
@@ -955,6 +959,37 @@ class InMemoryRepository:
             if limit is not None and limit > 0:
                 records = records[-limit:]
             return tuple(records)
+
+    def store_quality_scorer_external_receipt(
+        self, receipt: dict[str, Any]
+    ) -> dict[str, Any]:
+        with self._lock:
+            idempotency_key = str(receipt.get("idempotency_key") or "")
+            if idempotency_key in self.quality_scorer_external_idempotency:
+                intake_id = self.quality_scorer_external_idempotency[idempotency_key]
+                stored = deepcopy(self.quality_scorer_external_receipts[intake_id])
+                stored["intake_state"] = "deduplicated"
+                return stored
+            sequence = len(self.quality_scorer_external_receipts) + 1
+            stored = deepcopy(receipt)
+            stored["intake_sequence"] = sequence
+            stored["intake_id"] = f"quality_scorer_external_intake_{sequence}"
+            self.quality_scorer_external_receipts[stored["intake_id"]] = stored
+            if idempotency_key:
+                self.quality_scorer_external_idempotency[idempotency_key] = stored[
+                    "intake_id"
+                ]
+            return deepcopy(stored)
+
+    def quality_scorer_external_receipt_by_idempotency(
+        self, idempotency_key: str
+    ) -> dict[str, Any] | None:
+        with self._lock:
+            intake_id = self.quality_scorer_external_idempotency.get(idempotency_key)
+            if not intake_id:
+                return None
+            receipt = self.quality_scorer_external_receipts.get(intake_id)
+            return deepcopy(receipt) if receipt else None
 
     def runtime_dlq_records(
         self, *, agent_id: str | None = None, version: str | None = None

@@ -28,6 +28,7 @@ from agentops.core.operations import (
     create_evidence_access_operation as _create_evidence_access_operation,
     create_experiment_plan as _create_experiment_plan,
     create_safe_replay_plan as _create_safe_replay_plan,
+    ingest_quality_scorer_external_execution as _ingest_quality_scorer_external_execution,
 )
 from agentops.storage.repository import InMemoryRepository
 
@@ -134,6 +135,17 @@ def create_quality_scorer_execution(
     **kwargs: Any,
 ) -> dict[str, Any]:
     return _create_quality_scorer_execution(repository, agent_id, version, **kwargs)
+
+
+def ingest_quality_scorer_external_execution(
+    repository: InMemoryRepository,
+    agent_id: str,
+    version: str,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    return _ingest_quality_scorer_external_execution(
+        repository, agent_id, version, **kwargs
+    )
 
 
 def get_adoption_roi_projection(**kwargs: Any) -> dict[str, Any]:
