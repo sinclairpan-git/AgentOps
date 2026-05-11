@@ -19,6 +19,7 @@ ROLE_SCOPES = {
         "runtime.audit.export",
         "runtime.audit.read",
         "store.summary.read",
+        "quality.scorer.intake.write",
     },
     "agentops-operator": {
         "console.snapshot.read",
@@ -30,6 +31,7 @@ ROLE_SCOPES = {
         "runtime.audit.export",
         "runtime.audit.read",
         "store.summary.read",
+        "quality.scorer.intake.write",
     },
     "agentops-viewer": {
         "console.snapshot.read",
@@ -40,6 +42,7 @@ ROLE_SCOPES = {
     },
     "agentops-ingestor": {
         "event.ingest",
+        "quality.scorer.intake.write",
     },
     "agent-store-consumer": {
         "store.summary.read",

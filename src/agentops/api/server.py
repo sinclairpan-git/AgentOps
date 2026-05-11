@@ -23,6 +23,7 @@ from agentops.api.credentials import (
     revoke_credentials,
 )
 from agentops.api.ingestion import ingest_events_batch
+from agentops.api.operations import ingest_quality_scorer_external_execution
 from agentops.api.runtime import (
     get_runtime_evidence_summary,
     get_runtime_health_summary,
@@ -770,6 +771,57 @@ def create_http_handler(
                 self._send_json(status, outcome)
                 return
 
+            if request_path == "/v1/quality/scorers/external-intake":
+                action = "quality.scorer.external_intake.ingest"
+                auth_error = self._require_scope("quality.scorer.intake.write")
+                if auth_error:
+                    self._send_auth_error(
+                        auth_error,
+                        action=action,
+                        resource=request_path,
+                    )
+                    return
+                payload = self._read_json()
+                if payload is None:
+                    self._append_audit_record(
+                        action=action,
+                        outcome="rejected",
+                        resource=request_path,
+                        error_code="REQUEST_JSON_INVALID",
+                    )
+                    self._send_json(
+                        HTTPStatus.BAD_REQUEST,
+                        {
+                            "error_code": "REQUEST_JSON_INVALID",
+                            "message": "请求体必须是 JSON。",
+                        },
+                    )
+                    return
+                try:
+                    response = self._quality_scorer_external_intake_response(payload)
+                except AgentOpsError as exc:
+                    self._append_audit_record(
+                        action=action,
+                        outcome="rejected",
+                        resource=request_path,
+                        error_code=exc.error_code,
+                        audit_id=exc.audit_id,
+                        request_id=exc.request_id,
+                    )
+                    self._send_json(
+                        self._quality_scorer_external_intake_status(exc),
+                        exc.to_response(),
+                    )
+                    return
+                self._append_audit_record(
+                    action=action,
+                    outcome="accepted",
+                    resource=request_path,
+                    audit_id=response.get("audit_id"),
+                )
+                self._send_json(HTTPStatus.ACCEPTED, response)
+                return
+
             if request_path == "/v1/runtime/events":
                 auth_error = self._require_scope("event.ingest")
                 if auth_error:
@@ -1266,6 +1318,63 @@ def create_http_handler(
                 return HTTPStatus.CONFLICT
             return HTTPStatus.BAD_REQUEST
 
+        def _quality_scorer_external_intake_response(
+            self, payload: dict[str, Any]
+        ) -> dict[str, Any]:
+            agent_id = str(payload.get("agent_id") or "").strip()
+            version = str(payload.get("version") or "").strip()
+            external_result = payload.get("external_result")
+            if not agent_id or not version or not isinstance(external_result, dict):
+                raise AgentOpsError(
+                    "QUALITY_SCORER_INTAKE_HTTP_REQUEST_INVALID",
+                    "Quality scorer external intake HTTP request requires agent_id, version and external_result.",
+                    denied_scope="quality_scorer_external_intake_http.request",
+                )
+
+            kwargs: dict[str, Any] = {
+                "idempotency_key": str(
+                    payload.get("idempotency_key")
+                    or self.headers.get("Idempotency-Key")
+                    or ""
+                ),
+                "source_trust": str(
+                    payload.get("source_trust")
+                    or self.headers.get("X-AgentOps-Source-Trust")
+                    or "signed"
+                ),
+                "signature": str(
+                    payload.get("signature")
+                    or self.headers.get("X-AgentOps-Scorer-Signature")
+                    or ""
+                ),
+                "external_result": external_result,
+                "producer": str(payload.get("producer") or "external_scorer_http"),
+            }
+            if isinstance(payload.get("scorer"), dict):
+                kwargs["scorer"] = payload["scorer"]
+            if "min_eval_cases" in payload:
+                kwargs["min_eval_cases"] = payload["min_eval_cases"]
+            if "pass_threshold" in payload:
+                kwargs["pass_threshold"] = payload["pass_threshold"]
+
+            return ingest_quality_scorer_external_execution(
+                live_repository,
+                agent_id,
+                version,
+                **kwargs,
+            )
+
+        def _quality_scorer_external_intake_status(
+            self, exc: AgentOpsError
+        ) -> HTTPStatus:
+            if exc.error_code == "QUALITY_SCORER_INTAKE_SIGNATURE_INVALID":
+                return HTTPStatus.UNAUTHORIZED
+            if exc.error_code == "QUALITY_SCORER_INTAKE_UNTRUSTED":
+                return HTTPStatus.FORBIDDEN
+            if exc.error_code == "QUALITY_SCORER_INTAKE_IDEMPOTENCY_CONFLICT":
+                return HTTPStatus.CONFLICT
+            return HTTPStatus.BAD_REQUEST
+
         def _read_json(self) -> dict[str, Any] | None:
             try:
                 content_length = int(self.headers.get("Content-Length", "0"))
@@ -1352,7 +1461,10 @@ def create_http_handler(
             if origin in ALLOWED_ORIGINS:
                 self.send_header("Access-Control-Allow-Origin", origin)
             self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-            allowed_headers = "Content-Type, Idempotency-Key"
+            allowed_headers = (
+                "Content-Type, Idempotency-Key, X-AgentOps-Scorer-Signature, "
+                "X-AgentOps-Source-Trust"
+            )
             if require_auth:
                 allowed_headers = (
                     f"{allowed_headers}, X-AgentOps-Principal, X-AgentOps-Roles, "
