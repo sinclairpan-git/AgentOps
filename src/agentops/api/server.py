@@ -1500,11 +1500,7 @@ def create_http_handler(
         ) -> dict[str, Any]:
             agent_id = self._query_value(query, "agent_id")
             version = self._query_value(query, "version")
-            if (
-                not agent_id
-                or not version
-                or self._external_intake_query_contains_forbidden(agent_id, version)
-            ):
+            if not agent_id or not version:
                 raise AgentOpsError(
                     "QUALITY_SCORER_INTAKE_INDEX_QUERY_REQUIRED",
                     "Quality scorer external intake index requires agent_id and version.",
@@ -1523,8 +1519,8 @@ def create_http_handler(
                 "schema_version": "quality_scorer_external_intake_index.v1",
                 "route": "/v1/quality/scorers/external-intake/index",
                 "method": "GET",
-                "agent_id": agent_id,
-                "version": version,
+                "agent_id": self._external_intake_safe_query_label(agent_id),
+                "version": self._external_intake_safe_query_label(version),
                 "limit": limit,
                 "returned": len(receipts),
                 "receipts": list(receipts),
@@ -1577,6 +1573,11 @@ def create_http_handler(
                 ):
                     return True
             return False
+
+        def _external_intake_safe_query_label(self, value: str) -> str:
+            if self._external_intake_query_contains_forbidden(value):
+                return "[redacted]"
+            return value[:80]
 
         def _read_json(self) -> dict[str, Any] | None:
             try:

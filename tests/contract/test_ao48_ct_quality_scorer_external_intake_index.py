@@ -261,7 +261,53 @@ def test_ao48_ct_006_repository_index_is_scoped_by_agent_version():
     _assert_no_raw_leaks({"receipts": list(receipts)})
 
 
-def test_ao48_ct_007_repository_index_does_not_match_redacted_plain_identity():
+def test_ao48_ct_007_http_index_allows_uri_agent_id_without_raw_echo():
+    repository = InMemoryRepository()
+    eval_case_id = _seed_eval_case_for(
+        repository,
+        run_id="run_failed_index_uri",
+        agent_id="https://example.invalid/agent-uri",
+        version="1.0.0",
+    )
+    receipt = ingest_quality_scorer_external_execution(
+        repository,
+        "https://example.invalid/agent-uri",
+        "1.0.0",
+        idempotency_key="scorer-external-index:uri-agent",
+        signature="sig:external-scorer-index-uri",
+        scorer=_candidate_scorer(),
+        external_result={
+            "source_eval_cases": [eval_case_id],
+            "case_results": [
+                {
+                    "eval_case_id": eval_case_id,
+                    "outcome": "passed",
+                    "score": 0.94,
+                }
+            ],
+        },
+    )
+    server = _start_server(repository)
+    try:
+        response, payload = _json_get(
+            server,
+            "/v1/quality/scorers/external-intake/index",
+            {
+                "agent_id": "https://example.invalid/agent-uri",
+                "version": "1.0.0",
+            },
+        )
+    finally:
+        server.shutdown()
+
+    assert response.status == 200
+    assert payload["agent_id"] == "[redacted]"
+    assert payload["returned"] == 1
+    assert payload["receipts"][0]["intake_id"] == receipt["intake_id"]
+    _assert_no_raw_leaks(payload)
+
+
+def test_ao48_ct_008_repository_index_does_not_match_redacted_plain_identity():
     repository = InMemoryRepository()
     first_eval_case_id = _seed_eval_case_for(
         repository,
