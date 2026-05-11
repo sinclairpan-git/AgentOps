@@ -1179,9 +1179,11 @@ def build_quality_center_workbench(
         comparison_count_key = f"{comparison_state}_count"
         if comparison_count_key in comparison_counts:
             comparison_counts[comparison_count_key] += 1
+        agent_identity = _quality_center_agent_identity(agent_id, version)
         summary = {
             "agent_id": _safe_label(agent_id),
             "version": _safe_label(version),
+            "agent_identity": agent_identity,
             "owner_team": owner_team,
             "score": quality_score["score"],
             "quality_state": quality_score["quality_state"],
@@ -1996,6 +1998,23 @@ def _quality_center_execution_counts(
     }
 
 
+def _quality_center_agent_identity(agent_id: str, version: str) -> dict[str, str]:
+    return {
+        "agent_id_hash": _quality_scorer_lookup_hash("agent_id", agent_id),
+        "version_hash": _quality_scorer_lookup_hash("version", version),
+    }
+
+
+def _safe_agent_identity(identity: dict[str, Any] | None) -> dict[str, str]:
+    source = identity if isinstance(identity, dict) else {}
+    agent_id_hash = str(source.get("agent_id_hash") or "")
+    version_hash = str(source.get("version_hash") or "")
+    return {
+        "agent_id_hash": agent_id_hash if agent_id_hash.startswith("sha256:") else "",
+        "version_hash": version_hash if version_hash.startswith("sha256:") else "",
+    }
+
+
 def _quality_center_review_items(
     summary: dict[str, Any],
     *,
@@ -2006,6 +2025,11 @@ def _quality_center_review_items(
     agent_id = str(summary.get("agent_id") or "")
     version = str(summary.get("version") or "")
     owner_team = str(summary.get("owner_team") or "")
+    agent_identity = _safe_agent_identity(
+        summary.get("agent_identity")
+        if isinstance(summary.get("agent_identity"), dict)
+        else None
+    )
     items: list[dict[str, Any]] = []
     if (
         quality_score.get("missing_evidence")
@@ -2019,6 +2043,7 @@ def _quality_center_review_items(
                 reason="missing_or_low_confidence_evidence",
                 recommended_action="collect_more_evidence",
                 owner_team=owner_team,
+                agent_identity=agent_identity,
             )
         )
     comparison_state = str(comparison.get("comparison_state") or "")
@@ -2035,6 +2060,7 @@ def _quality_center_review_items(
                 reason=comparison_state,
                 recommended_action=str(comparison.get("recommendation") or ""),
                 owner_team=owner_team,
+                agent_identity=agent_identity,
             )
         )
     scorer_execution = (
@@ -2060,6 +2086,7 @@ def _quality_center_review_items(
                     or "open_manual_scorer_review"
                 ),
                 owner_team=owner_team,
+                agent_identity=agent_identity,
             )
         )
     if lifecycle.get("summary", {}).get("manual_review_required"):
@@ -2071,6 +2098,7 @@ def _quality_center_review_items(
                 reason=str(lifecycle.get("lifecycle_state") or ""),
                 recommended_action=str(lifecycle.get("recommended_action") or ""),
                 owner_team=owner_team,
+                agent_identity=agent_identity,
             )
         )
     return items
@@ -2084,13 +2112,19 @@ def _quality_center_review_item(
     reason: str,
     recommended_action: str,
     owner_team: str,
+    agent_identity: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     safe_review_type = _safe_label(review_type)
     safe_reason = _safe_label(reason)
+    safe_identity = _safe_agent_identity(agent_identity)
     return {
-        "id": f"quality_center_{safe_review_type}_{_stable_hash([agent_id, version, safe_reason])[-12:]}",
-        "agent_id": agent_id,
-        "version": version,
+        "id": (
+            f"quality_center_{safe_review_type}_"
+            f"{_stable_hash([safe_identity, safe_reason])[-12:]}"
+        ),
+        "agent_id": _safe_label(agent_id),
+        "version": _safe_label(version),
+        "agent_identity": safe_identity,
         "review_type": safe_review_type,
         "reason": safe_reason,
         "recommended_action": _safe_label(recommended_action),

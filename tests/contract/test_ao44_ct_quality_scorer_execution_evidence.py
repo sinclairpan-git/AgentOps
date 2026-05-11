@@ -288,8 +288,16 @@ def test_ao44_ct_007_quality_center_matches_redacted_execution_identity_by_hash(
     )
 
     execution_summary = workbench["agent_summaries"][0]["scorer_execution"]
+    agent_identity = workbench["agent_summaries"][0]["agent_identity"]
+    assert agent_identity["agent_id_hash"].startswith("sha256:")
+    assert agent_identity["version_hash"].startswith("sha256:")
     assert execution_summary["execution_id"] == execution["execution_id"]
     assert execution_summary["execution_state"] == "passed"
+    assert workbench["review_queue"]
+    for review_item in workbench["review_queue"]:
+        assert review_item["agent_id"] == "[redacted]"
+        assert review_item["version"] == "[redacted]"
+        assert review_item["agent_identity"] == agent_identity
     _assert_no_raw_leaks(workbench)
 
 
