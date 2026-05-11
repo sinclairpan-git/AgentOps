@@ -1337,7 +1337,8 @@ def _unique_strings(values: list[str]) -> list[str]:
 
 def _redacted_text(value: Any) -> str:
     text = str(value or "")
-    if any(marker in text for marker in FORBIDDEN_TEXT_MARKERS):
+    normalized = text.lower()
+    if any(marker.lower() in normalized for marker in FORBIDDEN_TEXT_MARKERS):
         return "[redacted]"
     return text
 
