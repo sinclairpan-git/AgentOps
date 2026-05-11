@@ -6,13 +6,17 @@ from typing import Any
 
 from agentops.core.operations import (
     build_complex_risk_profile,
+    build_adoption_roi_projection,
     build_dlq_operations_projection,
     build_exporter_ecosystem_projection,
     build_exporter_operation,
+    build_lifecycle_recommendation,
+    build_monthly_quality_report,
     build_mcp_a2a_governance_projection,
     build_multi_agent_handoff_evaluation,
     build_optimizer_recommendation,
     build_policy_simulation_projection,
+    build_quality_score_projection,
     build_runtime_budget_summary,
     build_runtime_slo_summary,
     build_store_governance_projection,
@@ -95,6 +99,34 @@ def get_complex_risk_profile(
     version: str,
 ) -> dict[str, Any]:
     return build_complex_risk_profile(repository, agent_id, version)
+
+
+def get_quality_score_projection(
+    repository: InMemoryRepository,
+    agent_id: str,
+    version: str,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    return build_quality_score_projection(repository, agent_id, version, **kwargs)
+
+
+def get_adoption_roi_projection(**kwargs: Any) -> dict[str, Any]:
+    return build_adoption_roi_projection(**kwargs)
+
+
+def get_lifecycle_recommendation(
+    repository: InMemoryRepository,
+    agent_id: str,
+    version: str,
+) -> dict[str, Any]:
+    return build_lifecycle_recommendation(repository, agent_id, version)
+
+
+def get_monthly_quality_report(
+    repository: InMemoryRepository,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    return build_monthly_quality_report(repository, **kwargs)
 
 
 def get_runtime_budget_summary(

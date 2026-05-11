@@ -89,6 +89,21 @@ def test_ao38_ct_002_safe_replay_plan_is_simulation_only():
     _assert_no_raw_leaks(plan)
 
 
+def test_ao38_ct_002_safe_replay_plan_redacts_uppercase_url_reason():
+    repository = InMemoryRepository()
+    write_runtime_run(repository, run_id="run_failed", status="failed")
+
+    plan = create_safe_replay_plan(
+        repository,
+        "run_failed",
+        created_by="ops_1",
+        reason="Investigate HTTPS://example.invalid/raw-trace",
+    )
+
+    assert plan["reason"] == "[redacted]"
+    _assert_no_raw_leaks(plan)
+
+
 def test_ao38_ct_002_running_run_cannot_seed_safe_replay():
     repository = InMemoryRepository()
     write_runtime_run(repository, run_id="run_active", status="running")
@@ -139,6 +154,29 @@ def test_ao38_ct_003_experiment_plan_keeps_variant_material_by_ref():
     assert plan["summary"]["automatic_rollout_enabled"] is False
     assert plan["variants"][0]["config_hash"].startswith("sha256:")
     assert "config" not in plan["variants"][0]
+    _assert_no_raw_leaks(plan)
+
+
+def test_ao38_ct_003_experiment_plan_redacts_uppercase_url_hypothesis():
+    repository = InMemoryRepository()
+
+    plan = create_experiment_plan(
+        repository,
+        "agent.ai-sdlc",
+        "1.0.0",
+        owner_team="Quality",
+        hypothesis="Compare against HTTPS://example.invalid/raw-config",
+        variants=[
+            {
+                "variant_id": "candidate",
+                "variant_type": "tool",
+                "risk_level": "medium",
+                "artifact_ref": "store://agents/agent.ai-sdlc/1.0.0/candidate",
+            },
+        ],
+    )
+
+    assert plan["hypothesis"] == "[redacted]"
     _assert_no_raw_leaks(plan)
 
 
@@ -267,6 +305,7 @@ def _assert_no_raw_leaks(payload: dict) -> None:
         "credential_secret",
         "device_key",
         "must not appear",
+        "https://example.invalid",
     )
     _assert_no_forbidden_keys(payload, forbidden_keys)
     serialized = json.dumps(payload, ensure_ascii=False)
