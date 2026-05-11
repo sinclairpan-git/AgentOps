@@ -994,6 +994,141 @@ def build_monthly_quality_report(
     }
 
 
+def build_quality_center_workbench(
+    repository: InMemoryRepository,
+    *,
+    agent_refs: list[dict[str, Any]],
+    report_period: str,
+    generated_by: str = "quality_center",
+) -> dict[str, Any]:
+    agent_summaries: list[dict[str, Any]] = []
+    review_queue: list[dict[str, Any]] = []
+    comparison_counts = {
+        "candidate_count": 0,
+        "ready_for_manual_approval_count": 0,
+        "needs_human_review_count": 0,
+        "insufficient_evidence_count": 0,
+    }
+    for index, ref in enumerate(agent_refs):
+        if not isinstance(ref, dict):
+            raise AgentOpsError(
+                "QUALITY_CENTER_WORKBENCH_UNAVAILABLE",
+                "Quality Center agent_refs entries must be objects.",
+                denied_scope=f"agent_refs[{index}]",
+                audit_id=f"audit_quality_center_{report_period}",
+            )
+        agent_id = str(ref.get("agent_id") or "")
+        version = str(ref.get("version") or "")
+        owner_team = _safe_label(ref.get("owner_team") or "")
+        candidate_scorer = (
+            ref.get("candidate_scorer")
+            if isinstance(ref.get("candidate_scorer"), dict)
+            else None
+        )
+        baseline_scorer = (
+            ref.get("baseline_scorer")
+            if isinstance(ref.get("baseline_scorer"), dict)
+            else None
+        )
+        min_eval_cases = max(1, _safe_int(ref.get("min_eval_cases") or 1))
+        quality_score = build_quality_score_projection(repository, agent_id, version)
+        lifecycle = build_lifecycle_recommendation(repository, agent_id, version)
+        comparison = build_quality_scorer_comparison(
+            repository,
+            agent_id,
+            version,
+            baseline_scorer=baseline_scorer,
+            candidate_scorer=candidate_scorer,
+            min_eval_cases=min_eval_cases,
+        )
+        scorer_version = build_quality_scorer_version(
+            **_quality_center_scorer_kwargs(candidate_scorer)
+        )
+        comparison_state = str(comparison.get("comparison_state") or "")
+        comparison_counts["candidate_count"] += 1
+        comparison_count_key = f"{comparison_state}_count"
+        if comparison_count_key in comparison_counts:
+            comparison_counts[comparison_count_key] += 1
+        summary = {
+            "agent_id": agent_id,
+            "version": version,
+            "owner_team": owner_team,
+            "score": quality_score["score"],
+            "quality_state": quality_score["quality_state"],
+            "confidence": quality_score["confidence"],
+            "score_template_id": quality_score["score_template_id"],
+            "evidence_level": quality_score["evidence_level"],
+            "missing_evidence": list(quality_score["missing_evidence"]),
+            "explanation": quality_score["explanation"],
+            "lifecycle_state": lifecycle["lifecycle_state"],
+            "lifecycle_action": lifecycle["recommended_action"],
+            "scorer": {
+                "scorer_id": scorer_version["scorer_id"],
+                "scorer_version": scorer_version["scorer_version"],
+                "rollout_state": scorer_version["rollout_state"],
+            },
+            "scorer_comparison": {
+                "comparison_state": comparison_state,
+                "safety_impact": comparison["safety_impact"],
+                "alignment_delta": comparison["alignment_delta"],
+                "recommendation": comparison["recommendation"],
+                "manual_approval_required": comparison_state
+                in {
+                    "ready_for_manual_approval",
+                    "needs_human_review",
+                    "insufficient_evidence",
+                },
+            },
+        }
+        agent_summaries.append(summary)
+        review_queue.extend(
+            _quality_center_review_items(
+                summary,
+                quality_score=quality_score,
+                lifecycle=lifecycle,
+                comparison=comparison,
+            )
+        )
+
+    monthly_report = build_monthly_quality_report(
+        repository,
+        report_period=report_period,
+        generated_by=generated_by,
+        agent_refs=agent_refs,
+    )
+    return {
+        "schema_version": "quality_center_workbench.v1",
+        "report_period": report_period,
+        "workbench_state": "ready" if agent_summaries else "empty",
+        "generated_by": _safe_label(generated_by),
+        "agent_summaries": agent_summaries,
+        "scorer_rollout_panel": {
+            **comparison_counts,
+            "automatic_rollout_enabled": False,
+            "automatic_template_switch": False,
+            "manual_approval_queue_size": sum(
+                1
+                for item in review_queue
+                if item.get("review_type") == "scorer_rollout"
+            ),
+        },
+        "review_queue": review_queue,
+        "trend_summary": monthly_report["trend_summary"],
+        "summary": {
+            "raw_payload_access": "forbidden",
+            "raw_prompt_access": "forbidden",
+            "raw_diff_access": "forbidden",
+            "terminal_output_access": "forbidden",
+            "automatic_rollout_enabled": False,
+            "automatic_lifecycle_action": False,
+            "store_write_performed": False,
+            "automatic_publish_performed": False,
+            "notification_sent": False,
+        },
+        "audit_id": f"audit_quality_center_workbench_{report_period}",
+    }
+
+
 def build_exporter_operation(
     *,
     exporter_type: str,
@@ -1567,6 +1702,106 @@ def _monthly_trend_summary(agent_summaries: list[dict[str, Any]]) -> dict[str, A
         "average_score": average_score,
         "review_required_count": review_required_count,
         "adoption_needs_review_count": adoption_needs_review_count,
+    }
+
+
+def _quality_center_scorer_kwargs(
+    candidate_scorer: dict[str, Any] | None,
+) -> dict[str, Any]:
+    source = candidate_scorer if isinstance(candidate_scorer, dict) else {}
+    return {
+        "scorer_id": str(source.get("scorer_id") or "quality_summary_stage5_candidate"),
+        "scorer_version": str(source.get("scorer_version") or "1.1.0"),
+        "score_template_id": str(
+            source.get("score_template_id") or "quality_summary_stage5_candidate"
+        ),
+        "rollout_state": str(source.get("rollout_state") or "candidate"),
+        "owner_team": str(source.get("owner_team") or ""),
+        "required_evidence": source.get("required_evidence")
+        if isinstance(source.get("required_evidence"), list)
+        else None,
+        "scoring_policy": source.get("scoring_policy")
+        if isinstance(source.get("scoring_policy"), dict)
+        else None,
+    }
+
+
+def _quality_center_review_items(
+    summary: dict[str, Any],
+    *,
+    quality_score: dict[str, Any],
+    lifecycle: dict[str, Any],
+    comparison: dict[str, Any],
+) -> list[dict[str, Any]]:
+    agent_id = str(summary.get("agent_id") or "")
+    version = str(summary.get("version") or "")
+    owner_team = str(summary.get("owner_team") or "")
+    items: list[dict[str, Any]] = []
+    if (
+        quality_score.get("missing_evidence")
+        or quality_score.get("quality_state") == "insufficient_evidence"
+    ):
+        items.append(
+            _quality_center_review_item(
+                agent_id,
+                version,
+                review_type="quality_evidence",
+                reason="missing_or_low_confidence_evidence",
+                recommended_action="collect_more_evidence",
+                owner_team=owner_team,
+            )
+        )
+    comparison_state = str(comparison.get("comparison_state") or "")
+    if comparison_state in {
+        "ready_for_manual_approval",
+        "needs_human_review",
+        "insufficient_evidence",
+    }:
+        items.append(
+            _quality_center_review_item(
+                agent_id,
+                version,
+                review_type="scorer_rollout",
+                reason=comparison_state,
+                recommended_action=str(comparison.get("recommendation") or ""),
+                owner_team=owner_team,
+            )
+        )
+    if lifecycle.get("summary", {}).get("manual_review_required"):
+        items.append(
+            _quality_center_review_item(
+                agent_id,
+                version,
+                review_type="lifecycle",
+                reason=str(lifecycle.get("lifecycle_state") or ""),
+                recommended_action=str(lifecycle.get("recommended_action") or ""),
+                owner_team=owner_team,
+            )
+        )
+    return items
+
+
+def _quality_center_review_item(
+    agent_id: str,
+    version: str,
+    *,
+    review_type: str,
+    reason: str,
+    recommended_action: str,
+    owner_team: str,
+) -> dict[str, Any]:
+    safe_review_type = _safe_label(review_type)
+    safe_reason = _safe_label(reason)
+    return {
+        "id": f"quality_center_{safe_review_type}_{_stable_hash([agent_id, version, safe_reason])[-12:]}",
+        "agent_id": agent_id,
+        "version": version,
+        "review_type": safe_review_type,
+        "reason": safe_reason,
+        "recommended_action": _safe_label(recommended_action),
+        "owner_team": _safe_label(owner_team),
+        "manual_review_required": True,
+        "automatic_action_performed": False,
     }
 
 

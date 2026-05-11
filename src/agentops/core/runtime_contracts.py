@@ -1188,6 +1188,30 @@ CONTRACT_REGISTRY: dict[str, ContractRegistryEntry] = {
         contract_tests=("AO41-CT-001", "AO41-CT-003", "AO41-CT-004"),
         compatibility_policy="p1_backward_compatible",
     ),
+    "quality_center_workbench.v1": _entry(
+        "quality_center_workbench.v1",
+        domain_owner="AgentOps",
+        producer="AgentOps",
+        consumers=("Ops", "Agent Store"),
+        schema_version="quality_center_workbench.v1",
+        required_fields=(
+            "workbench_state",
+            "agent_summaries",
+            "scorer_rollout_panel",
+            "review_queue",
+            "trend_summary",
+            "summary",
+            "audit_id",
+        ),
+        optional_fields=("report_period", "generated_by"),
+        enum_fields={
+            "workbench_state": ("ready", "empty"),
+        },
+        state_registry_refs=("degraded", "blocked"),
+        error_codes=("QUALITY_CENTER_WORKBENCH_UNAVAILABLE",),
+        contract_tests=("AO42-CT-001", "AO42-CT-002", "AO42-CT-003"),
+        compatibility_policy="p1_backward_compatible",
+    ),
 }
 
 
@@ -1594,6 +1618,14 @@ ERROR_CODE_REGISTRY: dict[str, ErrorCodeDefinition] = {
         False,
         "评分器版本对比暂不可用。",
         "Scorer comparison is unavailable.",
+        False,
+    ),
+    "QUALITY_CENTER_WORKBENCH_UNAVAILABLE": ErrorCodeDefinition(
+        "QUALITY_CENTER_WORKBENCH_UNAVAILABLE",
+        400,
+        False,
+        "Quality Center 工作台暂不可用。",
+        "Quality Center workbench is unavailable.",
         False,
     ),
 }
