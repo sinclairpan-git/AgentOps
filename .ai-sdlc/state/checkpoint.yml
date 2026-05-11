@@ -1,12 +1,12 @@
 pipeline_started_at: '2026-05-04T06:14:47+00:00'
-pipeline_last_updated: '2026-05-10T17:36:55+00:00'
+pipeline_last_updated: '2026-05-11T08:40:18+00:00'
 current_stage: close
 feature:
-  id: 039-p2-ecosystem-governance
-  spec_dir: specs/039-p2-ecosystem-governance
-  design_branch: design/039-p2-ecosystem-governance-docs
-  feature_branch: feature/039-p2-ecosystem-governance-dev
-  current_branch: codex/039-p2-ecosystem-governance
+  id: 044-quality-scorer-execution-evidence
+  spec_dir: specs/044-quality-scorer-execution-evidence
+  design_branch: design/044-quality-scorer-execution-evidence-docs
+  feature_branch: feature/044-quality-scorer-execution-evidence-dev
+  current_branch: codex/044-quality-scorer-execution-evidence
   docs_baseline_ref: ''
   docs_baseline_at: ''
 multi_agent:
@@ -16,36 +16,36 @@ multi_agent:
 prd_source: /Users/sinclairpan/project/AI-Native底座开发文档/AgentOps_项目_PRD.md
 completed_stages:
 - stage: init
-  completed_at: '2026-05-10T17:36:28+00:00'
+  completed_at: '2026-05-11T08:38:36+00:00'
   artifacts: []
 - stage: refine
-  completed_at: '2026-05-10T17:36:28+00:00'
+  completed_at: '2026-05-11T08:38:36+00:00'
   artifacts:
   - spec.md
 - stage: design
-  completed_at: '2026-05-10T17:36:28+00:00'
+  completed_at: '2026-05-11T08:38:36+00:00'
   artifacts:
   - plan.md
 - stage: decompose
-  completed_at: '2026-05-10T17:36:28+00:00'
+  completed_at: '2026-05-11T08:38:36+00:00'
   artifacts:
   - tasks.md
 - stage: verify
-  completed_at: '2026-05-10T17:36:28+00:00'
+  completed_at: '2026-05-11T08:38:36+00:00'
   artifacts:
   - task-execution-log.md
   - tasks.md
 - stage: execute
-  completed_at: '2026-05-10T17:36:28+00:00'
+  completed_at: '2026-05-11T08:38:36+00:00'
   artifacts:
   - development-summary.md
   - task-execution-log.md
 - stage: close
-  completed_at: '2026-05-10T17:36:55+00:00'
+  completed_at: '2026-05-11T08:38:47+00:00'
   artifacts: []
 execute_progress: null
 ai_decisions_count: 0
 execution_mode: auto
-linked_wi_id: 039-p2-ecosystem-governance
-linked_plan_uri: specs/039-p2-ecosystem-governance/plan.md
-last_synced_at: '2026-05-10T16:36:03+00:00'
+linked_wi_id: 044-quality-scorer-execution-evidence
+linked_plan_uri: specs/044-quality-scorer-execution-evidence/plan.md
+last_synced_at: '2026-05-11T08:40:18+00:00'

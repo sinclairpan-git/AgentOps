@@ -22,6 +22,7 @@ from agentops.core.operations import (
     build_quality_scorer_version,
     build_runtime_budget_summary,
     build_runtime_slo_summary,
+    create_quality_scorer_execution as _create_quality_scorer_execution,
     build_store_governance_projection,
     create_eval_case as _create_eval_case,
     create_evidence_access_operation as _create_evidence_access_operation,
@@ -124,6 +125,15 @@ def get_quality_scorer_comparison(
     **kwargs: Any,
 ) -> dict[str, Any]:
     return build_quality_scorer_comparison(repository, agent_id, version, **kwargs)
+
+
+def create_quality_scorer_execution(
+    repository: InMemoryRepository,
+    agent_id: str,
+    version: str,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    return _create_quality_scorer_execution(repository, agent_id, version, **kwargs)
 
 
 def get_adoption_roi_projection(**kwargs: Any) -> dict[str, Any]:

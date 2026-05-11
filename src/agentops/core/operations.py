@@ -832,6 +832,126 @@ def build_quality_scorer_comparison(
     }
 
 
+def create_quality_scorer_execution(
+    repository: InMemoryRepository,
+    agent_id: str,
+    version: str,
+    *,
+    scorer: dict[str, Any] | None = None,
+    min_eval_cases: int = 1,
+    pass_threshold: float = 0.8,
+    executed_by: str = "quality_center",
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    if min_eval_cases <= 0:
+        raise AgentOpsError(
+            "QUALITY_SCORER_EXECUTION_UNAVAILABLE",
+            "Scorer execution evidence threshold must be positive.",
+            denied_scope="scorer_execution.min_eval_cases",
+            audit_id=f"audit_quality_scorer_execution_{agent_id}_{version}",
+        )
+    safe_threshold = min(max(_safe_float(pass_threshold), 0.0), 1.0)
+    scorer_version = _coerce_scorer_version(
+        scorer,
+        default_scorer_id="quality_summary_stage5_candidate",
+        default_scorer_version="1.1.0",
+        default_policy={"evidence_weight": 24, "failure_sensitivity": 32},
+    )
+    eval_cases = [
+        record
+        for record in repository.eval_case_records()
+        if (record.get("source_run") or {}).get("agent_id") == agent_id
+        and (record.get("source_run") or {}).get("version") == version
+    ]
+    case_results = [
+        _scorer_execution_case_result(scorer_version, item) for item in eval_cases
+    ]
+    outcome_counts = {
+        "passed": sum(1 for item in case_results if item["outcome"] == "passed"),
+        "warning": sum(1 for item in case_results if item["outcome"] == "warning"),
+        "failed": sum(1 for item in case_results if item["outcome"] == "failed"),
+        "blocked": sum(1 for item in case_results if item["outcome"] == "blocked"),
+    }
+    sample_size = len(eval_cases)
+    pass_rate = round(outcome_counts["passed"] / sample_size, 4) if sample_size else 0.0
+    execution_state, recommendation = _scorer_execution_decision(
+        sample_size=sample_size,
+        min_eval_cases=min_eval_cases,
+        pass_rate=pass_rate,
+        pass_threshold=safe_threshold,
+        outcome_counts=outcome_counts,
+    )
+    scores = [item["score"] for item in case_results]
+    execution = {
+        "schema_version": "quality_scorer_execution.v1",
+        "execution_id": "",
+        "agent_id": _safe_label(agent_id),
+        "version": _safe_label(version),
+        "lookup_identity": {
+            "agent_id_hash": _quality_scorer_lookup_hash("agent_id", agent_id),
+            "version_hash": _quality_scorer_lookup_hash("version", version),
+        },
+        "scorer": {
+            "scorer_id": scorer_version["scorer_id"],
+            "scorer_version": scorer_version["scorer_version"],
+            "score_template_id": scorer_version["score_template_id"],
+            "rollout_state": scorer_version["rollout_state"],
+        },
+        "source_eval_cases": [
+            str(record.get("eval_case_id") or "") for record in eval_cases
+        ],
+        "sample_size": sample_size,
+        "execution_state": execution_state,
+        "outcome_counts": outcome_counts,
+        "pass_rate": pass_rate,
+        "score_summary": {
+            "average": round(sum(scores) / len(scores), 4) if scores else 0.0,
+            "minimum": min(scores) if scores else 0.0,
+            "maximum": max(scores) if scores else 0.0,
+            "threshold": safe_threshold,
+        },
+        "evidence_window": {
+            "type": "eval_case_summary",
+            "minimum_required": min_eval_cases,
+            "sample_size": sample_size,
+            "input_boundary": {
+                "accepted_inputs": [
+                    "eval_case_summary",
+                    "runtime_evidence_summary",
+                    "scorer_version_summary",
+                ],
+                "raw_payload_access": "forbidden",
+                "raw_prompt_access": "forbidden",
+                "raw_diff_access": "forbidden",
+                "terminal_output_access": "forbidden",
+            },
+        },
+        "recommendation": recommendation,
+        "executed_by": _safe_label(executed_by),
+        "executed_at": _normalize_time(now or datetime.now(UTC)).isoformat(),
+        "summary": {
+            "raw_payload_access": "forbidden",
+            "raw_prompt_access": "forbidden",
+            "raw_diff_access": "forbidden",
+            "terminal_output_access": "forbidden",
+            "summary_only_execution": True,
+            "external_scorer_invoked": False,
+            "automatic_rollout_enabled": False,
+            "automatic_template_switch": False,
+            "automatic_lifecycle_action": False,
+            "store_write_performed": False,
+            "notification_sent": False,
+            "manual_approval_required": True,
+        },
+        "case_results": case_results,
+        "audit_id": (
+            "audit_quality_scorer_execution_"
+            f"{_stable_hash([agent_id, version, scorer_version['scorer_id']])[-12:]}"
+        ),
+    }
+    return repository.store_quality_scorer_execution(_without_forbidden_keys(execution))
+
+
 def build_adoption_roi_projection(
     *,
     agent_id: str,
@@ -1044,14 +1164,26 @@ def build_quality_center_workbench(
         scorer_version = build_quality_scorer_version(
             **_quality_center_scorer_kwargs(candidate_scorer)
         )
+        execution_records = repository.quality_scorer_execution_records(
+            agent_id,
+            version,
+            scorer_id=str(scorer_version["scorer_id"]),
+            scorer_version=str(scorer_version["scorer_version"]),
+            limit=1,
+        )
+        execution_summary = _quality_center_execution_summary(
+            execution_records[-1] if execution_records else None
+        )
         comparison_state = str(comparison.get("comparison_state") or "")
         comparison_counts["candidate_count"] += 1
         comparison_count_key = f"{comparison_state}_count"
         if comparison_count_key in comparison_counts:
             comparison_counts[comparison_count_key] += 1
+        agent_identity = _quality_center_agent_identity(agent_id, version)
         summary = {
-            "agent_id": agent_id,
-            "version": version,
+            "agent_id": _safe_label(agent_id),
+            "version": _safe_label(version),
+            "agent_identity": agent_identity,
             "owner_team": owner_team,
             "score": quality_score["score"],
             "quality_state": quality_score["quality_state"],
@@ -1079,6 +1211,7 @@ def build_quality_center_workbench(
                     "insufficient_evidence",
                 },
             },
+            "scorer_execution": execution_summary,
         }
         agent_summaries.append(summary)
         review_queue.extend(
@@ -1104,6 +1237,7 @@ def build_quality_center_workbench(
         "agent_summaries": agent_summaries,
         "scorer_rollout_panel": {
             **comparison_counts,
+            **_quality_center_execution_counts(agent_summaries, review_queue),
             "automatic_rollout_enabled": False,
             "automatic_template_switch": False,
             "manual_approval_queue_size": sum(
@@ -1124,6 +1258,12 @@ def build_quality_center_workbench(
             "store_write_performed": False,
             "automatic_publish_performed": False,
             "notification_sent": False,
+            "scorer_execution_evidence_count": sum(
+                1
+                for item in agent_summaries
+                if item.get("scorer_execution", {}).get("execution_state")
+                != "not_recorded"
+            ),
         },
         "audit_id": f"audit_quality_center_workbench_{report_period}",
     }
@@ -1596,6 +1736,89 @@ def _scorer_ref(scorer: dict[str, Any], alignment_score: float) -> dict[str, Any
     }
 
 
+def _scorer_execution_case_result(
+    scorer: dict[str, Any], eval_case: dict[str, Any]
+) -> dict[str, Any]:
+    source_run = (
+        eval_case.get("source_run")
+        if isinstance(eval_case.get("source_run"), dict)
+        else {}
+    )
+    evidence_summary = (
+        eval_case.get("evidence_summary")
+        if isinstance(eval_case.get("evidence_summary"), dict)
+        else {}
+    )
+    policy = (
+        scorer.get("scoring_policy")
+        if isinstance(scorer.get("scoring_policy"), dict)
+        else {}
+    )
+    evidence_weight = _safe_float(policy.get("evidence_weight")) / 50.0
+    failure_sensitivity = _safe_float(policy.get("failure_sensitivity")) / 50.0
+    completeness = min(max(_safe_float(evidence_summary.get("completeness")), 0.0), 1.0)
+    status = str(source_run.get("status") or "")
+    expected_signal = 1.0 if str(eval_case.get("expected_behavior") or "") else 0.0
+    status_signal = 1.0 if status in FAILURE_SAMPLE_STATES else 0.0
+    score = round(
+        min(
+            1.0,
+            (0.55 * completeness)
+            + (0.25 * status_signal * failure_sensitivity)
+            + (0.2 * expected_signal)
+            + (0.1 * evidence_weight),
+        ),
+        4,
+    )
+    if status in {"blocked", "timeout", "cancelled"}:
+        outcome = "blocked"
+    elif score >= 0.8:
+        outcome = "passed"
+    elif score >= 0.55:
+        outcome = "warning"
+    else:
+        outcome = "failed"
+    missing_evidence = evidence_summary.get("missing_evidence")
+    if not isinstance(missing_evidence, list):
+        missing_evidence = []
+    source_run_id = str(source_run.get("run_id") or "")
+    return {
+        "eval_case_id": str(eval_case.get("eval_case_id") or ""),
+        "source_run_id": _safe_label(source_run_id),
+        "source_run_identity": {
+            "run_id_hash": _quality_scorer_lookup_hash("run_id", source_run_id),
+        },
+        "outcome": outcome,
+        "score": score,
+        "evidence_level": _safe_label(evidence_summary.get("evidence_level") or ""),
+        "missing_evidence_count": len(missing_evidence),
+    }
+
+
+def _scorer_execution_decision(
+    *,
+    sample_size: int,
+    min_eval_cases: int,
+    pass_rate: float,
+    pass_threshold: float,
+    outcome_counts: dict[str, int],
+) -> tuple[str, str]:
+    if sample_size < min_eval_cases:
+        return ("insufficient_evidence", "collect_more_samples")
+    if outcome_counts["blocked"] > 0:
+        return ("blocked", "open_manual_scorer_review")
+    if outcome_counts["failed"] == sample_size:
+        return ("failed", "keep_baseline")
+    if outcome_counts["failed"] > 0 or pass_rate < pass_threshold:
+        return ("needs_review", "open_manual_scorer_review")
+    return ("passed", "submit_for_manual_rollout_approval")
+
+
+def _quality_scorer_lookup_hash(field_name: str, value: Any) -> str:
+    material = f"{field_name}\0{str(value or '')}"
+    return f"sha256:{hashlib.sha256(material.encode('utf-8')).hexdigest()}"
+
+
 def _safe_adoption_metrics(metrics: dict[str, Any]) -> dict[str, Any]:
     source = metrics if isinstance(metrics, dict) else {}
     ci_failure_types = source.get("ci_failure_types")
@@ -1726,6 +1949,76 @@ def _quality_center_scorer_kwargs(
     }
 
 
+def _quality_center_execution_summary(
+    execution: dict[str, Any] | None,
+) -> dict[str, Any]:
+    if not isinstance(execution, dict):
+        return {
+            "execution_state": "not_recorded",
+            "sample_size": 0,
+            "pass_rate": 0.0,
+            "manual_review_required": True,
+            "recommendation": "collect_more_samples",
+            "audit_id": "",
+        }
+    scorer = (
+        execution.get("scorer") if isinstance(execution.get("scorer"), dict) else {}
+    )
+    return {
+        "execution_id": str(execution.get("execution_id") or ""),
+        "scorer_id": _safe_label(scorer.get("scorer_id") or ""),
+        "scorer_version": _safe_label(scorer.get("scorer_version") or ""),
+        "execution_state": _safe_label(execution.get("execution_state") or ""),
+        "sample_size": _safe_int(execution.get("sample_size")),
+        "pass_rate": round(_safe_float(execution.get("pass_rate")), 4),
+        "recommendation": _safe_label(execution.get("recommendation") or ""),
+        "manual_review_required": bool(
+            execution.get("summary", {}).get("manual_approval_required", True)
+        ),
+        "automatic_action_performed": False,
+        "audit_id": str(execution.get("audit_id") or ""),
+    }
+
+
+def _quality_center_execution_counts(
+    agent_summaries: list[dict[str, Any]], review_queue: list[dict[str, Any]]
+) -> dict[str, int]:
+    execution_summaries = [
+        item.get("scorer_execution", {})
+        for item in agent_summaries
+        if item.get("scorer_execution", {}).get("execution_state") != "not_recorded"
+    ]
+    states = [str(item.get("execution_state") or "") for item in execution_summaries]
+    return {
+        "execution_evidence_count": len(execution_summaries),
+        "execution_passed_count": states.count("passed"),
+        "execution_needs_review_count": sum(
+            1 for state in states if state in {"needs_review", "failed", "blocked"}
+        ),
+        "execution_insufficient_evidence_count": states.count("insufficient_evidence"),
+        "execution_manual_review_queue_size": sum(
+            1 for item in review_queue if item.get("review_type") == "scorer_execution"
+        ),
+    }
+
+
+def _quality_center_agent_identity(agent_id: str, version: str) -> dict[str, str]:
+    return {
+        "agent_id_hash": _quality_scorer_lookup_hash("agent_id", agent_id),
+        "version_hash": _quality_scorer_lookup_hash("version", version),
+    }
+
+
+def _safe_agent_identity(identity: dict[str, Any] | None) -> dict[str, str]:
+    source = identity if isinstance(identity, dict) else {}
+    agent_id_hash = str(source.get("agent_id_hash") or "")
+    version_hash = str(source.get("version_hash") or "")
+    return {
+        "agent_id_hash": agent_id_hash if agent_id_hash.startswith("sha256:") else "",
+        "version_hash": version_hash if version_hash.startswith("sha256:") else "",
+    }
+
+
 def _quality_center_review_items(
     summary: dict[str, Any],
     *,
@@ -1736,6 +2029,11 @@ def _quality_center_review_items(
     agent_id = str(summary.get("agent_id") or "")
     version = str(summary.get("version") or "")
     owner_team = str(summary.get("owner_team") or "")
+    agent_identity = _safe_agent_identity(
+        summary.get("agent_identity")
+        if isinstance(summary.get("agent_identity"), dict)
+        else None
+    )
     items: list[dict[str, Any]] = []
     if (
         quality_score.get("missing_evidence")
@@ -1749,6 +2047,7 @@ def _quality_center_review_items(
                 reason="missing_or_low_confidence_evidence",
                 recommended_action="collect_more_evidence",
                 owner_team=owner_team,
+                agent_identity=agent_identity,
             )
         )
     comparison_state = str(comparison.get("comparison_state") or "")
@@ -1765,6 +2064,33 @@ def _quality_center_review_items(
                 reason=comparison_state,
                 recommended_action=str(comparison.get("recommendation") or ""),
                 owner_team=owner_team,
+                agent_identity=agent_identity,
+            )
+        )
+    scorer_execution = (
+        summary.get("scorer_execution")
+        if isinstance(summary.get("scorer_execution"), dict)
+        else {}
+    )
+    execution_state = str(scorer_execution.get("execution_state") or "")
+    if execution_state in {
+        "insufficient_evidence",
+        "needs_review",
+        "failed",
+        "blocked",
+    }:
+        items.append(
+            _quality_center_review_item(
+                agent_id,
+                version,
+                review_type="scorer_execution",
+                reason=execution_state,
+                recommended_action=str(
+                    scorer_execution.get("recommendation")
+                    or "open_manual_scorer_review"
+                ),
+                owner_team=owner_team,
+                agent_identity=agent_identity,
             )
         )
     if lifecycle.get("summary", {}).get("manual_review_required"):
@@ -1776,6 +2102,7 @@ def _quality_center_review_items(
                 reason=str(lifecycle.get("lifecycle_state") or ""),
                 recommended_action=str(lifecycle.get("recommended_action") or ""),
                 owner_team=owner_team,
+                agent_identity=agent_identity,
             )
         )
     return items
@@ -1789,13 +2116,19 @@ def _quality_center_review_item(
     reason: str,
     recommended_action: str,
     owner_team: str,
+    agent_identity: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     safe_review_type = _safe_label(review_type)
     safe_reason = _safe_label(reason)
+    safe_identity = _safe_agent_identity(agent_identity)
     return {
-        "id": f"quality_center_{safe_review_type}_{_stable_hash([agent_id, version, safe_reason])[-12:]}",
-        "agent_id": agent_id,
-        "version": version,
+        "id": (
+            f"quality_center_{safe_review_type}_"
+            f"{_stable_hash([safe_identity, safe_reason])[-12:]}"
+        ),
+        "agent_id": _safe_label(agent_id),
+        "version": _safe_label(version),
+        "agent_identity": safe_identity,
         "review_type": safe_review_type,
         "reason": safe_reason,
         "recommended_action": _safe_label(recommended_action),
