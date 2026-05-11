@@ -167,13 +167,13 @@ specs:
   - 040-quality-lifecycle-analytics
   - 041-quality-scorer-versioning
 truth_snapshot:
-  generated_at: '2026-05-11T05:06:00Z'
+  generated_at: '2026-05-11T05:15:31Z'
   generated_by: ai-sdlc program truth sync
   generator_version: program_truth_snapshot_v1
-  repo_revision: f28d2d5
+  repo_revision: 2c962a0
   authoring_hash: d6d811dcca711556eed7f9fbe773e13687b336746f2c89413c26cb1c23e0e3f1
   source_hashes: {}
-  snapshot_hash: 83a63ad261b8b26be9e0da2544700b17f1b8e2150da73d5eed99d3431b6692b9
+  snapshot_hash: 12c39e3ee8ee786e114e0f141f7f578383d7f5e78cabc8ecef1a036672654a9d
   computed_capabilities: []
   source_inventory:
     state: complete
@@ -181,8 +181,8 @@ truth_snapshot:
     mapped_sources: 211
     unmapped_sources: 0
     missing_sources: 0
-    phase_signal_count: 610
-    deferred_signal_count: 762
+    phase_signal_count: 613
+    deferred_signal_count: 765
     non_goal_signal_count: 66
     layer_totals:
       blueprint: 1
@@ -2086,8 +2086,8 @@ truth_snapshot:
       mapped: true
       exists: true
       mapping_ref: 042-quality-center-workbench
-      phase_signal_count: 2
-      deferred_signal_count: 2
+      phase_signal_count: 4
+      deferred_signal_count: 4
       non_goal_signal_count: 0
     - path: specs/042-quality-center-workbench/development-summary.md
       source_type: development_summary
@@ -2095,8 +2095,8 @@ truth_snapshot:
       mapped: true
       exists: true
       mapping_ref: 042-quality-center-workbench
-      phase_signal_count: 1
-      deferred_signal_count: 1
+      phase_signal_count: 2
+      deferred_signal_count: 2
       non_goal_signal_count: 0
     unmapped_paths: []
   state: ready

@@ -2,7 +2,7 @@
 
 **工作项**：`042-quality-center-workbench`  
 **日期**：2026-05-11  
-**当前批次**：Batch 2 Codex review fix
+**当前批次**：Batch 3 Codex review fix
 
 ## 执行约束
 
@@ -65,6 +65,36 @@
   - `python -m ai_sdlc workitem close-check --wi specs/042-quality-center-workbench --json`
 - 测试结果：通过 focused AO42、AO40-AO42 regression、full pytest、ruff check、ruff format check、program truth sync、AI-SDLC constraints。
 - 是否符合任务目标：符合；insufficient scorer evidence 进入人工 scorer rollout follow-up，不执行自动 rollout。
+- 代码审查结论：已处理 Codex P2 建议，待重新触发 review。
+- 任务/计划同步状态：已完成，truth snapshot state 为 ready，211/211 sources mapped。
+- **已完成 git 提交**：是，本次 review fix 将在当前提交中一并提交。
+- **提交哈希**：见当前 Git HEAD。
+- 当前批次 branch disposition 状态：`codex/042-quality-center-workbench` PR 收口中
+- 当前批次 worktree disposition 状态：retained
+- 是否继续下一批：否，等待 PR 收口。
+
+## Batch 3 记录
+
+### Phase 4 | Codex review fix
+
+- 覆盖任务：T14
+- 覆盖阶段：PR review close-out
+- 触发来源：Codex review P2 建议，agent summary 中 insufficient scorer evidence 的 manual approval flag 需与 review queue 保持一致。
+- **验证画像**：code-change
+- 改动范围：`src/agentops/core/operations.py`、`tests/contract/test_ao42_ct_quality_center_workbench.py`、本执行日志。
+- 改动内容：当 `comparison_state=insufficient_evidence` 时，`agent_summaries[*].scorer_comparison.manual_approval_required` 置为 `true`。
+- 新增/调整的测试：扩展 AO42-CT-005，断言 insufficient evidence summary flag 与 review queue 均要求人工处理。
+- 统一验证命令：
+  - `uv run pytest tests/contract/test_ao42_ct_quality_center_workbench.py -q`
+  - `uv run pytest tests/contract/test_ao40_ct_quality_lifecycle_analytics.py tests/contract/test_ao41_ct_quality_scorer_versioning.py tests/contract/test_ao42_ct_quality_center_workbench.py -q`
+  - `uv run pytest -q`
+  - `uv run ruff check src/agentops/core/operations.py tests/contract/test_ao42_ct_quality_center_workbench.py`
+  - `uv run ruff format --check src/agentops/core/operations.py tests/contract/test_ao42_ct_quality_center_workbench.py`
+  - `python -m ai_sdlc program truth sync --execute --yes`
+  - `uv run ai-sdlc verify constraints`
+  - `python -m ai_sdlc workitem close-check --wi specs/042-quality-center-workbench --json`
+- 测试结果：通过 focused AO42、AO40-AO42 regression、full pytest、ruff check、ruff format check、program truth sync、AI-SDLC constraints。
+- 是否符合任务目标：符合；insufficient scorer evidence 的 summary flag 与 review queue 均保持人工处理。
 - 代码审查结论：已处理 Codex P2 建议，待重新触发 review。
 - 任务/计划同步状态：已完成，truth snapshot state 为 ready，211/211 sources mapped。
 - **已完成 git 提交**：是，本次 review fix 将在当前提交中一并提交。

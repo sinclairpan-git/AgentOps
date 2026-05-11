@@ -181,6 +181,10 @@ def test_ao42_ct_005_quality_center_queues_insufficient_scorer_evidence():
     ]
     assert workbench["scorer_rollout_panel"]["insufficient_evidence_count"] == 1
     assert workbench["scorer_rollout_panel"]["manual_approval_queue_size"] == 1
+    assert (
+        workbench["agent_summaries"][0]["scorer_comparison"]["manual_approval_required"]
+        is True
+    )
     assert scorer_items[0]["reason"] == "insufficient_evidence"
     assert scorer_items[0]["recommended_action"] == "collect_more_samples"
     assert scorer_items[0]["manual_review_required"] is True

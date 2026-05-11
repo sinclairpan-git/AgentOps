@@ -1072,9 +1072,12 @@ def build_quality_center_workbench(
                 "safety_impact": comparison["safety_impact"],
                 "alignment_delta": comparison["alignment_delta"],
                 "recommendation": comparison["recommendation"],
-                "manual_approval_required": comparison["summary"][
-                    "manual_approval_required"
-                ],
+                "manual_approval_required": comparison_state
+                in {
+                    "ready_for_manual_approval",
+                    "needs_human_review",
+                    "insufficient_evidence",
+                },
             },
         }
         agent_summaries.append(summary)
