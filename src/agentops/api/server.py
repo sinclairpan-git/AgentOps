@@ -119,6 +119,43 @@ def create_http_handler(
                 self._send_json(HTTPStatus.OK, response)
                 return
 
+            if request_path == "/v1/quality/scorers/external-intake":
+                action = "quality.scorer.external_intake.read"
+                auth_error = self._require_scope("quality.scorer.intake.read")
+                if auth_error:
+                    self._send_auth_error(
+                        auth_error,
+                        action=action,
+                        resource=request_path,
+                    )
+                    return
+                try:
+                    response = self._quality_scorer_external_intake_read_response(
+                        self._request_query()
+                    )
+                except AgentOpsError as exc:
+                    self._append_audit_record(
+                        action=action,
+                        outcome="rejected",
+                        resource=request_path,
+                        error_code=exc.error_code,
+                        audit_id=exc.audit_id,
+                        request_id=exc.request_id,
+                    )
+                    self._send_json(
+                        self._quality_scorer_external_intake_read_status(exc),
+                        exc.to_response(),
+                    )
+                    return
+                self._append_audit_record(
+                    action=action,
+                    outcome="accepted",
+                    resource=request_path,
+                    audit_id=response.get("audit_id"),
+                )
+                self._send_json(HTTPStatus.OK, response)
+                return
+
             if request_path == "/v1/audit/runtime":
                 auth_error = self._require_scope("runtime.audit.read")
                 if auth_error:
@@ -1371,6 +1408,43 @@ def create_http_handler(
                 return HTTPStatus.UNAUTHORIZED
             if exc.error_code == "QUALITY_SCORER_INTAKE_UNTRUSTED":
                 return HTTPStatus.FORBIDDEN
+            if exc.error_code == "QUALITY_SCORER_INTAKE_IDEMPOTENCY_CONFLICT":
+                return HTTPStatus.CONFLICT
+            return HTTPStatus.BAD_REQUEST
+
+        def _quality_scorer_external_intake_read_response(
+            self, query: dict[str, list[str]]
+        ) -> dict[str, Any]:
+            agent_id = self._query_value(query, "agent_id")
+            version = self._query_value(query, "version")
+            idempotency_key = self._query_value(query, "idempotency_key")
+            if not agent_id or not version or not idempotency_key:
+                raise AgentOpsError(
+                    "QUALITY_SCORER_INTAKE_RECEIPT_QUERY_REQUIRED",
+                    "Quality scorer external intake readback requires agent_id, version and idempotency_key.",
+                    denied_scope="quality_scorer_external_intake_readback.query",
+                )
+            receipt = live_repository.quality_scorer_external_receipt_by_idempotency(
+                idempotency_key,
+                agent_id=agent_id,
+                version=version,
+            )
+            if receipt is None:
+                raise AgentOpsError(
+                    "QUALITY_SCORER_INTAKE_RECEIPT_NOT_FOUND",
+                    "Quality scorer external intake receipt was not found.",
+                    denied_scope="quality_scorer_external_intake_readback.receipt",
+                    audit_id=(
+                        "audit_quality_scorer_external_intake_readback_not_found"
+                    ),
+                )
+            return receipt
+
+        def _quality_scorer_external_intake_read_status(
+            self, exc: AgentOpsError
+        ) -> HTTPStatus:
+            if exc.error_code == "QUALITY_SCORER_INTAKE_RECEIPT_NOT_FOUND":
+                return HTTPStatus.NOT_FOUND
             if exc.error_code == "QUALITY_SCORER_INTAKE_IDEMPOTENCY_CONFLICT":
                 return HTTPStatus.CONFLICT
             return HTTPStatus.BAD_REQUEST

@@ -1,0 +1,11 @@
+schema_version: '1'
+work_item_id: 047-quality-scorer-external-intake-readback
+status: active
+summary: >
+  AO47 adds read-only HTTP receipt readback for AO46 external scorer intake.
+  Readback requires full agent_id/version/idempotency_key scope and returns
+  existing summary-only receipts without replaying payloads or creating execution evidence.
+next_steps:
+  - Implement readback route and registry entry.
+  - Add AO47 contract tests.
+  - Run AI-SDLC close gates and create PR.
