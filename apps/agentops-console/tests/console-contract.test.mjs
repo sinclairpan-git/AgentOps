@@ -37,7 +37,11 @@ const viewSources = [
 ].map(readText).join("\n");
 const uiSource = `${appSource}\n${appShellSource}\n${statusBadgeSource}\n${dataTableSource}\n${mockDataSource}\n${apiClientSource}\n${viewSources}`;
 const techStack = readRepoText(".ai-sdlc/profiles/tech-stack.yml");
-const { loadAgentOpsSnapshot, validateSnapshot } = await import(`file://${resolve(root, "src/data/agentOpsApiClient.js")}`);
+const {
+  loadAgentOpsSnapshot,
+  qualityCenterWorkbenchIsComplete,
+  validateSnapshot
+} = await import(`file://${resolve(root, "src/data/agentOpsApiClient.js")}`);
 
 const vendoredDependencies = {
   "@sxf/er-components": "sxf-er-components-1.27.5.tgz",
@@ -121,6 +125,11 @@ for (const expectedChineseText of [
   "建议动作，不在本页执行",
   "只读处置预案",
   "采纳概览",
+  "质量中心工作台",
+  "Agent 质量摘要",
+  "评分器发布",
+  "发布执行",
+  "原质量信号",
   "质量解释链",
   "复核队列",
   "低置信不自动下架",
@@ -464,6 +473,13 @@ assert.equal(
   }),
   false
 );
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: { ...consoleData, qualityCenterWorkbench: null }
+  }),
+  false
+);
 const legacyV1SnapshotWithoutAdoption = {
   ...validApiSnapshot,
   consoleData: { ...consoleData }
@@ -507,6 +523,15 @@ const legacyV1SnapshotWithoutSdlcRunWorkbench = {
 delete legacyV1SnapshotWithoutSdlcRunWorkbench.consoleData.sdlcRunWorkbench;
 assert.equal(
   validateSnapshot(legacyV1SnapshotWithoutSdlcRunWorkbench),
+  true
+);
+const legacyV1SnapshotWithoutQualityCenterWorkbench = {
+  ...validApiSnapshot,
+  consoleData: { ...consoleData }
+};
+delete legacyV1SnapshotWithoutQualityCenterWorkbench.consoleData.qualityCenterWorkbench;
+assert.equal(
+  validateSnapshot(legacyV1SnapshotWithoutQualityCenterWorkbench),
   true
 );
 const legacyUnsafeSdlcRunSnapshot = {
@@ -1873,6 +1898,64 @@ const apiLoad = await loadAgentOpsSnapshot(async () => ({
 }), "http://127.0.0.1:8765");
 assert.equal(apiLoad.source, "api_snapshot");
 assert.equal(apiLoad.sourceState.label, "后端快照已连接");
+assert.equal(qualityCenterWorkbenchIsComplete(apiLoad.consoleData), true);
+assert.equal(apiLoad.consoleData.qualityCenterWorkbench.schema_version, "quality_center_workbench.v1");
+assert.equal(
+  apiLoad.consoleData.qualityCenterWorkbench.agent_summaries.length,
+  consoleData.quality.length
+);
+assert.equal(
+  apiLoad.consoleData.qualityCenterWorkbench.scorer_rollout_panel.automatic_rollout_enabled,
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      qualityCenterWorkbench: {
+        ...apiLoad.consoleData.qualityCenterWorkbench,
+        summary: {
+          ...apiLoad.consoleData.qualityCenterWorkbench.summary,
+          automatic_rollout_enabled: true
+        }
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      qualityCenterWorkbench: {
+        ...apiLoad.consoleData.qualityCenterWorkbench,
+        review_queue: [{
+          ...apiLoad.consoleData.qualityCenterWorkbench.review_queue[0],
+          automatic_action_performed: true
+        }]
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      qualityCenterWorkbench: {
+        ...apiLoad.consoleData.qualityCenterWorkbench,
+        agent_summaries: [{
+          ...apiLoad.consoleData.qualityCenterWorkbench.agent_summaries[0],
+          explanation: "查看 https://example.invalid/raw-quality"
+        }]
+      }
+    }
+  }),
+  false
+);
 
 const legacyApiLoad = await loadAgentOpsSnapshot(async () => ({
   ok: true,
@@ -1923,6 +2006,15 @@ assert.equal(legacySdlcRunApiLoad.consoleData.sdlcRunWorkbench.reporter.length, 
 assert.equal(legacySdlcRunApiLoad.consoleData.sdlcRunWorkbench.outbox.length, consoleData.sdlcRuns.length);
 assert.equal(legacySdlcRunApiLoad.consoleData.sdlcRunWorkbench.eligibility.length, consoleData.sdlcRuns.length);
 assert.match(legacySdlcRunApiLoad.consoleData.sdlcRunWorkbench.guardrails.join(" "), /Reporter active/);
+
+const legacyQualityCenterApiLoad = await loadAgentOpsSnapshot(async () => ({
+  ok: true,
+  json: async () => legacyV1SnapshotWithoutQualityCenterWorkbench
+}), "http://127.0.0.1:8765");
+assert.equal(legacyQualityCenterApiLoad.source, "api_snapshot");
+assert.equal(legacyQualityCenterApiLoad.consoleData.qualityCenterWorkbench.agent_summaries.length, consoleData.quality.length);
+assert.equal(legacyQualityCenterApiLoad.consoleData.qualityCenterWorkbench.summary.store_write_performed, false);
+assert.equal(legacyQualityCenterApiLoad.consoleData.qualityCenterWorkbench.review_queue[0].manual_review_required, true);
 
 const liveApiLoad = await loadAgentOpsSnapshot(async () => ({
   ok: true,

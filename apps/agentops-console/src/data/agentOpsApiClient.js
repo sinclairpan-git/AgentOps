@@ -51,6 +51,22 @@ const allowedStates = new Set([
   "unregistered",
   "normal",
   "warning",
+  "ready",
+  "insufficient_data",
+  "watching",
+  "needs_review",
+  "critical",
+  "insufficient_evidence",
+  "review_required",
+  "disable_review_recommended",
+  "ready_for_manual_approval",
+  "needs_human_review",
+  "candidate",
+  "draft",
+  "retired",
+  "neutral",
+  "improved",
+  "negative",
   "credential_issued",
   "signature_verified",
   "not_asserted",
@@ -84,7 +100,7 @@ const fallbackSnapshot = (reason) => ({
     primary_action: "重试拉取"
   },
   routes: mockRoutes,
-  consoleData: {
+  consoleData: consoleDataWithWorkbenchDefaults({
     ...mockConsoleData,
     summary: {
       ...mockConsoleData.summary,
@@ -93,7 +109,7 @@ const fallbackSnapshot = (reason) => ({
         copy: "后端快照不可用；当前展示本地安全样例。"
       }
     }
-  }
+  })
 });
 
 const apiSnapshot = (snapshot) => {
@@ -148,6 +164,7 @@ export function validateSnapshot(snapshot) {
     "approvalWorkbench",
     "connectorWorkbench",
     "sdlcRunWorkbench",
+    "qualityCenterWorkbench",
     "actionWorkbench",
     "connectors",
     "sdlcRuns"
@@ -174,6 +191,9 @@ export function validateSnapshot(snapshot) {
     return false;
   }
   if (!sdlcRunWorkbenchIsComplete(consoleData)) {
+    return false;
+  }
+  if (!qualityCenterWorkbenchIsComplete(consoleData)) {
     return false;
   }
   if (!credentialHandoffIsSafe(consoleData)) {
@@ -224,13 +244,19 @@ function consoleDataWithWorkbenchDefaults(consoleData) {
       ...withApprovalWorkbench,
       connectorWorkbench: legacyConnectorWorkbench(withApprovalWorkbench.connectors)
     };
-  if (Object.prototype.hasOwnProperty.call(withConnectorWorkbench, "sdlcRunWorkbench")) {
-    return credentialHandoffDefaulted(withConnectorWorkbench);
-  }
-  return credentialHandoffDefaulted({
-    ...withConnectorWorkbench,
-    sdlcRunWorkbench: legacySdlcRunWorkbench(withConnectorWorkbench)
-  });
+  const withSdlcRunWorkbench = Object.prototype.hasOwnProperty.call(withConnectorWorkbench, "sdlcRunWorkbench")
+    ? withConnectorWorkbench
+    : {
+      ...withConnectorWorkbench,
+      sdlcRunWorkbench: legacySdlcRunWorkbench(withConnectorWorkbench)
+    };
+  const withQualityCenterWorkbench = Object.prototype.hasOwnProperty.call(withSdlcRunWorkbench, "qualityCenterWorkbench")
+    ? withSdlcRunWorkbench
+    : {
+      ...withSdlcRunWorkbench,
+      qualityCenterWorkbench: legacyQualityCenterWorkbench(withSdlcRunWorkbench)
+    };
+  return credentialHandoffDefaulted(withQualityCenterWorkbench);
 }
 
 function credentialHandoffDefaulted(consoleData) {
@@ -1009,6 +1035,214 @@ function legacySdlcEligibilityItem(item) {
   };
 }
 
+function legacyQualityCenterWorkbench(consoleData) {
+  const quality = Array.isArray(consoleData.quality) ? consoleData.quality : [];
+  const adoption = consoleData.adoption || emptyAdoptionInsights();
+  const agentSummaries = quality.map((item, index) => legacyQualityAgentSummary(item, index));
+  const reviewQueue = legacyQualityReviewQueue(agentSummaries, adoption);
+  const comparisonStates = agentSummaries.map((item) => item.scorer_comparison.comparison_state);
+  return {
+    schema_version: "quality_center_workbench.v1",
+    report_period: "legacy_console_snapshot",
+    workbench_state: agentSummaries.length ? "ready" : "empty",
+    generated_by: "agentops_console_legacy_fallback",
+    agent_summaries: agentSummaries,
+    scorer_rollout_panel: {
+      candidate_count: agentSummaries.length,
+      ready_for_manual_approval_count: comparisonStates.filter((state) => state === "ready_for_manual_approval").length,
+      needs_human_review_count: comparisonStates.filter((state) => state === "needs_human_review").length,
+      insufficient_evidence_count: comparisonStates.filter((state) => state === "insufficient_evidence").length,
+      automatic_rollout_enabled: false,
+      automatic_template_switch: false,
+      manual_approval_queue_size: reviewQueue.filter((item) => item.review_type === "scorer_rollout").length
+    },
+    review_queue: reviewQueue,
+    trend_summary: {
+      report_state: adoption.metrics ? "ready" : "insufficient_data",
+      retention_rate: adoption.metrics?.retention_rate || "0%",
+      review_queue_size: reviewQueue.length,
+      rework_rounds: adoption.metrics?.rework_rounds || 0,
+      pr_review_findings: adoption.metrics?.pr_review_findings || 0,
+      recommendation: "人工复核缺证据、低置信和评分器发布项；不执行自动生命周期动作。"
+    },
+    summary: {
+      payload_access: "forbidden",
+      prompt_access: "forbidden",
+      change_access: "forbidden",
+      terminal_access: "forbidden",
+      automatic_rollout_enabled: false,
+      automatic_lifecycle_action: false,
+      store_write_performed: false,
+      automatic_publish_performed: false,
+      notification_sent: false
+    },
+    audit_id: "audit_quality_center_legacy_fallback"
+  };
+}
+
+function legacyQualityAgentSummary(item, index) {
+  const status = item.status || "unknown";
+  const comparisonState = legacyQualityComparisonState(status);
+  const qualityState = legacyQualityState(status);
+  return {
+    agent_id: safeDisplayText(item.category || item.signal_id || `quality_${index}`),
+    version: "console_snapshot",
+    owner_team: safeDisplayText(item.owner_hint || "质量负责人"),
+    score: legacyQualityScore(item.score),
+    quality_state: qualityState,
+    confidence: legacyQualityConfidence(status),
+    score_template_id: "quality_summary_console_snapshot",
+    evidence_level: safeDisplayText(item.score || "summary_only"),
+    missing_evidence: legacyQualityMissingEvidence(item),
+    explanation: safeDisplayText(item.primary_action || "仅展示 Console 摘要，必要时进入人工复核。"),
+    lifecycle_state: legacyLifecycleState(qualityState),
+    lifecycle_action: legacyLifecycleAction(qualityState),
+    scorer: {
+      scorer_id: "quality_summary_console_snapshot",
+      scorer_version: "summary",
+      rollout_state: "candidate"
+    },
+    scorer_comparison: {
+      comparison_state: comparisonState,
+      safety_impact: comparisonState === "ready_for_manual_approval" ? "neutral" : "needs_review",
+      alignment_delta: 0,
+      recommendation: comparisonState === "ready_for_manual_approval"
+        ? "submit_for_manual_rollout_approval"
+        : "collect_more_samples",
+      manual_approval_required: true
+    }
+  };
+}
+
+function legacyQualityReviewQueue(agentSummaries, adoption) {
+  const items = [];
+  for (const summary of agentSummaries) {
+    if (summary.quality_state !== "healthy") {
+      items.push(legacyQualityReviewItem(summary, "quality_evidence", "missing_or_low_confidence_evidence", "collect_more_evidence"));
+    }
+    items.push(legacyQualityReviewItem(
+      summary,
+      "scorer_rollout",
+      summary.scorer_comparison.comparison_state,
+      summary.scorer_comparison.recommendation
+    ));
+    if (summary.lifecycle_state !== "healthy") {
+      items.push(legacyQualityReviewItem(summary, "lifecycle", summary.lifecycle_state, summary.lifecycle_action));
+    }
+  }
+  for (const signal of adoption.reviewSignals || []) {
+    items.push({
+      id: `legacy_quality_adoption_${safeId(signal.id || signal.title || "review")}`,
+      agent_id: safeDisplayText(signal.title || "adoption"),
+      version: "console_snapshot",
+      review_type: "quality_evidence",
+      reason: safeDisplayText(signal.reason || "review"),
+      recommended_action: "open_ops_review",
+      owner_team: safeDisplayText(signal.owner || "质量负责人"),
+      manual_review_required: true,
+      automatic_action_performed: false
+    });
+  }
+  return items;
+}
+
+function legacyQualityReviewItem(summary, reviewType, reason, recommendedAction) {
+  return {
+    id: `legacy_quality_${safeId(reviewType)}_${safeId(summary.agent_id)}_${safeId(reason)}`,
+    agent_id: summary.agent_id,
+    version: summary.version,
+    review_type: reviewType,
+    reason: safeDisplayText(reason),
+    recommended_action: safeDisplayText(recommendedAction),
+    owner_team: summary.owner_team,
+    manual_review_required: true,
+    automatic_action_performed: false
+  };
+}
+
+function legacyQualityState(status) {
+  if (["healthy", "normal", "ok", "succeeded"].includes(status)) {
+    return "healthy";
+  }
+  if (["degraded", "warning", "warn", "pending"].includes(status)) {
+    return "watching";
+  }
+  if (["redaction_failed", "permission_denied", "failed", "blocked"].includes(status)) {
+    return "needs_review";
+  }
+  if (["block", "critical"].includes(status)) {
+    return "critical";
+  }
+  return "insufficient_evidence";
+}
+
+function legacyLifecycleState(qualityState) {
+  if (qualityState === "healthy") {
+    return "healthy";
+  }
+  if (qualityState === "watching") {
+    return "watching";
+  }
+  if (qualityState === "critical") {
+    return "disable_review_recommended";
+  }
+  return "review_required";
+}
+
+function legacyLifecycleAction(qualityState) {
+  if (qualityState === "healthy") {
+    return "none";
+  }
+  if (qualityState === "watching") {
+    return "watch";
+  }
+  if (qualityState === "critical") {
+    return "open_disable_review";
+  }
+  return "open_ops_review";
+}
+
+function legacyQualityComparisonState(status) {
+  if (["healthy", "normal", "ok", "succeeded"].includes(status)) {
+    return "ready_for_manual_approval";
+  }
+  if (["redaction_failed", "permission_denied", "failed", "blocked", "block"].includes(status)) {
+    return "needs_human_review";
+  }
+  return "insufficient_evidence";
+}
+
+function legacyQualityConfidence(status) {
+  if (["healthy", "normal", "ok", "succeeded"].includes(status)) {
+    return 0.86;
+  }
+  if (["degraded", "warning", "warn", "pending"].includes(status)) {
+    return 0.62;
+  }
+  return 0.38;
+}
+
+function legacyQualityScore(score) {
+  const value = Number(String(score || "").replace(/[^\d.]+/g, ""));
+  return Number.isFinite(value) ? Math.min(value, 100) : 0;
+}
+
+function legacyQualityMissingEvidence(item) {
+  if (["healthy", "normal", "ok", "succeeded"].includes(item.status)) {
+    return [];
+  }
+  return [safeDisplayText(item.evidence_ref || "quality_summary")];
+}
+
+function safeDisplayText(value) {
+  const text = String(value || "");
+  return /https?:\/\//i.test(text) || /secret|token/i.test(text) ? "[redacted]" : text;
+}
+
+function safeId(value) {
+  return String(value || "unknown").replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "unknown";
+}
+
 function emptyAdoptionInsights() {
   return {
     metrics: {
@@ -1081,6 +1315,19 @@ function consoleDataHasSdlcRunWorkbenchShape(consoleData) {
     Array.isArray(consoleData.sdlcRunWorkbench.guardrails);
 }
 
+function consoleDataHasQualityCenterWorkbenchShape(consoleData) {
+  if (!isRecord(consoleData.qualityCenterWorkbench)) {
+    return false;
+  }
+  const workbench = consoleData.qualityCenterWorkbench;
+  return Array.isArray(workbench.agent_summaries) &&
+    isRecord(workbench.scorer_rollout_panel) &&
+    Array.isArray(workbench.review_queue) &&
+    isRecord(workbench.trend_summary) &&
+    isRecord(workbench.summary) &&
+    typeof workbench.audit_id === "string";
+}
+
 export function snapshotShapeIsSafe(consoleData) {
   if (!isRecord(consoleData.summary) || !isRecord(consoleData.summary.adapter)) {
     return false;
@@ -1102,6 +1349,7 @@ export function snapshotShapeIsSafe(consoleData) {
     "approvalWorkbench",
     "connectorWorkbench",
     "sdlcRunWorkbench",
+    "qualityCenterWorkbench",
     "actionWorkbench",
     "connectors",
     "sdlcRuns"
@@ -1140,12 +1388,16 @@ export function snapshotShapeIsSafe(consoleData) {
     if (key === "sdlcRunWorkbench") {
       return consoleDataHasSdlcRunWorkbenchShape(consoleData);
     }
+    if (key === "qualityCenterWorkbench") {
+      return consoleDataHasQualityCenterWorkbenchShape(consoleData);
+    }
     return Array.isArray(consoleData[key]);
   }) &&
     consoleDataHasAdoptionShape(consoleData) &&
     consoleDataHasEvidenceVaultShape(consoleData) &&
     consoleDataHasConnectorWorkbenchShape(consoleData) &&
     consoleDataHasSdlcRunWorkbenchShape(consoleData) &&
+    consoleDataHasQualityCenterWorkbenchShape(consoleData) &&
     consoleDataHasCredentialHandoffShape(consoleData);
 }
 
@@ -1293,6 +1545,15 @@ export function statesAreKnown(consoleData) {
       item.verification_fresh,
       item.outbox_delivered
     ]),
+    consoleData.qualityCenterWorkbench?.workbench_state,
+    ...(consoleData.qualityCenterWorkbench?.agent_summaries || []).flatMap((item) => [
+      item.quality_state,
+      item.lifecycle_state,
+      item.scorer?.rollout_state,
+      item.scorer_comparison?.comparison_state,
+      item.scorer_comparison?.safety_impact
+    ]),
+    consoleData.qualityCenterWorkbench?.trend_summary?.report_state,
     consoleData.credentialHandoff?.summary?.verified_loaded,
     consoleData.credentialHandoff?.summary?.l5_status,
     ...(consoleData.credentialHandoff?.sessions || []).flatMap((item) => [
@@ -2180,6 +2441,107 @@ export function sdlcRunWorkbenchIsComplete(consoleData) {
     !containsUnsafeLifecycleText(guardrailsText);
 }
 
+export function qualityCenterWorkbenchIsComplete(consoleData) {
+  const workbench = consoleData.qualityCenterWorkbench;
+  if (!consoleDataHasQualityCenterWorkbenchShape(consoleData) || containsUnsafeAuditReference(workbench)) {
+    return false;
+  }
+  if (!keysAreSubset(workbench.summary, [
+    "payload_access",
+    "prompt_access",
+    "change_access",
+    "terminal_access",
+    "automatic_rollout_enabled",
+    "automatic_lifecycle_action",
+    "store_write_performed",
+    "automatic_publish_performed",
+    "notification_sent"
+  ])) {
+    return false;
+  }
+  if (!keysAreSubset(workbench.scorer_rollout_panel, [
+    "candidate_count",
+    "ready_for_manual_approval_count",
+    "needs_human_review_count",
+    "insufficient_evidence_count",
+    "automatic_rollout_enabled",
+    "automatic_template_switch",
+    "manual_approval_queue_size"
+  ])) {
+    return false;
+  }
+  if (
+    workbench.summary.automatic_rollout_enabled !== false ||
+    workbench.summary.automatic_lifecycle_action !== false ||
+    workbench.summary.store_write_performed !== false ||
+    workbench.summary.automatic_publish_performed !== false ||
+    workbench.summary.notification_sent !== false ||
+    workbench.scorer_rollout_panel.automatic_rollout_enabled !== false ||
+    workbench.scorer_rollout_panel.automatic_template_switch !== false
+  ) {
+    return false;
+  }
+  const agentSummariesOk = workbench.agent_summaries.every((summary) =>
+    keysAreExactly(summary, [
+      "agent_id",
+      "version",
+      "owner_team",
+      "score",
+      "quality_state",
+      "confidence",
+      "score_template_id",
+      "evidence_level",
+      "missing_evidence",
+      "explanation",
+      "lifecycle_state",
+      "lifecycle_action",
+      "scorer",
+      "scorer_comparison"
+    ]) &&
+    typeof summary.score === "number" &&
+    typeof summary.confidence === "number" &&
+    Array.isArray(summary.missing_evidence) &&
+    keysAreExactly(summary.scorer, ["scorer_id", "scorer_version", "rollout_state"]) &&
+    keysAreExactly(summary.scorer_comparison, [
+      "comparison_state",
+      "safety_impact",
+      "alignment_delta",
+      "recommendation",
+      "manual_approval_required"
+    ]) &&
+    summary.scorer_comparison.manual_approval_required === true &&
+    !containsUnsafeLifecycleText(summary) &&
+    !containsForbiddenCredentialMaterial(summary)
+  );
+  const reviewQueueOk = workbench.review_queue.every((item) =>
+    keysAreExactly(item, [
+      "id",
+      "agent_id",
+      "version",
+      "review_type",
+      "reason",
+      "recommended_action",
+      "owner_team",
+      "manual_review_required",
+      "automatic_action_performed"
+    ]) &&
+    item.manual_review_required === true &&
+    item.automatic_action_performed === false &&
+    !containsUnsafeLifecycleText(item) &&
+    !containsForbiddenCredentialMaterial(item)
+  );
+  const trendOk = keysAreSubset(workbench.trend_summary, [
+    "report_state",
+    "retention_rate",
+    "review_queue_size",
+    "rework_rounds",
+    "pr_review_findings",
+    "recommendation"
+  ]) &&
+    !containsUnsafeLifecycleText(workbench.trend_summary);
+  return agentSummariesOk && reviewQueueOk && trendOk;
+}
+
 function sdlcWorkbenchRowsMatchRuns(sdlcRuns, rows) {
   if (!Array.isArray(rows) || rows.length !== sdlcRuns.length) {
     return false;
@@ -2522,6 +2884,6 @@ export function initialSnapshot() {
       primary_action: "等待连接"
     },
     routes: mockRoutes,
-    consoleData: mockConsoleData
+    consoleData: consoleDataWithWorkbenchDefaults(mockConsoleData)
   };
 }

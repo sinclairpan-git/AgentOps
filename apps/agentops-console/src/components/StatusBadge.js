@@ -45,6 +45,22 @@ const labels = {
   unregistered: "未注册",
   normal: "正常",
   warning: "需关注",
+  ready: "就绪",
+  insufficient_data: "数据不足",
+  watching: "观察中",
+  needs_review: "需复核",
+  critical: "严重",
+  insufficient_evidence: "证据不足",
+  review_required: "需复核",
+  disable_review_recommended: "建议禁用复核",
+  ready_for_manual_approval: "待人工审批",
+  needs_human_review: "需人工复核",
+  candidate: "候选",
+  draft: "草稿",
+  retired: "已退役",
+  neutral: "中性",
+  improved: "改善",
+  negative: "负向",
   authenticated: "已认证",
   credential_issued: "凭证已签发",
   signature_verified: "签名已验证",
@@ -61,9 +77,9 @@ export const StatusBadge = {
       return labels[this.status] || this.status;
     },
     tone() {
-      if (["healthy", "allow", "approved", "verified_loaded", "governed", "registered", "normal", "succeeded", "ok"].includes(this.status)) return "good";
-      if (["block", "blocked", "failed", "timeout", "error", "rejected", "revoked", "redaction_failed", "permission_denied"].includes(this.status)) return "bad";
-      if (["degraded", "unknown", "expired", "unsupported", "unverified", "suspected", "unregistered", "warning", "not_asserted", "cancelled"].includes(this.status)) return "warn";
+      if (["healthy", "allow", "approved", "verified_loaded", "governed", "registered", "normal", "succeeded", "ok", "ready", "improved"].includes(this.status)) return "good";
+      if (["block", "blocked", "failed", "timeout", "error", "rejected", "revoked", "redaction_failed", "permission_denied", "critical", "negative"].includes(this.status)) return "bad";
+      if (["degraded", "unknown", "expired", "unsupported", "unverified", "suspected", "unregistered", "warning", "not_asserted", "cancelled", "needs_review", "needs_human_review", "disable_review_recommended"].includes(this.status)) return "warn";
       return "info";
     }
   },

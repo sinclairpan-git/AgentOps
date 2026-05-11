@@ -602,6 +602,8 @@ button {
 .quality-insight-card,
 .quality-chain,
 .quality-segment,
+.quality-center-band,
+.quality-center-row,
 .runtime-run-grid,
 .runtime-run-card,
 .runtime-trace-panel,
@@ -656,6 +658,10 @@ button {
 .boundary-row small {
   min-width: 0;
   overflow-wrap: anywhere;
+}
+
+.quality-center-metrics dd {
+  white-space: nowrap;
 }
 
 .connector-boundary-row {

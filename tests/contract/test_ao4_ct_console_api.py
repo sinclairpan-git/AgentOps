@@ -140,10 +140,17 @@ def test_ao4_ct_001_console_snapshot_schema():
         "agentStore",
         "credentialHandoff",
         "operationCenter",
+        "qualityCenterWorkbench",
         "actionWorkbench",
         "connectors",
         "sdlcRuns",
     }
+    quality_center = snapshot["consoleData"]["qualityCenterWorkbench"]
+    assert quality_center["schema_version"] == "quality_center_workbench.v1"
+    assert quality_center["summary"]["automatic_rollout_enabled"] is False
+    assert quality_center["summary"]["store_write_performed"] is False
+    assert quality_center["scorer_rollout_panel"]["automatic_rollout_enabled"] is False
+    assert quality_center["review_queue"]
 
 
 def test_ao4_ct_002_health_snapshot_and_not_found_are_json(http_server):
