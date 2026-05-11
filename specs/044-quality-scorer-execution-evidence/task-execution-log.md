@@ -203,3 +203,28 @@
 - 当前批次 branch disposition 状态：待提交/PR review fix。
 - 当前批次 worktree disposition 状态：保留。
 - 是否继续下一批：否，本批继续 PR 收口。
+
+## Review Fix 2026-05-11-005 | Codex checkpoint backup linkage
+
+### RF-005 | Align checkpoint backup work item and plan references
+
+- 触发来源：PR #46 Codex review P2 inline comment。
+- 问题：`.ai-sdlc/state/checkpoint.yml.bak` 中 `linked_wi_id` 已指向 `044-quality-scorer-execution-evidence`，但 `linked_plan_uri` 仍指向 `specs/039-p2-ecosystem-governance/plan.md`。
+- 改动范围：`.ai-sdlc/state/checkpoint.yml.bak`、`specs/044-quality-scorer-execution-evidence/task-execution-log.md`、`specs/044-quality-scorer-execution-evidence/development-summary.md`。
+- 改动内容：将 backup checkpoint 的 `linked_plan_uri` 和 `last_synced_at` 与主 checkpoint 中的 044 linkage 对齐。
+
+### 统一验证命令
+
+- `ai-sdlc adapter status`：通过，host verification passed。
+- `ai-sdlc run --dry-run`：通过，`close: PASS`。
+
+### 代码审查结论
+
+- Codex review P2 已修复：checkpoint backup 中的 work item 和 plan linkage 不再跨 039/044。
+
+### 任务/计划同步状态
+
+- 本修复不改变 044 scope；只修正 AI-SDLC checkpoint backup metadata。
+- 当前批次 branch disposition 状态：待提交/PR review fix。
+- 当前批次 worktree disposition 状态：保留。
+- 是否继续下一批：否，本批继续 PR 收口。

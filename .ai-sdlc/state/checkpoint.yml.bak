@@ -47,5 +47,5 @@ execute_progress: null
 ai_decisions_count: 0
 execution_mode: auto
 linked_wi_id: 044-quality-scorer-execution-evidence
-linked_plan_uri: specs/039-p2-ecosystem-governance/plan.md
-last_synced_at: '2026-05-10T16:36:03+00:00'
+linked_plan_uri: specs/044-quality-scorer-execution-evidence/plan.md
+last_synced_at: '2026-05-11T08:40:18+00:00'
