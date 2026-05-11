@@ -592,6 +592,65 @@ def test_ao45_ct_015_external_intake_uses_intake_error_for_invalid_threshold():
     assert repository.quality_scorer_execution_records("agent.ai-sdlc", "1.0.0") == ()
 
 
+def test_ao45_ct_016_external_intake_rejects_ambiguous_idempotency_lookup():
+    repository = InMemoryRepository()
+    eval_case_a = _seed_eval_case(repository, run_id="run_failed_a")
+    eval_case_b = _seed_eval_case(
+        repository,
+        run_id="run_failed_b",
+        version="2.0.0",
+    )
+    idempotency_key = "scorer-external:ambiguous-lookup"
+
+    ingest_quality_scorer_external_execution(
+        repository,
+        "agent.ai-sdlc",
+        "1.0.0",
+        idempotency_key=idempotency_key,
+        signature="sig:external-scorer-1",
+        scorer=_candidate_scorer(),
+        external_result={
+            "source_eval_cases": [eval_case_a],
+            "case_results": [
+                {"eval_case_id": eval_case_a, "outcome": "passed", "score": 0.91}
+            ],
+        },
+    )
+    second = ingest_quality_scorer_external_execution(
+        repository,
+        "agent.ai-sdlc",
+        "2.0.0",
+        idempotency_key=idempotency_key,
+        signature="sig:external-scorer-1",
+        scorer=_candidate_scorer(),
+        external_result={
+            "source_eval_cases": [eval_case_b],
+            "case_results": [
+                {"eval_case_id": eval_case_b, "outcome": "passed", "score": 0.92}
+            ],
+        },
+    )
+
+    with pytest.raises(AgentOpsError) as key_only:
+        repository.quality_scorer_external_receipt_by_idempotency(idempotency_key)
+    with pytest.raises(AgentOpsError) as agent_only:
+        repository.quality_scorer_external_receipt_by_idempotency(
+            idempotency_key,
+            agent_id="agent.ai-sdlc",
+        )
+
+    scoped = repository.quality_scorer_external_receipt_by_idempotency(
+        idempotency_key,
+        agent_id="agent.ai-sdlc",
+        version="2.0.0",
+    )
+
+    assert key_only.value.error_code == "QUALITY_SCORER_INTAKE_IDEMPOTENCY_CONFLICT"
+    assert agent_only.value.error_code == "QUALITY_SCORER_INTAKE_IDEMPOTENCY_CONFLICT"
+    assert scoped is not None
+    assert scoped["intake_id"] == second["intake_id"]
+
+
 def _seed_eval_case(
     repository: InMemoryRepository,
     run_id: str = "run_failed",

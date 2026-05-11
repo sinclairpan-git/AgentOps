@@ -1090,6 +1090,21 @@ class InMemoryRepository:
                     matches.append(deepcopy(stored))
                 if not matches:
                     return None
+                matched_scopes = {
+                    (
+                        str((item.get("lookup_identity") or {}).get("agent_id_hash")),
+                        str((item.get("lookup_identity") or {}).get("version_hash")),
+                    )
+                    for item in matches
+                    if isinstance(item.get("lookup_identity"), dict)
+                }
+                if len(matched_scopes) > 1:
+                    raise AgentOpsError(
+                        "QUALITY_SCORER_INTAKE_IDEMPOTENCY_CONFLICT",
+                        "External quality scorer intake idempotency lookup is ambiguous without full agent/version scope.",
+                        denied_scope=("quality_scorer_external_intake.idempotency_key"),
+                        audit_id="",
+                    )
                 return sorted(matches, key=lambda item: item.get("intake_sequence", 0))[
                     -1
                 ]
