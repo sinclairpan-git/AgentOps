@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from datetime import UTC, datetime
-from math import ceil
+from math import ceil, isfinite
 from typing import Any
 
 from agentops.core.errors import AgentOpsError
@@ -1060,7 +1060,15 @@ def ingest_quality_scorer_external_execution(
         "blocked": sum(1 for item in case_results if item["outcome"] == "blocked"),
     }
     sample_size = len(case_results)
-    safe_threshold = min(max(_safe_float(pass_threshold), 0.0), 1.0)
+    raw_threshold = _safe_float(pass_threshold)
+    if not isfinite(raw_threshold):
+        raise AgentOpsError(
+            "QUALITY_SCORER_INTAKE_THRESHOLD_INVALID",
+            "External scorer intake pass threshold must be finite.",
+            denied_scope="quality_scorer_external_intake.pass_threshold",
+            audit_id=audit_id,
+        )
+    safe_threshold = min(max(raw_threshold, 0.0), 1.0)
     pass_rate = round(outcome_counts["passed"] / sample_size, 4) if sample_size else 0.0
     execution_state, recommendation = _scorer_execution_decision(
         sample_size=sample_size,

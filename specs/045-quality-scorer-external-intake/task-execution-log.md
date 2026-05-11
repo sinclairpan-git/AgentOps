@@ -26,6 +26,47 @@
 
 ## 2. 批次记录
 
+## Review Fix 2026-05-11-009 | Codex external intake threshold finiteness
+
+### RF-011 | pass_threshold 非有限值必须拒绝
+
+- 触发来源：PR #47 Codex review P2 inline comment。
+- 问题：external intake 对 `pass_threshold` 使用 clamp，但 `NaN` 会保留为 `NaN`，随后 `pass_rate < pass_threshold` 恒为 false，可能把异常输入误判为 passed。
+- 改动范围：`src/agentops/core/operations.py`、`src/agentops/core/runtime_contracts.py`、`tests/contract/test_ao45_ct_quality_scorer_external_intake.py`。
+- 改动内容：external intake 在 scorer decision 前检查 `_safe_float(pass_threshold)` 是否 finite；非有限值抛出 `QUALITY_SCORER_INTAKE_THRESHOLD_INVALID`；新增 AO45-CT-017 验证 NaN threshold 被拒绝且不写 execution evidence。
+
+### 统一验证命令
+
+- `ai-sdlc adapter status`：通过，host verification passed。
+- `ai-sdlc run --dry-run`：通过，`close: PASS`。
+- `uv run pytest tests/contract/test_ao45_ct_quality_scorer_external_intake.py tests/contract/test_ao31_ct_runtime_governance_foundation.py::test_ao31_ct_001_contract_registry_has_required_runtime_governance_entries tests/unit/test_runtime_contracts.py::test_runtime_contract_registry_covers_p0_contracts -q`：通过，19 passed。
+- `uv run pytest tests/contract/test_ao40_ct_quality_lifecycle_analytics.py tests/contract/test_ao41_ct_quality_scorer_versioning.py tests/contract/test_ao42_ct_quality_center_workbench.py tests/contract/test_ao44_ct_quality_scorer_execution_evidence.py tests/contract/test_ao45_ct_quality_scorer_external_intake.py -q`：通过，52 passed。
+- `uv run pytest -q`：通过，完整测试集 passed。
+- `uv run ruff check src/agentops/core/operations.py src/agentops/core/runtime_contracts.py tests/contract/test_ao45_ct_quality_scorer_external_intake.py`：通过。
+- `uv run ruff format --check src/agentops/core/operations.py src/agentops/core/runtime_contracts.py tests/contract/test_ao45_ct_quality_scorer_external_intake.py`：通过。
+- `python -m ai_sdlc program truth sync --execute --yes`：通过，45/45 mapped，snapshot 已更新。
+
+### 代码审查结论
+
+- 宪章/规格对齐：符合。修复强化 external intake threshold validation，不改变 no-auto-action 或 summary-only 边界。
+- 代码质量：符合。仅 external intake path 使用 intake-specific threshold error；内部 scorer execution 语义保持不变。
+- 测试质量：新增 NaN threshold regression。
+- 结论：通过。
+
+### 任务/计划同步状态
+
+- `tasks.md` 同步状态：045 任务仍为完成；review fix 不新增 scope。
+- `plan.md` 同步状态：Phase 2 threshold validation 已补齐 finite guard。
+- 关联 branch/worktree disposition 计划：当前分支保留待 PR review fix 推送。
+
+### 归档后动作
+
+- **已完成 git 提交**：是，本 review fix 将作为当前提交追加。
+- **提交哈希**：见当前 Git HEAD。
+- 当前批次 branch disposition 状态：待 PR review fix 推送
+- 当前批次 worktree disposition 状态：保留
+- 是否继续下一批：否，继续 PR 收口
+
 ## Review Fix 2026-05-11-008 | Codex external intake ambiguous lookup
 
 ### RF-010 | key-only/partial-scope idempotency lookup 拒绝 ambiguous scope

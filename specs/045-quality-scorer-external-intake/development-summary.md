@@ -47,3 +47,5 @@
 - Review fix 验证：AO45 + registry 17 passed；AO40/AO41/AO42/AO44/AO45 回归 50 passed；完整 pytest 通过；ruff check/format check 通过；AI-SDLC truth sync 通过。
 - PR #47 Codex P1：`quality_scorer_external_receipt_by_idempotency()` 在省略 agent/version 且同 key 命中多个 scope 时显式拒绝 ambiguous lookup，避免返回其他 scope 的 receipt/execution metadata。
 - Review fix 验证：AO45 + registry 18 passed；AO40/AO41/AO42/AO44/AO45 回归 51 passed；完整 pytest 通过；ruff check/format check 通过；AI-SDLC truth sync 通过。
+- PR #47 Codex P2：external intake 现在拒绝非有限 `pass_threshold`，统一返回 `QUALITY_SCORER_INTAKE_THRESHOLD_INVALID`，避免 NaN threshold 绕过 scorer decision。
+- Review fix 验证：AO45 + registry 19 passed；AO40/AO41/AO42/AO44/AO45 回归 52 passed；完整 pytest 通过；ruff check/format check 通过；AI-SDLC truth sync 通过。
