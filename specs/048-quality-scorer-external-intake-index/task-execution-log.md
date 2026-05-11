@@ -62,3 +62,40 @@
 - 当前批次 branch disposition 状态：待提交/PR
 - 当前批次 worktree disposition 状态：保留
 - 是否继续下一批：否，本工作项进入提交/PR 收口。
+
+## Review Fix 2026-05-11-001 | Codex index scope feedback
+
+### RF-001 | external intake index 改为 hash-only scope matching
+
+- 触发来源：PR #50 Codex review P1 inline comment。
+- 问题：`quality_scorer_external_receipt_records()` 在 lookup hash 之外允许 plain `agent_id/version` 回退匹配；当多个 unsafe identity 被 receipt 输出 redaction 为 `[redacted]` 时，query `[redacted]` 可能跨真实 identity 命中多条 receipt。
+- 改动范围：`src/agentops/storage/repository.py`、`tests/contract/test_ao48_ct_quality_scorer_external_intake_index.py`、`specs/048-quality-scorer-external-intake-index/task-execution-log.md`。
+- 改动内容：AO48 index listing 仅按 `lookup_identity.agent_id_hash/version_hash` 匹配 scope；新增 regression test 证明 `[redacted]` plain identity 不会命中 unsafe agent receipts。
+
+### 统一验证命令
+
+- **验证画像**：code-change
+- `uv run pytest tests/contract/test_ao48_ct_quality_scorer_external_intake_index.py tests/contract/test_ao47_ct_quality_scorer_external_intake_readback.py tests/contract/test_ao46_ct_quality_scorer_external_intake_http.py tests/contract/test_ao45_ct_quality_scorer_external_intake.py tests/unit/test_runtime_contracts.py::test_runtime_contract_registry_covers_p0_contracts -q`：通过，35 tests passed。
+- `uv run ruff check src/agentops/storage/repository.py tests/contract/test_ao48_ct_quality_scorer_external_intake_index.py`：通过。
+- `uv run ruff format --check src/agentops/storage/repository.py tests/contract/test_ao48_ct_quality_scorer_external_intake_index.py`：通过。
+
+### 代码审查结论
+
+- 宪章/规格对齐：符合。修复只收紧 AO48 index scope matching，不改变 POST intake 或单条 readback 语义。
+- 代码质量：符合。移除 plain fallback，避免 redaction label 参与访问控制。
+- 测试质量：新增 AO48 regression 覆盖 `[redacted]` collision 场景。
+- 结论：待验证后推送并重新触发 Codex review。
+
+### 任务/计划同步状态
+
+- `tasks.md` 同步状态：048 任务仍为完成；review fix 不新增 scope。
+- `plan.md` 同步状态：Phase 2 repository scoped listing 语义收紧为 hash-only scope matching。
+- 关联 branch/worktree disposition 计划：当前分支保留待 PR review fix 推送。
+
+### 归档后动作
+
+- **已完成 git 提交**：是，本 review fix 将作为当前提交追加。
+- **提交哈希**：见当前 Git HEAD。
+- 当前批次 branch disposition 状态：待 PR review fix 推送
+- 当前批次 worktree disposition 状态：保留
+- 是否继续下一批：否，继续 PR 收口。

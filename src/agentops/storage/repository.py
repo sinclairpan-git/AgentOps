@@ -1141,15 +1141,9 @@ class InMemoryRepository:
                     if isinstance(receipt.get("lookup_identity"), dict)
                     else {}
                 )
-                if not (
-                    lookup_identity.get("agent_id_hash") == agent_id_hash
-                    or receipt.get("agent_id") == agent_id
-                ):
+                if lookup_identity.get("agent_id_hash") != agent_id_hash:
                     continue
-                if not (
-                    lookup_identity.get("version_hash") == version_hash
-                    or receipt.get("version") == version
-                ):
+                if lookup_identity.get("version_hash") != version_hash:
                     continue
                 receipts.append(deepcopy(receipt))
             receipts = sorted(

@@ -261,6 +261,65 @@ def test_ao48_ct_006_repository_index_is_scoped_by_agent_version():
     _assert_no_raw_leaks({"receipts": list(receipts)})
 
 
+def test_ao48_ct_007_repository_index_does_not_match_redacted_plain_identity():
+    repository = InMemoryRepository()
+    first_eval_case_id = _seed_eval_case_for(
+        repository,
+        run_id="run_failed_index_redacted_a",
+        agent_id="https://example.invalid/agent-a",
+        version="1.0.0",
+    )
+    second_eval_case_id = _seed_eval_case_for(
+        repository,
+        run_id="run_failed_index_redacted_b",
+        agent_id="https://example.invalid/agent-b",
+        version="1.0.0",
+    )
+    ingest_quality_scorer_external_execution(
+        repository,
+        "https://example.invalid/agent-a",
+        "1.0.0",
+        idempotency_key="scorer-external-index:redacted-a",
+        signature="sig:external-scorer-index-a",
+        scorer=_candidate_scorer(),
+        external_result={
+            "source_eval_cases": [first_eval_case_id],
+            "case_results": [
+                {
+                    "eval_case_id": first_eval_case_id,
+                    "outcome": "passed",
+                    "score": 0.94,
+                }
+            ],
+        },
+    )
+    ingest_quality_scorer_external_execution(
+        repository,
+        "https://example.invalid/agent-b",
+        "1.0.0",
+        idempotency_key="scorer-external-index:redacted-b",
+        signature="sig:external-scorer-index-b",
+        scorer=_candidate_scorer(),
+        external_result={
+            "source_eval_cases": [second_eval_case_id],
+            "case_results": [
+                {
+                    "eval_case_id": second_eval_case_id,
+                    "outcome": "passed",
+                    "score": 0.91,
+                }
+            ],
+        },
+    )
+
+    receipts = repository.quality_scorer_external_receipt_records(
+        agent_id="[redacted]",
+        version="1.0.0",
+    )
+
+    assert receipts == ()
+
+
 def _seed_eval_case_for(
     repository: InMemoryRepository,
     *,
