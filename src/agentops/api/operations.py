@@ -17,6 +17,8 @@ from agentops.core.operations import (
     build_optimizer_recommendation,
     build_policy_simulation_projection,
     build_quality_score_projection,
+    build_quality_scorer_comparison,
+    build_quality_scorer_version,
     build_runtime_budget_summary,
     build_runtime_slo_summary,
     build_store_governance_projection,
@@ -108,6 +110,19 @@ def get_quality_score_projection(
     **kwargs: Any,
 ) -> dict[str, Any]:
     return build_quality_score_projection(repository, agent_id, version, **kwargs)
+
+
+def get_quality_scorer_version(**kwargs: Any) -> dict[str, Any]:
+    return build_quality_scorer_version(**kwargs)
+
+
+def get_quality_scorer_comparison(
+    repository: InMemoryRepository,
+    agent_id: str,
+    version: str,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    return build_quality_scorer_comparison(repository, agent_id, version, **kwargs)
 
 
 def get_adoption_roi_projection(**kwargs: Any) -> dict[str, Any]:

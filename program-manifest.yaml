@@ -156,38 +156,43 @@ specs:
   - 032-evidence-health-summary-loop
   - 037-p1-evidence-eval-cost-operations
   - 039-p2-ecosystem-governance
+- id: 041-quality-scorer-versioning
+  path: specs/041-quality-scorer-versioning
+  depends_on:
+  - 037-p1-evidence-eval-cost-operations
+  - 040-quality-lifecycle-analytics
 truth_snapshot:
-  generated_at: '2026-05-11T03:07:17Z'
+  generated_at: '2026-05-11T04:29:32Z'
   generated_by: ai-sdlc program truth sync
   generator_version: program_truth_snapshot_v1
-  repo_revision: 762cac4
-  authoring_hash: 230acfabb5e2bd96183092244123bc04dca44bf517237db5aeec525faf0733ae
+  repo_revision: 8340dea
+  authoring_hash: 0b771adc9d64e8c52021bfb4608b13677cad7469ab253614257da08cc33ec467
   source_hashes: {}
-  snapshot_hash: ab3fb50c43de31333ee43d33e8a911012da4b6f87aeb37776f56eb7c4bc0cb12
+  snapshot_hash: 3e2d4222e105e8663b40e2a9a1c5d3747fe089643062d2a02468f9d2dcc28582
   computed_capabilities: []
   source_inventory:
     state: complete
-    total_sources: 201
-    mapped_sources: 201
+    total_sources: 206
+    mapped_sources: 206
     unmapped_sources: 0
     missing_sources: 0
-    phase_signal_count: 579
-    deferred_signal_count: 731
+    phase_signal_count: 601
+    deferred_signal_count: 753
     non_goal_signal_count: 66
     layer_totals:
       blueprint: 1
-      spec: 40
-      plan: 40
-      tasks: 40
-      execution: 40
-      close: 40
+      spec: 41
+      plan: 41
+      tasks: 41
+      execution: 41
+      close: 41
     layer_materialized:
       blueprint: 1
-      spec: 40
-      plan: 40
-      tasks: 40
-      execution: 40
-      close: 40
+      spec: 41
+      plan: 41
+      tasks: 41
+      execution: 41
+      close: 41
     entries:
     - path: /Users/sinclairpan/project/AI-Native底座开发文档/AgentOps_项目_PRD.md
       source_type: prd
@@ -1995,6 +2000,51 @@ truth_snapshot:
       mapped: true
       exists: true
       mapping_ref: 040-quality-lifecycle-analytics
+      phase_signal_count: 4
+      deferred_signal_count: 4
+      non_goal_signal_count: 0
+    - path: specs/041-quality-scorer-versioning/spec.md
+      source_type: spec_doc
+      truth_layer: spec
+      mapped: true
+      exists: true
+      mapping_ref: 041-quality-scorer-versioning
+      phase_signal_count: 5
+      deferred_signal_count: 5
+      non_goal_signal_count: 0
+    - path: specs/041-quality-scorer-versioning/plan.md
+      source_type: plan_doc
+      truth_layer: plan
+      mapped: true
+      exists: true
+      mapping_ref: 041-quality-scorer-versioning
+      phase_signal_count: 4
+      deferred_signal_count: 4
+      non_goal_signal_count: 0
+    - path: specs/041-quality-scorer-versioning/tasks.md
+      source_type: tasks_doc
+      truth_layer: tasks
+      mapped: true
+      exists: true
+      mapping_ref: 041-quality-scorer-versioning
+      phase_signal_count: 4
+      deferred_signal_count: 4
+      non_goal_signal_count: 0
+    - path: specs/041-quality-scorer-versioning/task-execution-log.md
+      source_type: execution_log
+      truth_layer: execution
+      mapped: true
+      exists: true
+      mapping_ref: 041-quality-scorer-versioning
+      phase_signal_count: 5
+      deferred_signal_count: 5
+      non_goal_signal_count: 0
+    - path: specs/041-quality-scorer-versioning/development-summary.md
+      source_type: development_summary
+      truth_layer: close
+      mapped: true
+      exists: true
+      mapping_ref: 041-quality-scorer-versioning
       phase_signal_count: 4
       deferred_signal_count: 4
       non_goal_signal_count: 0
