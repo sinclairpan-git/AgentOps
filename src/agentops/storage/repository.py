@@ -1057,6 +1057,43 @@ class InMemoryRepository:
         version: str | None = None,
     ) -> dict[str, Any] | None:
         with self._lock:
+            if agent_id is None or version is None:
+                agent_hash = (
+                    _quality_scorer_lookup_hash("agent_id", agent_id)
+                    if agent_id is not None
+                    else None
+                )
+                version_hash = (
+                    _quality_scorer_lookup_hash("version", version)
+                    if version is not None
+                    else None
+                )
+                matches = []
+                for stored in self.quality_scorer_external_receipts.values():
+                    lookup_identity = (
+                        stored.get("lookup_identity")
+                        if isinstance(stored.get("lookup_identity"), dict)
+                        else {}
+                    )
+                    if stored.get("idempotency_key") != idempotency_key:
+                        continue
+                    if (
+                        agent_hash is not None
+                        and lookup_identity.get("agent_id_hash") != agent_hash
+                    ):
+                        continue
+                    if (
+                        version_hash is not None
+                        and lookup_identity.get("version_hash") != version_hash
+                    ):
+                        continue
+                    matches.append(deepcopy(stored))
+                if not matches:
+                    return None
+                return sorted(matches, key=lambda item: item.get("intake_sequence", 0))[
+                    -1
+                ]
+
             receipt = {
                 "idempotency_key": idempotency_key,
                 "lookup_identity": {

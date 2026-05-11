@@ -305,7 +305,45 @@ def test_ao45_ct_007_external_intake_rejects_idempotency_payload_conflict():
     )
 
 
-def test_ao45_ct_008_external_intake_rejects_untrusted_or_unsigned_source():
+def test_ao45_ct_008_external_intake_idempotency_lookup_allows_optional_scope():
+    repository = InMemoryRepository()
+    eval_case_id = _seed_eval_case(repository)
+    receipt = ingest_quality_scorer_external_execution(
+        repository,
+        "agent.ai-sdlc",
+        "1.0.0",
+        idempotency_key="scorer-external:key-only",
+        signature="sig:external-scorer-1",
+        scorer=_candidate_scorer(),
+        external_result={
+            "source_eval_cases": [eval_case_id],
+            "case_results": [
+                {"eval_case_id": eval_case_id, "outcome": "passed", "score": 0.91}
+            ],
+        },
+    )
+
+    key_only = repository.quality_scorer_external_receipt_by_idempotency(
+        "scorer-external:key-only"
+    )
+    agent_only = repository.quality_scorer_external_receipt_by_idempotency(
+        "scorer-external:key-only",
+        agent_id="agent.ai-sdlc",
+    )
+    version_only = repository.quality_scorer_external_receipt_by_idempotency(
+        "scorer-external:key-only",
+        version="1.0.0",
+    )
+
+    assert key_only is not None
+    assert agent_only is not None
+    assert version_only is not None
+    assert key_only["intake_id"] == receipt["intake_id"]
+    assert agent_only["intake_id"] == receipt["intake_id"]
+    assert version_only["intake_id"] == receipt["intake_id"]
+
+
+def test_ao45_ct_009_external_intake_rejects_untrusted_or_unsigned_source():
     repository = InMemoryRepository()
     eval_case_id = _seed_eval_case(repository)
 
@@ -340,7 +378,7 @@ def test_ao45_ct_008_external_intake_rejects_untrusted_or_unsigned_source():
     assert repository.quality_scorer_execution_records("agent.ai-sdlc", "1.0.0") == ()
 
 
-def test_ao45_ct_009_external_intake_rejects_sample_boundary_and_raw_payload():
+def test_ao45_ct_010_external_intake_rejects_sample_boundary_and_raw_payload():
     repository = InMemoryRepository()
     eval_case_id = _seed_eval_case(repository)
 
@@ -376,7 +414,7 @@ def test_ao45_ct_009_external_intake_rejects_sample_boundary_and_raw_payload():
     assert repository.quality_scorer_execution_records("agent.ai-sdlc", "1.0.0") == ()
 
 
-def test_ao45_ct_010_external_intake_rejects_case_variant_raw_payload_key():
+def test_ao45_ct_011_external_intake_rejects_case_variant_raw_payload_key():
     repository = InMemoryRepository()
     eval_case_id = _seed_eval_case(repository)
 
@@ -399,7 +437,7 @@ def test_ao45_ct_010_external_intake_rejects_case_variant_raw_payload_key():
     assert repository.quality_scorer_execution_records("agent.ai-sdlc", "1.0.0") == ()
 
 
-def test_ao45_ct_011_quality_center_aggregates_external_intake_execution():
+def test_ao45_ct_012_quality_center_aggregates_external_intake_execution():
     repository = InMemoryRepository()
     eval_case_id = _seed_eval_case(repository)
     ingest_quality_scorer_external_execution(

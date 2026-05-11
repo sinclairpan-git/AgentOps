@@ -178,6 +178,48 @@
 - 当前批次 worktree disposition 状态：保留
 - 是否继续下一批：否，继续 PR 收口
 
+## Review Fix 2026-05-11-004 | Codex external intake optional lookup
+
+### RF-006 | idempotency lookup 支持可选 agent/version scope
+
+- 触发来源：PR #47 Codex review P2 inline comment。
+- 问题：`quality_scorer_external_receipt_by_idempotency()` 的 `agent_id`/`version` 参数声明为可选，但省略时会用 `None` 生成 lookup hash，导致 key-only lookup 永远找不到已存 receipt。
+- 改动范围：`src/agentops/storage/repository.py`、`src/agentops/core/runtime_contracts.py`、`tests/contract/test_ao45_ct_quality_scorer_external_intake.py`。
+- 改动内容：当 agent/version 任一缺省时，repository 按 `idempotency_key` 扫描 receipt，并对提供的可选 scope 做 hash 过滤；新增 AO45-CT-008 验证 key-only、agent-only、version-only lookup。
+
+### 统一验证命令
+
+- `ai-sdlc adapter status`：通过，host verification passed。
+- `ai-sdlc run --dry-run`：通过，`close: PASS`。
+- `uv run pytest tests/contract/test_ao45_ct_quality_scorer_external_intake.py tests/contract/test_ao31_ct_runtime_governance_foundation.py::test_ao31_ct_001_contract_registry_has_required_runtime_governance_entries tests/unit/test_runtime_contracts.py::test_runtime_contract_registry_covers_p0_contracts -q`：通过，14 passed。
+- `uv run pytest tests/contract/test_ao40_ct_quality_lifecycle_analytics.py tests/contract/test_ao41_ct_quality_scorer_versioning.py tests/contract/test_ao42_ct_quality_center_workbench.py tests/contract/test_ao44_ct_quality_scorer_execution_evidence.py tests/contract/test_ao45_ct_quality_scorer_external_intake.py -q`：通过，47 passed。
+- `uv run pytest -q`：通过，完整测试集 passed。
+- `uv run ruff check src/agentops/core/runtime_contracts.py src/agentops/storage/repository.py tests/contract/test_ao45_ct_quality_scorer_external_intake.py`：通过。
+- `uv run ruff format --check src/agentops/core/runtime_contracts.py src/agentops/storage/repository.py tests/contract/test_ao45_ct_quality_scorer_external_intake.py`：通过。
+- `python -m ai_sdlc program truth sync --execute --yes`：通过，45/45 mapped，snapshot 已更新。
+- `uv run ai-sdlc verify constraints`：通过，无 BLOCKER。
+
+### 代码审查结论
+
+- 宪章/规格对齐：符合。修复只补齐 repository lookup helper 语义，不改变 external intake contract。
+- 代码质量：符合。精确 scope 仍走 indexed lookup；缺省 scope 才扫描 receipt，并支持部分 scope filter。
+- 测试质量：新增 key-only/agent-only/version-only lookup regression。
+- 结论：通过。
+
+### 任务/计划同步状态
+
+- `tasks.md` 同步状态：045 任务仍为完成；review fix 不新增 scope。
+- `plan.md` 同步状态：Phase 2 repository idempotency helper 语义已补齐。
+- 关联 branch/worktree disposition 计划：当前分支保留待 PR review fix 推送。
+
+### 归档后动作
+
+- **已完成 git 提交**：是，本 review fix 将作为当前提交追加。
+- **提交哈希**：见当前 Git HEAD。
+- 当前批次 branch disposition 状态：待 PR review fix 推送
+- 当前批次 worktree disposition 状态：保留
+- 是否继续下一批：否，继续 PR 收口
+
 ## Review Fix 2026-05-11-003 | Codex external intake idempotency conflict
 
 ### RF-005 | 同 scoped idempotency key 不同 payload 需拒绝

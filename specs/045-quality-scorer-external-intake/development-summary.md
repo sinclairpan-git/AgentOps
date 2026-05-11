@@ -38,3 +38,5 @@
 - Review fix 验证：AO45 10 passed；AO40/AO41/AO42/AO44/AO45 回归 45 passed；完整 pytest 通过；ruff check/format check 通过；AI-SDLC constraints 无 BLOCKER。
 - PR #47 Codex P1：scoped idempotency key 复用现在会校验 payload hash；同 key 不同 payload 返回 `QUALITY_SCORER_INTAKE_IDEMPOTENCY_CONFLICT` 且不写新 execution evidence。
 - Review fix 验证：AO45 + registry 13 passed；AO40/AO41/AO42/AO44/AO45 回归 46 passed；完整 pytest 通过；ruff check/format check 通过；AI-SDLC truth sync 和 constraints 通过。
+- PR #47 Codex P2：`quality_scorer_external_receipt_by_idempotency()` 现在支持省略 agent/version 的 key-only lookup，也支持只按 agent 或只按 version 过滤。
+- Review fix 验证：AO45 + registry 14 passed；AO40/AO41/AO42/AO44/AO45 回归 47 passed；完整 pytest 通过；ruff check/format check 通过；AI-SDLC truth sync 和 constraints 通过。
