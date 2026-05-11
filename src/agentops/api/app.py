@@ -28,6 +28,7 @@ def create_app() -> dict[str, str]:
         "runtime_evidence_summary": "GET /v1/runtime/runs/{run_id}/evidence-summary",
         "runtime_health_summary": "GET /v1/runtime/agents/{agent_id}/versions/{version}/health-summary",
         "quality_scorer_external_intake": "POST /v1/quality/scorers/external-intake",
+        "quality_scorer_external_intake_readback": "GET /v1/quality/scorers/external-intake",
         "health": "/v1/health",
         "console_snapshot": "/v1/console/snapshot",
         "production_auth_boundary": "upstream headers: X-AgentOps-Principal, X-AgentOps-Roles, X-AgentOps-Scopes",
