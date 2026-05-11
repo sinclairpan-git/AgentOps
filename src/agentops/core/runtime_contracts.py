@@ -1287,6 +1287,8 @@ CONTRACT_REGISTRY: dict[str, ContractRegistryEntry] = {
             "AO45-CT-010",
             "AO45-CT-011",
             "AO45-CT-012",
+            "AO45-CT-013",
+            "AO45-CT-014",
         ),
         compatibility_policy="p1_backward_compatible",
     ),

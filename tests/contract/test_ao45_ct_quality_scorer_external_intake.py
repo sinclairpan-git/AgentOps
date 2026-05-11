@@ -343,7 +343,96 @@ def test_ao45_ct_008_external_intake_idempotency_lookup_allows_optional_scope():
     assert version_only["intake_id"] == receipt["intake_id"]
 
 
-def test_ao45_ct_009_external_intake_rejects_untrusted_or_unsigned_source():
+def test_ao45_ct_009_external_intake_rejects_out_of_scope_case_results():
+    repository = InMemoryRepository()
+    eval_case_id = _seed_eval_case(repository)
+
+    with pytest.raises(AgentOpsError) as sample_exc:
+        ingest_quality_scorer_external_execution(
+            repository,
+            "agent.ai-sdlc",
+            "1.0.0",
+            idempotency_key="scorer-external:out-of-scope-result",
+            signature="sig:external-scorer-1",
+            scorer=_candidate_scorer(),
+            external_result={
+                "source_eval_cases": [eval_case_id],
+                "case_results": [
+                    {"eval_case_id": eval_case_id, "outcome": "passed", "score": 0.91},
+                    {
+                        "eval_case_id": "eval_case_missing",
+                        "outcome": "passed",
+                        "score": 0.88,
+                    },
+                ],
+            },
+        )
+
+    assert sample_exc.value.error_code == "QUALITY_SCORER_INTAKE_SAMPLE_INVALID"
+    assert repository.quality_scorer_execution_records("agent.ai-sdlc", "1.0.0") == ()
+
+
+def test_ao45_ct_010_external_intake_idempotency_hash_includes_execution_shape():
+    repository = InMemoryRepository()
+    eval_case_id = _seed_eval_case(repository)
+    payload = {
+        "source_eval_cases": [eval_case_id],
+        "case_results": [
+            {"eval_case_id": eval_case_id, "outcome": "passed", "score": 0.91}
+        ],
+    }
+    ingest_quality_scorer_external_execution(
+        repository,
+        "agent.ai-sdlc",
+        "1.0.0",
+        idempotency_key="scorer-external:execution-shape",
+        signature="sig:external-scorer-1",
+        scorer=_candidate_scorer(),
+        external_result=payload,
+        pass_threshold=0.8,
+    )
+
+    with pytest.raises(AgentOpsError) as scorer_conflict:
+        ingest_quality_scorer_external_execution(
+            repository,
+            "agent.ai-sdlc",
+            "1.0.0",
+            idempotency_key="scorer-external:execution-shape",
+            signature="sig:external-scorer-1",
+            scorer={
+                "scorer_id": "quality_summary_stage5_candidate",
+                "scorer_version": "1.2.0",
+                "score_template_id": "quality_summary_stage5_candidate",
+            },
+            external_result=payload,
+            pass_threshold=0.8,
+        )
+
+    with pytest.raises(AgentOpsError) as threshold_conflict:
+        ingest_quality_scorer_external_execution(
+            repository,
+            "agent.ai-sdlc",
+            "1.0.0",
+            idempotency_key="scorer-external:execution-shape",
+            signature="sig:external-scorer-1",
+            scorer=_candidate_scorer(),
+            external_result=payload,
+            pass_threshold=0.7,
+        )
+
+    assert (
+        scorer_conflict.value.error_code == "QUALITY_SCORER_INTAKE_IDEMPOTENCY_CONFLICT"
+    )
+    assert (
+        threshold_conflict.value.error_code
+        == "QUALITY_SCORER_INTAKE_IDEMPOTENCY_CONFLICT"
+    )
+    assert (
+        len(repository.quality_scorer_execution_records("agent.ai-sdlc", "1.0.0")) == 1
+    )
+
+
+def test_ao45_ct_011_external_intake_rejects_untrusted_or_unsigned_source():
     repository = InMemoryRepository()
     eval_case_id = _seed_eval_case(repository)
 
@@ -378,7 +467,7 @@ def test_ao45_ct_009_external_intake_rejects_untrusted_or_unsigned_source():
     assert repository.quality_scorer_execution_records("agent.ai-sdlc", "1.0.0") == ()
 
 
-def test_ao45_ct_010_external_intake_rejects_sample_boundary_and_raw_payload():
+def test_ao45_ct_012_external_intake_rejects_sample_boundary_and_raw_payload():
     repository = InMemoryRepository()
     eval_case_id = _seed_eval_case(repository)
 
@@ -414,7 +503,7 @@ def test_ao45_ct_010_external_intake_rejects_sample_boundary_and_raw_payload():
     assert repository.quality_scorer_execution_records("agent.ai-sdlc", "1.0.0") == ()
 
 
-def test_ao45_ct_011_external_intake_rejects_case_variant_raw_payload_key():
+def test_ao45_ct_013_external_intake_rejects_case_variant_raw_payload_key():
     repository = InMemoryRepository()
     eval_case_id = _seed_eval_case(repository)
 
@@ -437,7 +526,7 @@ def test_ao45_ct_011_external_intake_rejects_case_variant_raw_payload_key():
     assert repository.quality_scorer_execution_records("agent.ai-sdlc", "1.0.0") == ()
 
 
-def test_ao45_ct_012_quality_center_aggregates_external_intake_execution():
+def test_ao45_ct_014_quality_center_aggregates_external_intake_execution():
     repository = InMemoryRepository()
     eval_case_id = _seed_eval_case(repository)
     ingest_quality_scorer_external_execution(

@@ -1037,6 +1037,18 @@ def ingest_quality_scorer_external_execution(
             denied_scope="quality_scorer_external_intake.source_eval_cases",
             audit_id=audit_id,
         )
+    source_eval_case_set = set(source_eval_cases)
+    case_result_eval_cases = _external_case_result_eval_case_ids(external_result)
+    if any(
+        eval_case_id not in source_eval_case_set
+        for eval_case_id in case_result_eval_cases
+    ):
+        raise AgentOpsError(
+            "QUALITY_SCORER_INTAKE_SAMPLE_INVALID",
+            "External scorer case results must stay within the declared EvalCase sample.",
+            denied_scope="quality_scorer_external_intake.case_results",
+            audit_id=audit_id,
+        )
 
     case_results = _external_scorer_case_results(
         external_result, source_eval_cases, eval_cases_by_id
@@ -1142,7 +1154,16 @@ def ingest_quality_scorer_external_execution(
         "source_trust": normalized_trust,
         "signature_state": "verified",
         "intake_state": "accepted",
-        "payload_hash": _stable_hash(external_result),
+        "payload_hash": _stable_hash(
+            {
+                "external_result": external_result,
+                "scorer": dict(execution["scorer"]),
+                "source_trust": normalized_trust,
+                "producer": _safe_label(producer),
+                "min_eval_cases": min_eval_cases,
+                "pass_threshold": safe_threshold,
+            }
+        ),
         "accepted_execution_id": "",
         "producer": _safe_label(producer),
         "received_at": received_at,
@@ -2022,6 +2043,19 @@ def _external_source_eval_case_ids(external_result: dict[str, Any]) -> list[str]
         [
             _safe_label(item.get("eval_case_id") if isinstance(item, dict) else "")
             for item in case_results
+        ]
+    )
+
+
+def _external_case_result_eval_case_ids(external_result: dict[str, Any]) -> list[str]:
+    case_results = external_result.get("case_results")
+    if not isinstance(case_results, list | tuple):
+        return []
+    return _unique_strings(
+        [
+            _safe_label(item.get("eval_case_id") if isinstance(item, dict) else "")
+            for item in case_results
+            if isinstance(item, dict) and item.get("eval_case_id")
         ]
     )
 

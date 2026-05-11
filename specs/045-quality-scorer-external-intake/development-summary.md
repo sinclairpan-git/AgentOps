@@ -41,3 +41,5 @@
 - PR #47 Codex P2：`quality_scorer_external_receipt_by_idempotency()` 现在支持省略 agent/version 的 key-only lookup，也支持只按 agent 或只按 version 过滤。
 - Review fix 验证：AO45 + registry 14 passed；AO40/AO41/AO42/AO44/AO45 回归 47 passed；完整 pytest 通过；ruff check/format check 通过；AI-SDLC truth sync 和 constraints 通过。
 - PR #47 Codex P1：`.ai-sdlc/state/checkpoint.yml` 的 `linked_plan_uri` 已同步到 045 plan，避免 close/resume 读取 044 stale plan。
+- PR #47 Codex P1/P2：external intake 现在拒绝 `case_results` 中不属于 declared `source_eval_cases` 的 EvalCase；idempotency `payload_hash` 也纳入 scorer/source trust/producer/min_eval_cases/pass_threshold，避免同 key 不同 execution shape 被误判 deduplicated。
+- Review fix 验证：AO45 + registry 16 passed；AO40/AO41/AO42/AO44/AO45 回归 49 passed；完整 pytest 通过；ruff check/format check 通过；AI-SDLC truth sync 通过。
