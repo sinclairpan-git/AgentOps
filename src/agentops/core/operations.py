@@ -1196,7 +1196,7 @@ def _safe_adoption_metrics(metrics: dict[str, Any]) -> dict[str, Any]:
     sampling_review_state = str(source.get("sampling_review_state") or "not_started")
     if sampling_review_state not in {"not_started", "pending", "passed", "failed"}:
         sampling_review_state = "not_started"
-    merge_state = _safe_label(source.get("merge_state") or "unknown")
+    merge_state = _safe_label(source.get("merge_state") or "unknown").lower()
     return {
         "generated_lines": max(0, _safe_int(source.get("generated_lines"))),
         "retained_lines": max(0, _safe_int(source.get("retained_lines"))),

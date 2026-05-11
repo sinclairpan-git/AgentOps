@@ -98,3 +98,31 @@
 - 当前批次 branch disposition 状态：`codex/040-quality-lifecycle-analytics` 待提交和 PR
 - 当前批次 worktree disposition 状态：retained
 - 是否继续下一批：否，本批继续 PR 收口。
+
+### Review Fix 2026-05-10-003 | Codex adoption merge-state feedback
+
+#### RF-003 | normalize adoption merge state before classification
+
+- 覆盖任务：PR #42 Codex review P2 feedback
+- 覆盖阶段：PR close-out review fix
+- 预读范围：Codex review thread、AO40 adoption ROI projection、AO40 contract tests
+- 激活的规则：PR close-out 固定规则、summary-only adoption metrics、采纳分析一致性
+- **验证画像**：code-change
+- 改动范围：`src/agentops/core/operations.py`、`tests/contract/test_ao40_ct_quality_lifecycle_analytics.py`
+- 改动内容：`_safe_adoption_metrics` 现在把 sanitized `merge_state` 标准化为小写 canonical form，避免 `Merged`/`MERGED` 等上游大小写差异导致已通过抽样复核的高留存样本被误降级为 `watching`。
+- 新增/调整的测试：新增 uppercase `MERGED` + sampling review passed 时仍返回 `adopted`，并回显 `merge_state=merged` 的回归。
+- 统一验证命令：
+  - `uv run pytest tests/contract/test_ao40_ct_quality_lifecycle_analytics.py`
+  - `uv run pytest tests/contract/test_ao32_ct_evidence_health_summary_loop.py tests/contract/test_ao37_ct_p1_evidence_eval_cost_operations.py tests/contract/test_ao39_ct_p2_ecosystem_governance.py tests/contract/test_ao40_ct_quality_lifecycle_analytics.py`
+  - `uv run ruff check src/agentops/core/operations.py tests/contract/test_ao40_ct_quality_lifecycle_analytics.py`
+  - `uv run ruff format --check src/agentops/core/operations.py tests/contract/test_ao40_ct_quality_lifecycle_analytics.py`
+  - `uv run ai-sdlc verify constraints`
+- 测试结果：AO40 9 passed；AO32/AO37/AO39/AO40 回归 49 passed；ruff check 通过；ruff format --check 通过；AI-SDLC constraints 无 BLOCKER。
+- 是否符合任务目标：是。
+- 代码审查结论：Codex 指出的 adoption merge_state 大小写漂移问题已用行为回归锁定；修复保持 summary-only，不新增外部读取或 lifecycle 自动动作。
+- 任务/计划同步状态：AO40 plan/spec 不变，本次为 PR review fix；branch disposition 仍为 PR #42 收口中。
+- **已完成 git 提交**：是，本次 review fix 将在当前提交中一并提交。
+- **提交哈希**：见当前 Git HEAD。
+- 当前批次 branch disposition 状态：`codex/040-quality-lifecycle-analytics` 待提交和 PR
+- 当前批次 worktree disposition 状态：retained
+- 是否继续下一批：否，本批继续 PR 收口。

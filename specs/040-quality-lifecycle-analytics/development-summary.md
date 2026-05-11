@@ -41,3 +41,5 @@
 - Review fix 验证：AO40 7 passed；AO32/AO37/AO39/AO40 回归 47 passed；ruff check/format check 通过；AI-SDLC constraints 无 BLOCKER。
 - PR #42 Codex P1/P2：adoption URL redaction 现在大小写不敏感；`adopted` 必须等待 sampling review passed。
 - Review fix 验证：AO40 8 passed；AO32/AO37/AO39/AO40 回归 48 passed；ruff check/format check 通过；AI-SDLC constraints 无 BLOCKER。
+- PR #42 Codex P2：adoption `merge_state` 现在标准化为小写 canonical form，避免 `Merged`/`MERGED` 误降级。
+- Review fix 验证：AO40 9 passed；AO32/AO37/AO39/AO40 回归 49 passed；ruff check/format check 通过；AI-SDLC constraints 无 BLOCKER。

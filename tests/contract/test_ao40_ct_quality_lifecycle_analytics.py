@@ -172,6 +172,23 @@ def test_ao40_ct_003_adoption_waits_for_sampling_review_before_adopted():
     _assert_no_raw_leaks(projection)
 
 
+def test_ao40_ct_003_adoption_normalizes_merge_state_for_adopted_samples():
+    projection = get_adoption_roi_projection(
+        agent_id="agent.ai-sdlc",
+        version="1.0.0",
+        adoption_metrics={
+            "generated_lines": 100,
+            "retained_lines": 80,
+            "merge_state": "MERGED",
+            "sampling_review_state": "passed",
+        },
+    )
+
+    assert projection["adoption_state"] == "adopted"
+    assert projection["review_summary"]["merge_state"] == "merged"
+    _assert_no_raw_leaks(projection)
+
+
 def test_ao40_ct_004_lifecycle_recommendation_never_executes_store_action():
     repository = InMemoryRepository()
     write_runtime_run(repository, run_id="run_blocked", status="blocked")
