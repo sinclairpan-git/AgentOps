@@ -1164,6 +1164,7 @@ def build_quality_center_workbench(
             agent_id,
             version,
             scorer_id=str(scorer_version["scorer_id"]),
+            scorer_version=str(scorer_version["scorer_version"]),
             limit=1,
         )
         execution_summary = _quality_center_execution_summary(

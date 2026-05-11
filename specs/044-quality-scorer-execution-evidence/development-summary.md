@@ -12,6 +12,7 @@
 - API/Core 新增 `create_quality_scorer_execution`，基于 EvalCase summary、runtime evidence summary 和 scorer version summary 计算 deterministic execution state。
 - Quality Center Workbench 聚合最新 scorer execution evidence，展示 sample size、pass rate、execution state、manual recommendation 和 no-auto-action summary guardrails。
 - AO44 contract tests 覆盖 contract registry、passed execution、非法阈值、稀疏/不安全输入 redaction、Quality Center aggregation。
+- 根据 PR #46 Codex review P1 修复 Quality Center execution evidence 串用风险：同一 scorer id 下按 scorer version 过滤最新 execution record，并新增 AO44-CT-006 regression。
 
 ## 未进入本批
 
@@ -23,6 +24,8 @@
 
 - `uv run pytest tests/contract/test_ao44_ct_quality_scorer_execution_evidence.py -q`：通过。
 - `uv run pytest tests/contract/test_ao40_ct_quality_lifecycle_analytics.py tests/contract/test_ao41_ct_quality_scorer_versioning.py tests/contract/test_ao42_ct_quality_center_workbench.py tests/contract/test_ao44_ct_quality_scorer_execution_evidence.py -q`：通过。
+- Review fix：`uv run pytest tests/contract/test_ao44_ct_quality_scorer_execution_evidence.py -q`：通过，6 passed。
+- Review fix：`uv run pytest tests/contract/test_ao40_ct_quality_lifecycle_analytics.py tests/contract/test_ao41_ct_quality_scorer_versioning.py tests/contract/test_ao42_ct_quality_center_workbench.py tests/contract/test_ao44_ct_quality_scorer_execution_evidence.py -q`：通过，33 passed。
 - `uv run pytest tests/contract/test_ao31_ct_runtime_governance_foundation.py::test_ao31_ct_001_contract_registry_has_required_runtime_governance_entries tests/unit/test_runtime_contracts.py::test_runtime_contract_registry_covers_p0_contracts -q`：通过。
 - `uv run ruff check src/agentops/core/runtime_contracts.py src/agentops/core/operations.py src/agentops/api/operations.py src/agentops/storage/repository.py tests/contract/test_ao44_ct_quality_scorer_execution_evidence.py`：通过。
 - `uv run ruff format --check src/agentops/core/runtime_contracts.py src/agentops/core/operations.py src/agentops/api/operations.py src/agentops/storage/repository.py tests/contract/test_ao44_ct_quality_scorer_execution_evidence.py`：通过。

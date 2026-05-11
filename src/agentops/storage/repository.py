@@ -897,6 +897,7 @@ class InMemoryRepository:
         version: str | None = None,
         *,
         scorer_id: str | None = None,
+        scorer_version: str | None = None,
         limit: int | None = None,
     ) -> tuple[dict[str, Any], ...]:
         with self._lock:
@@ -912,6 +913,11 @@ class InMemoryRepository:
                 if version is not None and record.get("version") != version:
                     continue
                 if scorer_id is not None and scorer.get("scorer_id") != scorer_id:
+                    continue
+                if (
+                    scorer_version is not None
+                    and scorer.get("scorer_version") != scorer_version
+                ):
                     continue
                 records.append(deepcopy(record))
             records = sorted(

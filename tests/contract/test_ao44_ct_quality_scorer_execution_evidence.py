@@ -73,7 +73,10 @@ def test_ao44_ct_002_scorer_execution_records_summary_only_passed_result():
     assert execution["summary"]["store_write_performed"] is False
     assert (
         repository.quality_scorer_execution_records(
-            "agent.ai-sdlc", "1.0.0", scorer_id="quality_summary_stage5_candidate"
+            "agent.ai-sdlc",
+            "1.0.0",
+            scorer_id="quality_summary_stage5_candidate",
+            scorer_version="1.1.0",
         )[0]["execution_id"]
         == "quality_scorer_execution_1"
     )
@@ -166,6 +169,64 @@ def test_ao44_ct_005_quality_center_aggregates_latest_execution_evidence():
     assert workbench["summary"]["scorer_execution_evidence_count"] == 1
     assert workbench["summary"]["automatic_rollout_enabled"] is False
     assert workbench["summary"]["store_write_performed"] is False
+    _assert_no_raw_leaks(workbench)
+
+
+def test_ao44_ct_006_quality_center_filters_execution_by_scorer_version():
+    repository = InMemoryRepository()
+    write_runtime_run(repository, run_id="run_failed", status="failed")
+    write_full_trace(repository, run_id="run_failed")
+    create_eval_case(
+        repository,
+        "run_failed",
+        owner_team="Quality",
+        expected_behavior="Classify failure from redacted summary.",
+    )
+    create_quality_scorer_execution(
+        repository,
+        "agent.ai-sdlc",
+        "1.0.0",
+        pass_threshold=0.7,
+        scorer={
+            "scorer_id": "quality_summary_stage5_candidate",
+            "scorer_version": "1.1.0",
+        },
+    )
+    create_quality_scorer_execution(
+        repository,
+        "agent.ai-sdlc",
+        "1.0.0",
+        min_eval_cases=2,
+        scorer={
+            "scorer_id": "quality_summary_stage5_candidate",
+            "scorer_version": "1.2.0",
+        },
+    )
+
+    workbench = get_quality_center_workbench(
+        repository,
+        report_period="2026-05",
+        agent_refs=[
+            {
+                "agent_id": "agent.ai-sdlc",
+                "version": "1.0.0",
+                "owner_team": "Quality",
+                "candidate_scorer": {
+                    "scorer_id": "quality_summary_stage5_candidate",
+                    "scorer_version": "1.1.0",
+                },
+            }
+        ],
+    )
+
+    execution_summary = workbench["agent_summaries"][0]["scorer_execution"]
+    assert execution_summary["execution_id"] == "quality_scorer_execution_1"
+    assert execution_summary["scorer_version"] == "1.1.0"
+    assert execution_summary["execution_state"] == "passed"
+    assert workbench["scorer_rollout_panel"]["execution_passed_count"] == 1
+    assert (
+        workbench["scorer_rollout_panel"]["execution_insufficient_evidence_count"] == 0
+    )
     _assert_no_raw_leaks(workbench)
 
 

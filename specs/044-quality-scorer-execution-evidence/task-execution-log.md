@@ -79,3 +79,35 @@
 - 当前批次 branch disposition 状态：待提交/PR
 - 当前批次 worktree disposition 状态：保留
 - 是否继续下一批：否，本工作项可进入提交/PR 收口
+
+## Review Fix 2026-05-11-001 | Codex scorer execution version filter
+
+### RF-001 | 按 scorer_version 过滤 Quality Center execution evidence
+
+- 触发来源：PR #46 Codex review P1 inline comment。
+- 问题：Quality Center 查询 scorer execution records 时只按 `agent_id`、`version`、`scorer_id` 过滤，同一 `scorer_id` 多个 `scorer_version` 并存时可能串用最新版本 evidence。
+- 改动范围：`src/agentops/storage/repository.py`、`src/agentops/core/operations.py`、`src/agentops/core/runtime_contracts.py`、`tests/contract/test_ao44_ct_quality_scorer_execution_evidence.py`。
+- 改动内容：repository 增加 `scorer_version` filter，Quality Center 聚合按 scorer id + scorer version 查询最新 execution evidence，新增 AO44-CT-006 regression。
+
+### 统一验证命令
+
+- `ai-sdlc adapter status`：通过，host verification passed。
+- `ai-sdlc run --dry-run`：通过，`close: PASS`。
+- `uv run pytest tests/contract/test_ao44_ct_quality_scorer_execution_evidence.py -q`：通过，6 passed。
+- `uv run pytest tests/contract/test_ao40_ct_quality_lifecycle_analytics.py tests/contract/test_ao41_ct_quality_scorer_versioning.py tests/contract/test_ao42_ct_quality_center_workbench.py tests/contract/test_ao44_ct_quality_scorer_execution_evidence.py -q`：通过，33 passed。
+- `uv run ruff check src/agentops/core/runtime_contracts.py src/agentops/core/operations.py src/agentops/storage/repository.py tests/contract/test_ao44_ct_quality_scorer_execution_evidence.py`：通过。
+- `uv run ruff format --check src/agentops/core/runtime_contracts.py src/agentops/core/operations.py src/agentops/storage/repository.py tests/contract/test_ao44_ct_quality_scorer_execution_evidence.py`：通过。
+- `uv run ai-sdlc verify constraints`：通过，无 BLOCKER。
+
+### 代码审查结论
+
+- Codex review P1 已修复：同一 scorer id 的不同 scorer version 不再共享 execution evidence。
+- 回归测试覆盖旧错误路径：先写入 1.1.0 passed，再写入同 scorer id 的 1.2.0 insufficient evidence，Quality Center candidate 1.1.0 仍绑定 1.1.0 evidence。
+
+### 任务/计划同步状态
+
+- 本修复不改变 044 scope；仍为 summary-only scorer execution evidence。
+- `quality_scorer_execution.v1` contract_tests 增加 AO44-CT-006。
+- 当前批次 branch disposition 状态：待提交/PR review fix。
+- 当前批次 worktree disposition 状态：保留。
+- 是否继续下一批：否，本批继续 PR 收口。
