@@ -967,7 +967,7 @@ def ingest_quality_scorer_external_execution(
     pass_threshold: float = 0.8,
     now: datetime | None = None,
 ) -> dict[str, Any]:
-    safe_idempotency_key = _safe_label(idempotency_key)
+    safe_idempotency_key = str(idempotency_key or "")
     audit_id = (
         "audit_quality_scorer_external_intake_"
         f"{_stable_hash([agent_id, version, idempotency_key])[-12:]}"
@@ -979,18 +979,9 @@ def ingest_quality_scorer_external_execution(
             denied_scope="quality_scorer_external_intake.idempotency_key",
             audit_id=audit_id,
         )
-    existing_receipt = repository.quality_scorer_external_receipt_by_idempotency(
-        safe_idempotency_key,
-        agent_id=agent_id,
-        version=version,
-    )
-    if existing_receipt:
-        deduplicated = dict(existing_receipt)
-        deduplicated["intake_state"] = "deduplicated"
-        return deduplicated
-
-    if not isinstance(external_result, dict) or _contains_forbidden_material(
-        external_result
+    if _contains_forbidden_material(safe_idempotency_key) or (
+        not isinstance(external_result, dict)
+        or _contains_forbidden_material(external_result)
     ):
         raise AgentOpsError(
             "QUALITY_SCORER_INTAKE_RAW_INPUT",
@@ -2506,7 +2497,7 @@ def _without_forbidden_keys(value: Any) -> Any:
 def _contains_forbidden_material(value: Any) -> bool:
     if isinstance(value, dict):
         for key, child in value.items():
-            if str(key) in FORBIDDEN_SUMMARY_KEYS:
+            if str(key).lower() in FORBIDDEN_SUMMARY_KEYS:
                 return True
             if _contains_forbidden_material(child):
                 return True

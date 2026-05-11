@@ -185,7 +185,52 @@ def test_ao45_ct_004_external_intake_scopes_idempotency_by_agent_version():
     )
 
 
-def test_ao45_ct_005_external_intake_check_and_write_is_atomic_for_duplicate_key():
+def test_ao45_ct_005_external_intake_preserves_full_idempotency_key():
+    repository = InMemoryRepository()
+    eval_case_a = _seed_eval_case(repository, run_id="run_failed_a")
+    eval_case_b = _seed_eval_case(repository, run_id="run_failed_b")
+    key_prefix = "k" * 80
+
+    first = ingest_quality_scorer_external_execution(
+        repository,
+        "agent.ai-sdlc",
+        "1.0.0",
+        idempotency_key=f"{key_prefix}A",
+        signature="sig:external-scorer-1",
+        scorer=_candidate_scorer(),
+        external_result={
+            "source_eval_cases": [eval_case_a],
+            "case_results": [
+                {"eval_case_id": eval_case_a, "outcome": "passed", "score": 0.91}
+            ],
+        },
+    )
+    second = ingest_quality_scorer_external_execution(
+        repository,
+        "agent.ai-sdlc",
+        "1.0.0",
+        idempotency_key=f"{key_prefix}B",
+        signature="sig:external-scorer-1",
+        scorer=_candidate_scorer(),
+        external_result={
+            "source_eval_cases": [eval_case_b],
+            "case_results": [
+                {"eval_case_id": eval_case_b, "outcome": "passed", "score": 0.92}
+            ],
+        },
+    )
+
+    assert first["intake_state"] == "accepted"
+    assert second["intake_state"] == "accepted"
+    assert first["idempotency_key"].endswith("A")
+    assert second["idempotency_key"].endswith("B")
+    assert second["accepted_execution_id"] != first["accepted_execution_id"]
+    assert (
+        len(repository.quality_scorer_execution_records("agent.ai-sdlc", "1.0.0")) == 2
+    )
+
+
+def test_ao45_ct_006_external_intake_check_and_write_is_atomic_for_duplicate_key():
     repository = InMemoryRepository()
     eval_case_id = _seed_eval_case(repository)
     payload = {
@@ -219,7 +264,7 @@ def test_ao45_ct_005_external_intake_check_and_write_is_atomic_for_duplicate_key
     )
 
 
-def test_ao45_ct_006_external_intake_rejects_untrusted_or_unsigned_source():
+def test_ao45_ct_007_external_intake_rejects_untrusted_or_unsigned_source():
     repository = InMemoryRepository()
     eval_case_id = _seed_eval_case(repository)
 
@@ -254,7 +299,7 @@ def test_ao45_ct_006_external_intake_rejects_untrusted_or_unsigned_source():
     assert repository.quality_scorer_execution_records("agent.ai-sdlc", "1.0.0") == ()
 
 
-def test_ao45_ct_007_external_intake_rejects_sample_boundary_and_raw_payload():
+def test_ao45_ct_008_external_intake_rejects_sample_boundary_and_raw_payload():
     repository = InMemoryRepository()
     eval_case_id = _seed_eval_case(repository)
 
@@ -290,7 +335,30 @@ def test_ao45_ct_007_external_intake_rejects_sample_boundary_and_raw_payload():
     assert repository.quality_scorer_execution_records("agent.ai-sdlc", "1.0.0") == ()
 
 
-def test_ao45_ct_008_quality_center_aggregates_external_intake_execution():
+def test_ao45_ct_009_external_intake_rejects_case_variant_raw_payload_key():
+    repository = InMemoryRepository()
+    eval_case_id = _seed_eval_case(repository)
+
+    with pytest.raises(AgentOpsError) as raw_exc:
+        ingest_quality_scorer_external_execution(
+            repository,
+            "agent.ai-sdlc",
+            "1.0.0",
+            idempotency_key="scorer-external:raw-case",
+            signature="sig:external-scorer-1",
+            scorer=_candidate_scorer(),
+            external_result={
+                "source_eval_cases": [eval_case_id],
+                "case_results": [{"eval_case_id": eval_case_id, "outcome": "passed"}],
+                "Raw_Payload": "do not ingest",
+            },
+        )
+
+    assert raw_exc.value.error_code == "QUALITY_SCORER_INTAKE_RAW_INPUT"
+    assert repository.quality_scorer_execution_records("agent.ai-sdlc", "1.0.0") == ()
+
+
+def test_ao45_ct_010_quality_center_aggregates_external_intake_execution():
     repository = InMemoryRepository()
     eval_case_id = _seed_eval_case(repository)
     ingest_quality_scorer_external_execution(
