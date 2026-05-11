@@ -26,6 +26,41 @@
 
 ## 2. 批次记录
 
+## Review Fix 2026-05-11-005 | Codex checkpoint plan link
+
+### RF-007 | checkpoint linked_plan_uri 对齐 045 work item
+
+- 触发来源：PR #47 Codex review P1 inline comment。
+- 问题：`.ai-sdlc/state/checkpoint.yml` 的 `linked_wi_id` 已切到 `045-quality-scorer-external-intake`，但 `linked_plan_uri` 仍指向 `044-quality-scorer-execution-evidence/plan.md`，resume/close 逻辑可能读取 stale plan。
+- 改动范围：`.ai-sdlc/state/checkpoint.yml`、`specs/045-quality-scorer-external-intake/development-summary.md`、`specs/045-quality-scorer-external-intake/task-execution-log.md`。
+- 改动内容：将 checkpoint `linked_plan_uri` 更新为 `specs/045-quality-scorer-external-intake/plan.md`，并记录本轮 review fix。
+
+### 统一验证命令
+
+- `ai-sdlc adapter status`：通过，host verification passed。
+- `ai-sdlc run --dry-run`：通过，`close: PASS`。
+
+### 代码审查结论
+
+- 宪章/规格对齐：符合。修复仅同步 AI-SDLC checkpoint 元数据，不改变 045 功能 scope。
+- 代码质量：符合。checkpoint 的 work item 和 plan URI 恢复一致。
+- 测试质量：本轮为治理状态元数据修复，无代码路径变更。
+- 结论：通过。
+
+### 任务/计划同步状态
+
+- `tasks.md` 同步状态：045 任务仍为完成；review fix 不新增 scope。
+- `plan.md` 同步状态：checkpoint linked plan 已指向当前 045 plan。
+- 关联 branch/worktree disposition 计划：当前分支保留待 PR review fix 推送。
+
+### 归档后动作
+
+- **已完成 git 提交**：是，本 review fix 将作为当前提交追加。
+- **提交哈希**：见当前 Git HEAD。
+- 当前批次 branch disposition 状态：待 PR review fix 推送
+- 当前批次 worktree disposition 状态：保留
+- 是否继续下一批：否，继续 PR 收口
+
 ### Batch 2026-05-11-001 | T11-T31
 
 #### 2.1 批次范围
