@@ -47,6 +47,8 @@ AUDIT_QUERY_DEFAULT_LIMIT = 50
 AUDIT_QUERY_MAX_LIMIT = 200
 EXTERNAL_INTAKE_INDEX_DEFAULT_LIMIT = 25
 EXTERNAL_INTAKE_INDEX_MAX_LIMIT = 100
+EXTERNAL_INTAKE_SUMMARY_DEFAULT_LIMIT = 100
+EXTERNAL_INTAKE_SUMMARY_MAX_LIMIT = 250
 EXTERNAL_INTAKE_FORBIDDEN_QUERY_MARKERS = (
     "token_secret",
     "credential_secret",
@@ -153,6 +155,43 @@ def create_http_handler(
                     )
                     self._send_json(
                         self._quality_scorer_external_intake_index_status(exc),
+                        exc.to_response(),
+                    )
+                    return
+                self._append_audit_record(
+                    action=action,
+                    outcome="accepted",
+                    resource=request_path,
+                    audit_id=response.get("audit_id"),
+                )
+                self._send_json(HTTPStatus.OK, response)
+                return
+
+            if request_path == "/v1/quality/scorers/external-intake/summary":
+                action = "quality.scorer.external_intake.summary"
+                auth_error = self._require_scope("quality.scorer.intake.read")
+                if auth_error:
+                    self._send_auth_error(
+                        auth_error,
+                        action=action,
+                        resource=request_path,
+                    )
+                    return
+                try:
+                    response = self._quality_scorer_external_intake_summary_response(
+                        self._request_query()
+                    )
+                except AgentOpsError as exc:
+                    self._append_audit_record(
+                        action=action,
+                        outcome="rejected",
+                        resource=request_path,
+                        error_code=exc.error_code,
+                        audit_id=exc.audit_id,
+                        request_id=exc.request_id,
+                    )
+                    self._send_json(
+                        self._quality_scorer_external_intake_summary_status(exc),
                         exc.to_response(),
                     )
                     return
@@ -1563,6 +1602,154 @@ def create_http_handler(
             self, exc: AgentOpsError
         ) -> HTTPStatus:
             return HTTPStatus.BAD_REQUEST
+
+        def _quality_scorer_external_intake_summary_response(
+            self, query: dict[str, list[str]]
+        ) -> dict[str, Any]:
+            agent_id = self._query_value(query, "agent_id")
+            version = self._query_value(query, "version")
+            if not agent_id or not version:
+                raise AgentOpsError(
+                    "QUALITY_SCORER_INTAKE_SUMMARY_QUERY_REQUIRED",
+                    "Quality scorer external intake summary requires agent_id and version.",
+                    denied_scope="quality_scorer_external_intake_summary.query",
+                )
+            limit = self._quality_scorer_external_intake_summary_limit(query)
+            receipts = live_repository.quality_scorer_external_receipt_records(
+                agent_id=agent_id,
+                version=version,
+                limit=limit,
+            )
+            audit_hash = hashlib.sha256(
+                f"{agent_id}:{version}:{limit}".encode("utf-8")
+            ).hexdigest()[:12]
+            latest_receipt = receipts[0] if receipts else None
+            return {
+                "schema_version": "quality_scorer_external_intake_summary.v1",
+                "route": "/v1/quality/scorers/external-intake/summary",
+                "method": "GET",
+                "agent_id": self._external_intake_safe_query_label(agent_id),
+                "version": self._external_intake_safe_query_label(version),
+                "window_limit": limit,
+                "receipt_count": len(receipts),
+                "health_state": self._quality_scorer_external_intake_health_state(
+                    receipts
+                ),
+                "latest_receipt": latest_receipt or {},
+                "latest_received_at": (
+                    str(latest_receipt.get("received_at") or "")
+                    if latest_receipt
+                    else ""
+                ),
+                "latest_pass_rate": (
+                    latest_receipt.get("pass_rate", 0.0) if latest_receipt else 0.0
+                ),
+                "latest_sample_size": (
+                    latest_receipt.get("sample_size", 0) if latest_receipt else 0
+                ),
+                "intake_state_counts": self._external_intake_counts(
+                    receipts,
+                    "intake_state",
+                ),
+                "source_trust_counts": self._external_intake_counts(
+                    receipts,
+                    "source_trust",
+                ),
+                "accepted_execution_count": sum(
+                    1 for receipt in receipts if receipt.get("accepted_execution_id")
+                ),
+                "scorer_refs": self._external_intake_scorer_refs(receipts),
+                "summary": {
+                    "summary_only_intake_summary": True,
+                    "full_scope_required": True,
+                    "key_only_lookup_allowed": False,
+                    "agentops_scorer_invoked": False,
+                    "automatic_rollout_enabled": False,
+                    "automatic_template_switch": False,
+                    "automatic_lifecycle_action": False,
+                    "store_write_performed": False,
+                    "notification_sent": False,
+                },
+                "audit_id": (
+                    f"audit_quality_scorer_external_intake_summary_{audit_hash}"
+                ),
+            }
+
+        def _quality_scorer_external_intake_summary_limit(
+            self, query: dict[str, list[str]]
+        ) -> int:
+            raw_limit = self._query_value(query, "limit")
+            if not raw_limit:
+                return EXTERNAL_INTAKE_SUMMARY_DEFAULT_LIMIT
+            try:
+                limit = int(raw_limit)
+            except ValueError as exc:
+                raise AgentOpsError(
+                    "QUALITY_SCORER_INTAKE_SUMMARY_LIMIT_INVALID",
+                    "Quality scorer external intake summary limit must be a positive integer.",
+                    denied_scope="quality_scorer_external_intake_summary.limit",
+                ) from exc
+            if limit < 1:
+                raise AgentOpsError(
+                    "QUALITY_SCORER_INTAKE_SUMMARY_LIMIT_INVALID",
+                    "Quality scorer external intake summary limit must be a positive integer.",
+                    denied_scope="quality_scorer_external_intake_summary.limit",
+                )
+            return min(limit, EXTERNAL_INTAKE_SUMMARY_MAX_LIMIT)
+
+        def _quality_scorer_external_intake_summary_status(
+            self, exc: AgentOpsError
+        ) -> HTTPStatus:
+            return HTTPStatus.BAD_REQUEST
+
+        def _quality_scorer_external_intake_health_state(
+            self,
+            receipts: tuple[dict[str, Any], ...],
+        ) -> str:
+            if not receipts:
+                return "no_receipts"
+            latest = receipts[0]
+            if str(latest.get("intake_state") or "") == "accepted":
+                return "receiving"
+            return "needs_review"
+
+        def _external_intake_counts(
+            self,
+            receipts: tuple[dict[str, Any], ...],
+            field_name: str,
+        ) -> dict[str, int]:
+            counts: dict[str, int] = {}
+            for receipt in receipts:
+                value = str(receipt.get(field_name) or "unknown")
+                counts[value] = counts.get(value, 0) + 1
+            return counts
+
+        def _external_intake_scorer_refs(
+            self,
+            receipts: tuple[dict[str, Any], ...],
+        ) -> list[dict[str, str]]:
+            refs: list[dict[str, str]] = []
+            seen: set[tuple[str, str, str]] = set()
+            for receipt in receipts:
+                scorer = receipt.get("scorer") if isinstance(receipt, dict) else {}
+                if not isinstance(scorer, dict):
+                    continue
+                ref = (
+                    str(scorer.get("scorer_id") or ""),
+                    str(scorer.get("scorer_version") or ""),
+                    str(scorer.get("score_template_id") or ""),
+                )
+                if ref in seen:
+                    continue
+                seen.add(ref)
+                refs.append(
+                    {
+                        "scorer_id": ref[0],
+                        "scorer_version": ref[1],
+                        "score_template_id": ref[2],
+                    }
+                )
+            return refs
 
         def _external_intake_query_contains_forbidden(self, *values: str) -> bool:
             for value in values:
