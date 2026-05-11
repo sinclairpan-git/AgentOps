@@ -1,12 +1,12 @@
 pipeline_started_at: '2026-05-04T06:14:47+00:00'
-pipeline_last_updated: '2026-05-11T08:40:18+00:00'
+pipeline_last_updated: '2026-05-11T10:08:17+00:00'
 current_stage: close
 feature:
-  id: 044-quality-scorer-execution-evidence
-  spec_dir: specs/044-quality-scorer-execution-evidence
-  design_branch: design/044-quality-scorer-execution-evidence-docs
-  feature_branch: feature/044-quality-scorer-execution-evidence-dev
-  current_branch: codex/044-quality-scorer-execution-evidence
+  id: 045-quality-scorer-external-intake
+  spec_dir: specs/045-quality-scorer-external-intake
+  design_branch: design/045-quality-scorer-external-intake-docs
+  feature_branch: feature/045-quality-scorer-external-intake-dev
+  current_branch: codex/045-quality-scorer-external-intake
   docs_baseline_ref: ''
   docs_baseline_at: ''
 multi_agent:
@@ -16,36 +16,33 @@ multi_agent:
 prd_source: /Users/sinclairpan/project/AI-Native底座开发文档/AgentOps_项目_PRD.md
 completed_stages:
 - stage: init
-  completed_at: '2026-05-11T08:38:36+00:00'
+  completed_at: '2026-05-11T10:08:17+00:00'
   artifacts: []
 - stage: refine
-  completed_at: '2026-05-11T08:38:36+00:00'
+  completed_at: '2026-05-11T10:08:17+00:00'
   artifacts:
   - spec.md
 - stage: design
-  completed_at: '2026-05-11T08:38:36+00:00'
+  completed_at: '2026-05-11T10:08:17+00:00'
   artifacts:
   - plan.md
 - stage: decompose
-  completed_at: '2026-05-11T08:38:36+00:00'
+  completed_at: '2026-05-11T10:08:17+00:00'
   artifacts:
   - tasks.md
 - stage: verify
-  completed_at: '2026-05-11T08:38:36+00:00'
+  completed_at: '2026-05-11T10:08:17+00:00'
   artifacts:
   - task-execution-log.md
   - tasks.md
 - stage: execute
-  completed_at: '2026-05-11T08:38:36+00:00'
+  completed_at: '2026-05-11T10:08:17+00:00'
   artifacts:
   - development-summary.md
   - task-execution-log.md
-- stage: close
-  completed_at: '2026-05-11T08:38:47+00:00'
-  artifacts: []
 execute_progress: null
 ai_decisions_count: 0
 execution_mode: auto
-linked_wi_id: 044-quality-scorer-execution-evidence
-linked_plan_uri: specs/044-quality-scorer-execution-evidence/plan.md
+linked_wi_id: 045-quality-scorer-external-intake
+linked_plan_uri: specs/045-quality-scorer-external-intake/plan.md
 last_synced_at: '2026-05-11T08:40:18+00:00'
