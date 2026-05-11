@@ -144,6 +144,35 @@ def test_ao41_ct_003_scorer_comparison_uses_eval_case_summaries_only():
     _assert_no_raw_leaks(comparison)
 
 
+def test_ao41_ct_003_scorer_comparison_preserves_candidate_defaults_for_partial_policy():
+    repository = InMemoryRepository()
+    write_runtime_run(repository, run_id="run_failed", status="failed")
+    write_full_trace(repository, run_id="run_failed")
+    create_eval_case(
+        repository,
+        "run_failed",
+        owner_team="Quality",
+        expected_behavior="Failure should use scorer-specific default weights.",
+    )
+
+    comparison = get_quality_scorer_comparison(
+        repository,
+        "agent.ai-sdlc",
+        "1.0.0",
+        candidate_scorer={
+            "scorer_id": "quality_summary_stage5_candidate",
+            "scorer_version": "1.1.0",
+            "scoring_policy": {"failure_sensitivity": 25},
+        },
+    )
+
+    assert comparison["candidate_scorer"]["alignment_score"] == 94.0
+    assert comparison["alignment_delta"] == 4.0
+    assert comparison["safety_impact"] == "needs_review"
+    assert comparison["recommendation"] == "needs_human_review"
+    _assert_no_raw_leaks(comparison)
+
+
 def test_ao41_ct_003_scorer_comparison_treats_empty_required_evidence_as_regression():
     repository = InMemoryRepository()
     write_runtime_run(repository, run_id="run_failed", status="failed")

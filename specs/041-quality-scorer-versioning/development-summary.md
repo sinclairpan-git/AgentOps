@@ -38,3 +38,5 @@
 - Review fix 验证：AO41 8 passed；AO37/AO40/AO41 回归 36 passed；完整 pytest 通过；ruff check/format check 通过；AI-SDLC constraints 无 BLOCKER。
 - PR #43 Codex P2：`quality_scorer_comparison.v1` 现在在 `needs_human_review` 时也要求 `manual_approval_required=true`，避免 unsafe/ambiguous comparison 跳过人工路由。
 - Review fix 验证：AO41 8 passed；AO37/AO40/AO41 回归 36 passed；ruff check/format check 通过；AI-SDLC constraints 无 BLOCKER。
+- PR #43 Codex P2：partial scorer policy 现在保留 scorer-specific default weights，candidate 缺失字段不会回落到 baseline/global 20/25。
+- Review fix 验证：AO41 9 passed；AO37/AO40/AO41 回归 37 passed；ruff check/format check 通过；AI-SDLC constraints 无 BLOCKER。

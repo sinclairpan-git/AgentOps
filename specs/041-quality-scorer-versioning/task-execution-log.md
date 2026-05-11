@@ -72,6 +72,34 @@
 - 当前批次 worktree disposition 状态：retained
 - 是否继续下一批：否，本批继续 PR 收口。
 
+### Review Fix 2026-05-10-003 | Codex partial policy feedback
+
+#### RF-003 | preserve scorer-specific default weights for partial policies
+
+- 覆盖任务：PR #43 Codex review P2 feedback
+- 覆盖阶段：PR close-out review fix
+- 预读范围：Codex review thread、AO41 scorer comparison、AO41 contract tests
+- 激活的规则：PR close-out 固定规则、summary-only scorer comparison、scorer-specific versioning
+- **验证画像**：code-change
+- 改动范围：`src/agentops/core/operations.py`、`tests/contract/test_ao41_ct_quality_scorer_versioning.py`
+- 改动内容：`_coerce_scorer_version` 现在先把 scorer-specific default policy 与 caller partial policy 合并，再做 sanitizer，避免 candidate partial policy 缺失字段回落到全局 20/25。
+- 新增/调整的测试：新增 partial candidate policy 回归，验证缺失 `evidence_weight` 仍使用 candidate default 24，而不是 baseline/global default 20。
+- 统一验证命令：
+  - `uv run pytest tests/contract/test_ao41_ct_quality_scorer_versioning.py -q`
+  - `uv run pytest tests/contract/test_ao37_ct_p1_evidence_eval_cost_operations.py tests/contract/test_ao40_ct_quality_lifecycle_analytics.py tests/contract/test_ao41_ct_quality_scorer_versioning.py -q`
+  - `uv run ruff check src/agentops/core/operations.py tests/contract/test_ao41_ct_quality_scorer_versioning.py`
+  - `uv run ruff format --check src/agentops/core/operations.py tests/contract/test_ao41_ct_quality_scorer_versioning.py`
+  - `uv run ai-sdlc verify constraints`
+- 测试结果：AO41 9 passed；AO37/AO40/AO41 回归 37 passed；ruff check/format check 通过；AI-SDLC constraints 无 BLOCKER。
+- 是否符合任务目标：是。
+- 代码审查结论：Codex 指出的 partial policy default 漂移已用行为回归锁定；修复不新增 raw evidence 读取或 rollout 自动动作。
+- 任务/计划同步状态：AO41 plan/spec 不变，本次为 PR review fix；branch disposition 仍为 PR #43 收口中。
+- **已完成 git 提交**：是，本次 review fix 将在当前提交中一并提交。
+- **提交哈希**：见当前 Git HEAD。
+- 当前批次 branch disposition 状态：`codex/041-quality-scorer-versioning` 待提交和 PR
+- 当前批次 worktree disposition 状态：retained
+- 是否继续下一批：否，本批继续 PR 收口。
+
 ### Review Fix 2026-05-10-002 | Codex manual approval feedback
 
 #### RF-002 | require manual approval for human-review scorer comparisons

@@ -1363,6 +1363,12 @@ def _coerce_scorer_version(
     default_policy: dict[str, Any],
 ) -> dict[str, Any]:
     source = scorer if isinstance(scorer, dict) else {}
+    source_policy = (
+        source.get("scoring_policy")
+        if isinstance(source.get("scoring_policy"), dict)
+        else {}
+    )
+    scoring_policy = {**default_policy, **source_policy}
     return build_quality_scorer_version(
         scorer_id=str(source.get("scorer_id") or default_scorer_id),
         scorer_version=str(source.get("scorer_version") or default_scorer_version),
@@ -1372,9 +1378,7 @@ def _coerce_scorer_version(
         required_evidence=source.get("required_evidence")
         if isinstance(source.get("required_evidence"), list)
         else None,
-        scoring_policy=source.get("scoring_policy")
-        if isinstance(source.get("scoring_policy"), dict)
-        else default_policy,
+        scoring_policy=scoring_policy,
     )
 
 
