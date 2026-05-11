@@ -33,6 +33,13 @@ SUPPORTED_ECOSYSTEM_EXPORTERS = {
 FORBIDDEN_SUMMARY_KEYS = {
     "raw_payload",
     "prompt",
+    "raw_prompt",
+    "diff",
+    "raw_diff",
+    "terminal",
+    "terminal_output",
+    "pr_body",
+    "pr_url",
     "token_secret",
     "credential_secret",
     "device_key",
@@ -40,9 +47,17 @@ FORBIDDEN_SUMMARY_KEYS = {
     "raw_url",
 }
 FORBIDDEN_TEXT_MARKERS = (
+    "raw_payload",
+    "raw_prompt",
+    "raw_diff",
+    "terminal_output",
     "token_secret",
     "credential_secret",
     "device_key",
+    "download_url",
+    "raw_url",
+    "http://",
+    "https://",
 )
 
 
@@ -632,6 +647,211 @@ def build_complex_risk_profile(
     }
 
 
+def build_quality_score_projection(
+    repository: InMemoryRepository,
+    agent_id: str,
+    version: str,
+    *,
+    score_template_id: str = "quality_summary_stage5",
+) -> dict[str, Any]:
+    health_summary = build_runtime_health_summary(repository, agent_id, version)
+    runs = repository.runtime_run_records_for_agent_version(agent_id, version)
+    latest_evidence = _latest_evidence_summary(repository, runs)
+    eval_cases = [
+        record
+        for record in repository.eval_case_records()
+        if (record.get("source_run") or {}).get("agent_id") == agent_id
+        and (record.get("source_run") or {}).get("version") == version
+    ]
+    missing_evidence = _quality_missing_evidence(
+        latest_evidence=latest_evidence,
+        eval_case_count=len(eval_cases),
+        run_count=len(runs),
+    )
+    score = _quality_score(health_summary, latest_evidence, len(eval_cases))
+    confidence = _quality_confidence(health_summary, latest_evidence)
+    quality_state = _quality_state(score, confidence)
+    return {
+        "schema_version": "quality_score_projection.v1",
+        "agent_id": agent_id,
+        "version": version,
+        "score_template_id": score_template_id,
+        "score": score,
+        "quality_state": quality_state,
+        "evidence_level": str(latest_evidence.get("evidence_level") or "L3"),
+        "confidence": confidence,
+        "missing_evidence": missing_evidence,
+        "explanation": _quality_explanation(health_summary, missing_evidence),
+        "source_run_ids": [str(run.get("run_id") or "") for run in runs],
+        "health_summary": health_summary,
+        "summary": {
+            "raw_payload_access": "forbidden",
+            "raw_prompt_access": "forbidden",
+            "raw_diff_access": "forbidden",
+            "score_model": "deterministic_summary_projection",
+            "missing_evidence_scored_as_zero": False,
+            "automatic_lifecycle_action": False,
+            "low_confidence_auto_disable_blocked": confidence < 0.4,
+        },
+        "audit_id": f"audit_quality_score_{agent_id}_{version}",
+    }
+
+
+def build_adoption_roi_projection(
+    *,
+    agent_id: str,
+    version: str,
+    adoption_metrics: dict[str, Any],
+    owner_team: str = "",
+) -> dict[str, Any]:
+    safe_metrics = _safe_adoption_metrics(adoption_metrics)
+    generated_lines = safe_metrics["generated_lines"]
+    retained_lines = safe_metrics["retained_lines"]
+    retention_rate = (
+        round(retained_lines / generated_lines, 4) if generated_lines > 0 else 0.0
+    )
+    rework_risk = _rework_risk(safe_metrics)
+    adoption_state = _adoption_state(safe_metrics, retention_rate, rework_risk)
+    return {
+        "schema_version": "adoption_roi_projection.v1",
+        "agent_id": agent_id,
+        "version": version,
+        "owner_team": owner_team,
+        "adoption_state": adoption_state,
+        "retention_rate": retention_rate,
+        "rework_risk": rework_risk,
+        "adoption_metrics": safe_metrics,
+        "review_summary": {
+            "pr_review_issue_count": safe_metrics["pr_review_issue_count"],
+            "ci_failure_types": safe_metrics["ci_failure_types"],
+            "merge_state": safe_metrics["merge_state"],
+            "rollback_count": safe_metrics["rollback_count"],
+        },
+        "sampling_review_state": safe_metrics["sampling_review_state"],
+        "summary": {
+            "raw_payload_access": "forbidden",
+            "raw_diff_access": "forbidden",
+            "raw_pr_access": "forbidden",
+            "derived_from": "adoption_summary_metrics",
+            "requires_sampling_review": safe_metrics["sampling_review_state"]
+            in {"not_started", "pending", "failed"},
+        },
+        "audit_id": f"audit_adoption_roi_{agent_id}_{version}",
+    }
+
+
+def build_lifecycle_recommendation(
+    repository: InMemoryRepository,
+    agent_id: str,
+    version: str,
+) -> dict[str, Any]:
+    quality_score = build_quality_score_projection(repository, agent_id, version)
+    risk_profile = build_complex_risk_profile(repository, agent_id, version)
+    store_governance = build_store_governance_projection(repository, agent_id, version)
+    lifecycle_state, recommended_action = _lifecycle_decision(
+        quality_score, risk_profile, store_governance
+    )
+    owner_notification_state = (
+        "pending"
+        if recommended_action in {"open_ops_review", "open_disable_review"}
+        else "not_required"
+    )
+    appeal_state = (
+        "available"
+        if recommended_action in {"open_ops_review", "open_disable_review"}
+        else "none"
+    )
+    return {
+        "schema_version": "lifecycle_recommendation.v1",
+        "agent_id": agent_id,
+        "version": version,
+        "lifecycle_state": lifecycle_state,
+        "recommended_action": recommended_action,
+        "owner_notification_state": owner_notification_state,
+        "appeal_state": appeal_state,
+        "quality_score": {
+            "score": quality_score["score"],
+            "quality_state": quality_score["quality_state"],
+            "confidence": quality_score["confidence"],
+            "missing_evidence": list(quality_score["missing_evidence"]),
+        },
+        "risk_profile": {
+            "risk_profile_state": risk_profile["risk_profile_state"],
+            "recommended_action": risk_profile["recommended_action"],
+        },
+        "store_governance": {
+            "summary_state": store_governance["summary_state"],
+            "recommended_action": store_governance["recommended_action"],
+            "appeal_state": store_governance["appeal_state"],
+        },
+        "summary": {
+            "raw_payload_access": "forbidden",
+            "automatic_lifecycle_action": False,
+            "store_write_performed": False,
+            "notification_sent": False,
+            "manual_review_required": recommended_action
+            in {"collect_more_evidence", "open_ops_review", "open_disable_review"},
+        },
+        "audit_id": f"audit_lifecycle_recommendation_{agent_id}_{version}",
+    }
+
+
+def build_monthly_quality_report(
+    repository: InMemoryRepository,
+    *,
+    report_period: str,
+    agent_refs: list[dict[str, Any]],
+    generated_by: str = "system",
+) -> dict[str, Any]:
+    agent_summaries = []
+    for ref in agent_refs:
+        agent_id = str(ref.get("agent_id") or "")
+        version = str(ref.get("version") or "")
+        adoption_metrics = (
+            ref.get("adoption_metrics")
+            if isinstance(ref.get("adoption_metrics"), dict)
+            else {}
+        )
+        quality_score = build_quality_score_projection(repository, agent_id, version)
+        lifecycle = build_lifecycle_recommendation(repository, agent_id, version)
+        adoption = build_adoption_roi_projection(
+            agent_id=agent_id,
+            version=version,
+            adoption_metrics=adoption_metrics,
+            owner_team=str(ref.get("owner_team") or ""),
+        )
+        agent_summaries.append(
+            {
+                "agent_id": agent_id,
+                "version": version,
+                "score": quality_score["score"],
+                "quality_state": quality_score["quality_state"],
+                "confidence": quality_score["confidence"],
+                "risk_action": lifecycle["risk_profile"]["recommended_action"],
+                "lifecycle_action": lifecycle["recommended_action"],
+                "adoption_state": adoption["adoption_state"],
+                "retention_rate": adoption["retention_rate"],
+            }
+        )
+    trend_summary = _monthly_trend_summary(agent_summaries)
+    return {
+        "schema_version": "monthly_quality_report.v1",
+        "report_period": report_period,
+        "report_state": "ready" if agent_summaries else "insufficient_data",
+        "generated_by": generated_by,
+        "agent_summaries": agent_summaries,
+        "trend_summary": trend_summary,
+        "summary": {
+            "raw_payload_access": "forbidden",
+            "raw_diff_access": "forbidden",
+            "automatic_publish_performed": False,
+            "store_write_performed": False,
+            "notification_sent": False,
+        },
+        "audit_id": f"audit_monthly_quality_report_{report_period}",
+    }
+
+
 def build_exporter_operation(
     *,
     exporter_type: str,
@@ -865,6 +1085,206 @@ def _risk_profile_action(risk_profile_state: str) -> str:
         "high": "open_ops_review",
         "critical": "disable_recommended",
     }[risk_profile_state]
+
+
+def _latest_evidence_summary(
+    repository: InMemoryRepository, runs: tuple[dict[str, Any], ...]
+) -> dict[str, Any]:
+    if not runs:
+        return {
+            "evidence_level": "L3",
+            "confidence": 0.0,
+            "completeness": 0.0,
+            "missing_evidence": ["runtime_run"],
+        }
+    latest_run = runs[-1]
+    try:
+        return build_runtime_evidence_summary(
+            repository, str(latest_run.get("run_id") or "")
+        )
+    except AgentOpsError:
+        return {
+            "evidence_level": "L3",
+            "confidence": 0.0,
+            "completeness": 0.0,
+            "missing_evidence": ["runtime_evidence"],
+        }
+
+
+def _quality_missing_evidence(
+    *,
+    latest_evidence: dict[str, Any],
+    eval_case_count: int,
+    run_count: int,
+) -> list[str]:
+    missing = {
+        str(item) for item in latest_evidence.get("missing_evidence", []) if str(item)
+    }
+    if run_count == 0:
+        missing.add("runtime_run")
+    if eval_case_count == 0:
+        missing.add("eval_case")
+    return sorted(missing)
+
+
+def _quality_score(
+    health_summary: dict[str, Any],
+    latest_evidence: dict[str, Any],
+    eval_case_count: int,
+) -> float:
+    success_rate = _safe_float(health_summary.get("success_rate"))
+    failure_rate = _safe_float(health_summary.get("failure_rate"))
+    evidence_completeness = _safe_float(latest_evidence.get("completeness"))
+    policy_block_count = _safe_int(health_summary.get("policy_block_count"))
+    eval_bonus = 5.0 if eval_case_count > 0 else 0.0
+    score = (
+        35.0
+        + (35.0 * success_rate)
+        + (20.0 * evidence_completeness)
+        + eval_bonus
+        - (25.0 * failure_rate)
+        - (10.0 * min(policy_block_count, 3))
+    )
+    return round(max(0.0, min(100.0, score)), 2)
+
+
+def _quality_confidence(
+    health_summary: dict[str, Any], latest_evidence: dict[str, Any]
+) -> float:
+    health_confidence = _safe_float(health_summary.get("confidence"))
+    evidence_confidence = _safe_float(latest_evidence.get("confidence"))
+    return round(max(0.0, min(1.0, min(health_confidence, evidence_confidence))), 4)
+
+
+def _quality_state(score: float, confidence: float) -> str:
+    if confidence < 0.4:
+        return "insufficient_evidence"
+    if score >= 85:
+        return "healthy"
+    if score >= 70:
+        return "watching"
+    if score >= 50:
+        return "needs_review"
+    return "critical"
+
+
+def _quality_explanation(
+    health_summary: dict[str, Any], missing_evidence: list[str]
+) -> dict[str, Any]:
+    return {
+        "success_rate": _safe_float(health_summary.get("success_rate")),
+        "failure_rate": _safe_float(health_summary.get("failure_rate")),
+        "evidence_completeness": _safe_float(
+            health_summary.get("evidence_completeness")
+        ),
+        "policy_block_count": _safe_int(health_summary.get("policy_block_count")),
+        "missing_evidence": list(missing_evidence),
+        "guardrail": "low_confidence_requires_manual_review",
+    }
+
+
+def _safe_adoption_metrics(metrics: dict[str, Any]) -> dict[str, Any]:
+    source = metrics if isinstance(metrics, dict) else {}
+    ci_failure_types = source.get("ci_failure_types")
+    if not isinstance(ci_failure_types, list | tuple):
+        ci_failure_types = []
+    sampling_review_state = str(source.get("sampling_review_state") or "not_started")
+    if sampling_review_state not in {"not_started", "pending", "passed", "failed"}:
+        sampling_review_state = "not_started"
+    merge_state = _safe_label(source.get("merge_state") or "unknown")
+    return {
+        "generated_lines": max(0, _safe_int(source.get("generated_lines"))),
+        "retained_lines": max(0, _safe_int(source.get("retained_lines"))),
+        "modified_lines": max(0, _safe_int(source.get("modified_lines"))),
+        "deleted_lines": max(0, _safe_int(source.get("deleted_lines"))),
+        "rework_rounds": max(0, _safe_int(source.get("rework_rounds"))),
+        "pr_review_issue_count": max(0, _safe_int(source.get("pr_review_issue_count"))),
+        "ci_failure_types": [_safe_label(item) for item in ci_failure_types[:10]],
+        "merge_state": merge_state,
+        "rollback_count": max(0, _safe_int(source.get("rollback_count"))),
+        "sampling_review_state": sampling_review_state,
+    }
+
+
+def _safe_label(value: Any) -> str:
+    text = str(value or "")
+    if any(marker in text for marker in FORBIDDEN_TEXT_MARKERS):
+        return "[redacted]"
+    return text[:80]
+
+
+def _rework_risk(metrics: dict[str, Any]) -> str:
+    if (
+        metrics["rollback_count"] > 0
+        or metrics["rework_rounds"] >= 3
+        or len(metrics["ci_failure_types"]) >= 2
+    ):
+        return "high"
+    if metrics["rework_rounds"] > 0 or metrics["pr_review_issue_count"] > 0:
+        return "medium"
+    return "low"
+
+
+def _adoption_state(
+    metrics: dict[str, Any], retention_rate: float, rework_risk: str
+) -> str:
+    if metrics["generated_lines"] == 0:
+        return "insufficient_data"
+    if rework_risk == "high" or metrics["sampling_review_state"] == "failed":
+        return "needs_review"
+    if retention_rate >= 0.6 and metrics["merge_state"] == "merged":
+        return "adopted"
+    return "watching"
+
+
+def _lifecycle_decision(
+    quality_score: dict[str, Any],
+    risk_profile: dict[str, Any],
+    store_governance: dict[str, Any],
+) -> tuple[str, str]:
+    quality_state = str(quality_score.get("quality_state") or "")
+    risk_state = str(risk_profile.get("risk_profile_state") or "")
+    store_action = str(store_governance.get("recommended_action") or "")
+    confidence = _safe_float(quality_score.get("confidence"))
+    if confidence < 0.4 or quality_state == "insufficient_evidence":
+        return ("review_required", "collect_more_evidence")
+    if risk_state == "critical" or store_action in {"disable_recommended", "disabled"}:
+        return ("disable_review_recommended", "open_disable_review")
+    if risk_state == "high" or quality_state in {"critical", "needs_review"}:
+        return ("review_required", "open_ops_review")
+    if risk_state == "medium" or quality_state == "watching":
+        return ("watching", "watch")
+    return ("healthy", "none")
+
+
+def _monthly_trend_summary(agent_summaries: list[dict[str, Any]]) -> dict[str, Any]:
+    if not agent_summaries:
+        return {
+            "agent_count": 0,
+            "average_score": 0.0,
+            "review_required_count": 0,
+            "adoption_needs_review_count": 0,
+        }
+    review_required_count = sum(
+        1
+        for item in agent_summaries
+        if item.get("lifecycle_action")
+        in {"collect_more_evidence", "open_ops_review", "open_disable_review"}
+    )
+    adoption_needs_review_count = sum(
+        1 for item in agent_summaries if item.get("adoption_state") == "needs_review"
+    )
+    average_score = round(
+        sum(_safe_float(item.get("score")) for item in agent_summaries)
+        / len(agent_summaries),
+        2,
+    )
+    return {
+        "agent_count": len(agent_summaries),
+        "average_score": average_score,
+        "review_required_count": review_required_count,
+        "adoption_needs_review_count": adoption_needs_review_count,
+    }
 
 
 def _safe_policy_change(change: dict[str, Any]) -> dict[str, Any]:
