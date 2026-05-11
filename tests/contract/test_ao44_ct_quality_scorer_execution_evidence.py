@@ -230,6 +230,69 @@ def test_ao44_ct_006_quality_center_filters_execution_by_scorer_version():
     _assert_no_raw_leaks(workbench)
 
 
+def test_ao44_ct_007_quality_center_matches_redacted_execution_identity_by_hash():
+    repository = InMemoryRepository()
+    agent_id = "agent." + ("very-long-agent-id-" * 8) + "token_secret"
+    version = "version." + ("very-long-version-id-" * 8) + "https://example.invalid"
+    write_runtime_run(
+        repository,
+        run_id="run_long_identity",
+        agent_id=agent_id,
+        version=version,
+        status="failed",
+    )
+    write_full_trace(repository, run_id="run_long_identity")
+    create_eval_case(
+        repository,
+        "run_long_identity",
+        owner_team="Quality",
+        expected_behavior="Classify failure from redacted summary.",
+    )
+    execution = create_quality_scorer_execution(
+        repository,
+        agent_id,
+        version,
+        pass_threshold=0.7,
+        scorer={
+            "scorer_id": "quality_summary_stage5_candidate",
+            "scorer_version": "1.1.0",
+        },
+    )
+
+    assert execution["agent_id"] == "[redacted]"
+    assert execution["version"] == "[redacted]"
+    assert (
+        repository.quality_scorer_execution_records(
+            agent_id,
+            version,
+            scorer_id="quality_summary_stage5_candidate",
+            scorer_version="1.1.0",
+        )[0]["execution_id"]
+        == execution["execution_id"]
+    )
+
+    workbench = get_quality_center_workbench(
+        repository,
+        report_period="2026-05",
+        agent_refs=[
+            {
+                "agent_id": agent_id,
+                "version": version,
+                "owner_team": "Quality",
+                "candidate_scorer": {
+                    "scorer_id": "quality_summary_stage5_candidate",
+                    "scorer_version": "1.1.0",
+                },
+            }
+        ],
+    )
+
+    execution_summary = workbench["agent_summaries"][0]["scorer_execution"]
+    assert execution_summary["execution_id"] == execution["execution_id"]
+    assert execution_summary["execution_state"] == "passed"
+    _assert_no_raw_leaks(workbench)
+
+
 def _assert_no_raw_leaks(payload: dict) -> None:
     forbidden_keys = {
         "raw_payload",

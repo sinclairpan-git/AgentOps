@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import hashlib
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from copy import deepcopy
@@ -16,6 +17,11 @@ from agentops.core.errors import AgentOpsError
 
 def utc_now() -> str:
     return datetime.now(UTC).isoformat()
+
+
+def _quality_scorer_lookup_hash(field_name: str, value: Any) -> str:
+    material = f"{field_name}\0{str(value or '')}"
+    return f"sha256:{hashlib.sha256(material.encode('utf-8')).hexdigest()}"
 
 
 def _runtime_number_sort_value(value: Any) -> float:
@@ -902,15 +908,36 @@ class InMemoryRepository:
     ) -> tuple[dict[str, Any], ...]:
         with self._lock:
             records = []
+            agent_id_hash = (
+                _quality_scorer_lookup_hash("agent_id", agent_id)
+                if agent_id is not None
+                else None
+            )
+            version_hash = (
+                _quality_scorer_lookup_hash("version", version)
+                if version is not None
+                else None
+            )
             for record in self.quality_scorer_executions.values():
                 scorer = (
                     record.get("scorer")
                     if isinstance(record.get("scorer"), dict)
                     else {}
                 )
-                if agent_id is not None and record.get("agent_id") != agent_id:
+                lookup_identity = (
+                    record.get("lookup_identity")
+                    if isinstance(record.get("lookup_identity"), dict)
+                    else {}
+                )
+                if agent_id is not None and not (
+                    lookup_identity.get("agent_id_hash") == agent_id_hash
+                    or record.get("agent_id") == agent_id
+                ):
                     continue
-                if version is not None and record.get("version") != version:
+                if version is not None and not (
+                    lookup_identity.get("version_hash") == version_hash
+                    or record.get("version") == version
+                ):
                     continue
                 if scorer_id is not None and scorer.get("scorer_id") != scorer_id:
                     continue

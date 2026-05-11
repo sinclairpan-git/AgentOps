@@ -887,6 +887,10 @@ def create_quality_scorer_execution(
         "execution_id": "",
         "agent_id": _safe_label(agent_id),
         "version": _safe_label(version),
+        "lookup_identity": {
+            "agent_id_hash": _quality_scorer_lookup_hash("agent_id", agent_id),
+            "version_hash": _quality_scorer_lookup_hash("version", version),
+        },
         "scorer": {
             "scorer_id": scorer_version["scorer_id"],
             "scorer_version": scorer_version["scorer_version"],
@@ -1176,8 +1180,8 @@ def build_quality_center_workbench(
         if comparison_count_key in comparison_counts:
             comparison_counts[comparison_count_key] += 1
         summary = {
-            "agent_id": agent_id,
-            "version": version,
+            "agent_id": _safe_label(agent_id),
+            "version": _safe_label(version),
             "owner_team": owner_team,
             "score": quality_score["score"],
             "quality_state": quality_score["quality_state"],
@@ -1802,6 +1806,11 @@ def _scorer_execution_decision(
     if outcome_counts["failed"] > 0 or pass_rate < pass_threshold:
         return ("needs_review", "open_manual_scorer_review")
     return ("passed", "submit_for_manual_rollout_approval")
+
+
+def _quality_scorer_lookup_hash(field_name: str, value: Any) -> str:
+    material = f"{field_name}\0{str(value or '')}"
+    return f"sha256:{hashlib.sha256(material.encode('utf-8')).hexdigest()}"
 
 
 def _safe_adoption_metrics(metrics: dict[str, Any]) -> dict[str, Any]:
