@@ -222,9 +222,11 @@ def _console_data_from_repository(repository: InMemoryRepository) -> dict[str, A
 
 
 def _with_workbenches(console_data: dict[str, Any]) -> dict[str, Any]:
+    adoption = _adoption_workbench(console_data)
     enriched = {
         **console_data,
-        "adoption": _adoption_workbench(console_data),
+        "adoption": adoption,
+        "qualityCenterWorkbench": _quality_center_workbench(console_data, adoption),
         "evidenceVault": _evidence_vault_workbench(console_data),
         "approvalWorkbench": _approval_workbench(console_data),
         "connectorWorkbench": _connector_workbench(console_data),
@@ -235,6 +237,280 @@ def _with_workbenches(console_data: dict[str, Any]) -> dict[str, Any]:
         **enriched,
         "operationCenter": _operation_center(console_data),
     }
+
+
+def _quality_center_workbench(
+    console_data: dict[str, Any], adoption: dict[str, Any]
+) -> dict[str, Any]:
+    quality_items = list(console_data.get("quality", []))
+    agent_summaries = [
+        _quality_center_agent_summary(item, index)
+        for index, item in enumerate(quality_items)
+    ]
+    review_queue = _quality_center_review_queue(agent_summaries, adoption)
+    comparison_states = [
+        str(
+            summary.get("scorer_comparison", {}).get(
+                "comparison_state", "insufficient_evidence"
+            )
+        )
+        for summary in agent_summaries
+    ]
+    trend_summary = _quality_center_trend_summary(adoption, review_queue)
+    return {
+        "schema_version": "quality_center_workbench.v1",
+        "report_period": "console_snapshot",
+        "workbench_state": "ready" if agent_summaries else "empty",
+        "generated_by": "agentops_console_snapshot",
+        "agent_summaries": agent_summaries,
+        "scorer_rollout_panel": {
+            "candidate_count": len(agent_summaries),
+            "ready_for_manual_approval_count": comparison_states.count(
+                "ready_for_manual_approval"
+            ),
+            "needs_human_review_count": comparison_states.count("needs_human_review"),
+            "insufficient_evidence_count": comparison_states.count(
+                "insufficient_evidence"
+            ),
+            "automatic_rollout_enabled": False,
+            "automatic_template_switch": False,
+            "manual_approval_queue_size": sum(
+                1
+                for item in review_queue
+                if item.get("review_type") == "scorer_rollout"
+            ),
+        },
+        "review_queue": review_queue,
+        "trend_summary": trend_summary,
+        "summary": {
+            "payload_access": "forbidden",
+            "prompt_access": "forbidden",
+            "change_access": "forbidden",
+            "terminal_access": "forbidden",
+            "automatic_rollout_enabled": False,
+            "automatic_lifecycle_action": False,
+            "store_write_performed": False,
+            "automatic_publish_performed": False,
+            "notification_sent": False,
+        },
+        "audit_id": "audit_quality_center_console_snapshot",
+    }
+
+
+def _quality_center_agent_summary(item: dict[str, Any], index: int) -> dict[str, Any]:
+    signal_id = str(item.get("signal_id") or item.get("id") or f"quality_{index}")
+    status = str(item.get("status") or "unknown")
+    quality_state = _quality_center_quality_state(status)
+    comparison_state = _quality_center_comparison_state(status)
+    return {
+        "agent_id": _display_safe_text(str(item.get("category") or signal_id)),
+        "version": "console_snapshot",
+        "owner_team": _display_safe_text(str(item.get("owner_hint") or "质量负责人")),
+        "score": _quality_center_score(item.get("score")),
+        "quality_state": quality_state,
+        "confidence": _quality_center_confidence(status),
+        "score_template_id": "quality_summary_console_snapshot",
+        "evidence_level": _display_safe_text(str(item.get("score") or "summary_only")),
+        "missing_evidence": _quality_center_missing_evidence(item),
+        "explanation": _display_safe_text(
+            str(
+                item.get("primary_action")
+                or "仅展示 Console 摘要，必要时进入人工复核。"
+            )
+        ),
+        "lifecycle_state": _quality_center_lifecycle_state(quality_state),
+        "lifecycle_action": _quality_center_lifecycle_action(quality_state),
+        "scorer": {
+            "scorer_id": "quality_summary_console_snapshot",
+            "scorer_version": "summary",
+            "rollout_state": "candidate",
+        },
+        "scorer_comparison": {
+            "comparison_state": comparison_state,
+            "safety_impact": "neutral"
+            if comparison_state == "ready_for_manual_approval"
+            else "needs_review",
+            "alignment_delta": 0.0,
+            "recommendation": "submit_for_manual_rollout_approval"
+            if comparison_state == "ready_for_manual_approval"
+            else "collect_more_samples",
+            "manual_approval_required": True,
+        },
+    }
+
+
+def _quality_center_review_queue(
+    agent_summaries: list[dict[str, Any]], adoption: dict[str, Any]
+) -> list[dict[str, Any]]:
+    review_items: list[dict[str, Any]] = []
+    for summary in agent_summaries:
+        if summary["quality_state"] != "healthy":
+            review_items.append(
+                _quality_center_review_item(
+                    summary,
+                    review_type="quality_evidence",
+                    reason="missing_or_low_confidence_evidence",
+                    recommended_action="collect_more_evidence",
+                )
+            )
+        comparison_state = str(
+            summary.get("scorer_comparison", {}).get("comparison_state") or ""
+        )
+        if comparison_state in {
+            "ready_for_manual_approval",
+            "needs_human_review",
+            "insufficient_evidence",
+        }:
+            review_items.append(
+                _quality_center_review_item(
+                    summary,
+                    review_type="scorer_rollout",
+                    reason=comparison_state,
+                    recommended_action=str(
+                        summary.get("scorer_comparison", {}).get("recommendation")
+                        or "collect_more_samples"
+                    ),
+                )
+            )
+        if summary["lifecycle_state"] != "healthy":
+            review_items.append(
+                _quality_center_review_item(
+                    summary,
+                    review_type="lifecycle",
+                    reason=str(summary["lifecycle_state"]),
+                    recommended_action=str(summary["lifecycle_action"]),
+                )
+            )
+
+    for signal in adoption.get("reviewSignals", []):
+        review_items.append(
+            {
+                "id": f"quality_center_adoption_{_slug(str(signal.get('id') or 'review'))}",
+                "agent_id": _display_safe_text(str(signal.get("title") or "adoption")),
+                "version": "console_snapshot",
+                "review_type": "quality_evidence",
+                "reason": _display_safe_text(str(signal.get("reason") or "review")),
+                "recommended_action": "open_ops_review",
+                "owner_team": _display_safe_text(
+                    str(signal.get("owner") or "质量负责人")
+                ),
+                "manual_review_required": True,
+                "automatic_action_performed": False,
+            }
+        )
+    return review_items
+
+
+def _quality_center_review_item(
+    summary: dict[str, Any], *, review_type: str, reason: str, recommended_action: str
+) -> dict[str, Any]:
+    agent_id = str(summary.get("agent_id") or "unknown_agent")
+    version = str(summary.get("version") or "unknown")
+    return {
+        "id": f"quality_center_{_slug(review_type)}_{_slug(agent_id)}_{_slug(reason)}",
+        "agent_id": agent_id,
+        "version": version,
+        "review_type": review_type,
+        "reason": _display_safe_text(reason),
+        "recommended_action": _display_safe_text(recommended_action),
+        "owner_team": _display_safe_text(str(summary.get("owner_team") or "")),
+        "manual_review_required": True,
+        "automatic_action_performed": False,
+    }
+
+
+def _quality_center_trend_summary(
+    adoption: dict[str, Any], review_queue: list[dict[str, Any]]
+) -> dict[str, Any]:
+    metrics = adoption.get("metrics", {})
+    return {
+        "report_state": "ready" if metrics else "insufficient_data",
+        "retention_rate": str(metrics.get("retention_rate") or "0%"),
+        "review_queue_size": len(review_queue),
+        "rework_rounds": int(metrics.get("rework_rounds") or 0),
+        "pr_review_findings": int(metrics.get("pr_review_findings") or 0),
+        "recommendation": "人工复核缺证据、低置信和评分器发布项；不执行自动生命周期动作。",
+    }
+
+
+def _quality_center_quality_state(status: str) -> str:
+    if status in {"healthy", "normal", "ok", "succeeded"}:
+        return "healthy"
+    if status in {"degraded", "warning", "warn", "pending"}:
+        return "watching"
+    if status in {"redaction_failed", "permission_denied", "failed", "blocked"}:
+        return "needs_review"
+    if status in {"block", "critical"}:
+        return "critical"
+    return "insufficient_evidence"
+
+
+def _quality_center_lifecycle_state(quality_state: str) -> str:
+    if quality_state == "healthy":
+        return "healthy"
+    if quality_state == "watching":
+        return "watching"
+    if quality_state == "critical":
+        return "disable_review_recommended"
+    return "review_required"
+
+
+def _quality_center_lifecycle_action(quality_state: str) -> str:
+    if quality_state == "healthy":
+        return "none"
+    if quality_state == "watching":
+        return "watch"
+    if quality_state == "critical":
+        return "open_disable_review"
+    return "open_ops_review"
+
+
+def _quality_center_comparison_state(status: str) -> str:
+    if status in {"healthy", "normal", "ok", "succeeded"}:
+        return "ready_for_manual_approval"
+    if status in {
+        "redaction_failed",
+        "permission_denied",
+        "failed",
+        "blocked",
+        "block",
+    }:
+        return "needs_human_review"
+    return "insufficient_evidence"
+
+
+def _quality_center_confidence(status: str) -> float:
+    if status in {"healthy", "normal", "ok", "succeeded"}:
+        return 0.86
+    if status in {"degraded", "warning", "warn", "pending"}:
+        return 0.62
+    return 0.38
+
+
+def _quality_center_score(value: Any) -> float:
+    text = str(value or "")
+    digits = "".join(ch for ch in text if ch.isdigit() or ch == ".")
+    if not digits:
+        return 0.0
+    try:
+        return min(float(digits), 100.0)
+    except ValueError:
+        return 0.0
+
+
+def _quality_center_missing_evidence(item: dict[str, Any]) -> list[str]:
+    status = str(item.get("status") or "")
+    if status in {"healthy", "normal", "ok", "succeeded"}:
+        return []
+    evidence_ref = _display_safe_text(str(item.get("evidence_ref") or "summary"))
+    return [evidence_ref or "quality_summary"]
+
+
+def _display_safe_text(value: str) -> str:
+    lowered = value.lower()
+    if any(marker in lowered for marker in ("http://", "https://", "secret", "token")):
+        return "[redacted]"
+    return value
 
 
 def _evidence_vault_workbench(console_data: dict[str, Any]) -> dict[str, Any]:
