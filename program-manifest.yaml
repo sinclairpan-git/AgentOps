@@ -187,38 +187,42 @@ specs:
   path: specs/048-quality-scorer-external-intake-index
   depends_on:
   - 047-quality-scorer-external-intake-readback
+- id: 049-quality-scorer-external-intake-summary
+  path: specs/049-quality-scorer-external-intake-summary
+  depends_on:
+  - 048-quality-scorer-external-intake-index
 truth_snapshot:
-  generated_at: '2026-05-11T15:19:20Z'
+  generated_at: '2026-05-11T16:11:01Z'
   generated_by: ai-sdlc program truth sync
   generator_version: program_truth_snapshot_v1
-  repo_revision: 371efe2
-  authoring_hash: 1160eb23ffb10df3c778a42c9e640bd02aac988cebf11c8559be20f5ce1b5aaf
+  repo_revision: 7b48ff5
+  authoring_hash: ecf9bbf4c93cac36eb47a0252eb6aa4a0ab4333d0f394b605a8987d1f7d1dbe3
   source_hashes: {}
-  snapshot_hash: 4bb059d5ff3247794e1fdd3cbf4125f978c4595c87830e86c8f288090e21378f
+  snapshot_hash: 95ff22a1eb9968eb42c60de42677ae8bd42eb847e7c3e3b973aa63eb5a66b96d
   computed_capabilities: []
   source_inventory:
     state: complete
-    total_sources: 241
-    mapped_sources: 241
+    total_sources: 246
+    mapped_sources: 246
     unmapped_sources: 0
     missing_sources: 0
-    phase_signal_count: 703
-    deferred_signal_count: 865
-    non_goal_signal_count: 79
+    phase_signal_count: 707
+    deferred_signal_count: 871
+    non_goal_signal_count: 81
     layer_totals:
       blueprint: 1
-      spec: 48
-      plan: 48
-      tasks: 48
-      execution: 48
-      close: 48
+      spec: 49
+      plan: 49
+      tasks: 49
+      execution: 49
+      close: 49
     layer_materialized:
       blueprint: 1
-      spec: 48
-      plan: 48
-      tasks: 48
-      execution: 48
-      close: 48
+      spec: 49
+      plan: 49
+      tasks: 49
+      execution: 49
+      close: 49
     entries:
     - path: /Users/sinclairpan/project/AI-Native底座开发文档/AgentOps_项目_PRD.md
       source_type: prd
@@ -2386,6 +2390,51 @@ truth_snapshot:
       mapped: true
       exists: true
       mapping_ref: 048-quality-scorer-external-intake-index
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 0
+    - path: specs/049-quality-scorer-external-intake-summary/spec.md
+      source_type: spec_doc
+      truth_layer: spec
+      mapped: true
+      exists: true
+      mapping_ref: 049-quality-scorer-external-intake-summary
+      phase_signal_count: 2
+      deferred_signal_count: 2
+      non_goal_signal_count: 0
+    - path: specs/049-quality-scorer-external-intake-summary/plan.md
+      source_type: plan_doc
+      truth_layer: plan
+      mapped: true
+      exists: true
+      mapping_ref: 049-quality-scorer-external-intake-summary
+      phase_signal_count: 2
+      deferred_signal_count: 2
+      non_goal_signal_count: 1
+    - path: specs/049-quality-scorer-external-intake-summary/tasks.md
+      source_type: tasks_doc
+      truth_layer: tasks
+      mapped: true
+      exists: true
+      mapping_ref: 049-quality-scorer-external-intake-summary
+      phase_signal_count: 0
+      deferred_signal_count: 1
+      non_goal_signal_count: 0
+    - path: specs/049-quality-scorer-external-intake-summary/task-execution-log.md
+      source_type: execution_log
+      truth_layer: execution
+      mapped: true
+      exists: true
+      mapping_ref: 049-quality-scorer-external-intake-summary
+      phase_signal_count: 0
+      deferred_signal_count: 1
+      non_goal_signal_count: 1
+    - path: specs/049-quality-scorer-external-intake-summary/development-summary.md
+      source_type: development_summary
+      truth_layer: close
+      mapped: true
+      exists: true
+      mapping_ref: 049-quality-scorer-external-intake-summary
       phase_signal_count: 0
       deferred_signal_count: 0
       non_goal_signal_count: 0
