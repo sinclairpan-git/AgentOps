@@ -109,6 +109,7 @@ class InMemoryRepository:
     eval_cases: dict[str, dict[str, Any]] = field(default_factory=dict)
     safe_replay_plans: dict[str, dict[str, Any]] = field(default_factory=dict)
     experiment_plans: dict[str, dict[str, Any]] = field(default_factory=dict)
+    quality_scorer_executions: dict[str, dict[str, Any]] = field(default_factory=dict)
     agent_store_agents: dict[str, dict[str, Any]] = field(default_factory=dict)
     agent_store_skills: dict[str, dict[str, Any]] = field(default_factory=dict)
     runtime_runs: dict[str, dict[str, Any]] = field(default_factory=dict)
@@ -878,6 +879,49 @@ class InMemoryRepository:
             stored["experiment_plan_id"] = f"experiment_plan_{sequence}"
             self.experiment_plans[stored["experiment_plan_id"]] = stored
             return deepcopy(stored)
+
+    def store_quality_scorer_execution(
+        self, execution: dict[str, Any]
+    ) -> dict[str, Any]:
+        with self._lock:
+            sequence = len(self.quality_scorer_executions) + 1
+            stored = deepcopy(execution)
+            stored["execution_sequence"] = sequence
+            stored["execution_id"] = f"quality_scorer_execution_{sequence}"
+            self.quality_scorer_executions[stored["execution_id"]] = stored
+            return deepcopy(stored)
+
+    def quality_scorer_execution_records(
+        self,
+        agent_id: str | None = None,
+        version: str | None = None,
+        *,
+        scorer_id: str | None = None,
+        limit: int | None = None,
+    ) -> tuple[dict[str, Any], ...]:
+        with self._lock:
+            records = []
+            for record in self.quality_scorer_executions.values():
+                scorer = (
+                    record.get("scorer")
+                    if isinstance(record.get("scorer"), dict)
+                    else {}
+                )
+                if agent_id is not None and record.get("agent_id") != agent_id:
+                    continue
+                if version is not None and record.get("version") != version:
+                    continue
+                if scorer_id is not None and scorer.get("scorer_id") != scorer_id:
+                    continue
+                records.append(deepcopy(record))
+            records = sorted(
+                records, key=lambda item: item.get("execution_sequence", 0)
+            )
+            if limit == 0:
+                return ()
+            if limit is not None and limit > 0:
+                records = records[-limit:]
+            return tuple(records)
 
     def runtime_dlq_records(
         self, *, agent_id: str | None = None, version: str | None = None
