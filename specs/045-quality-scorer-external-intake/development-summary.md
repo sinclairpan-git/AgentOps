@@ -36,3 +36,5 @@
 - PR #47 Codex P1：external intake idempotency 现在保留完整 key，不再用 `_safe_label` 截断，避免 80 字符前缀相同的不同 key 碰撞。
 - PR #47 Codex P1：forbidden raw material key matching 现在大小写不敏感，`Raw_Payload` 等变体会被拒绝。
 - Review fix 验证：AO45 10 passed；AO40/AO41/AO42/AO44/AO45 回归 45 passed；完整 pytest 通过；ruff check/format check 通过；AI-SDLC constraints 无 BLOCKER。
+- PR #47 Codex P1：scoped idempotency key 复用现在会校验 payload hash；同 key 不同 payload 返回 `QUALITY_SCORER_INTAKE_IDEMPOTENCY_CONFLICT` 且不写新 execution evidence。
+- Review fix 验证：AO45 + registry 13 passed；AO40/AO41/AO42/AO44/AO45 回归 46 passed；完整 pytest 通过；ruff check/format check 通过；AI-SDLC truth sync 和 constraints 通过。

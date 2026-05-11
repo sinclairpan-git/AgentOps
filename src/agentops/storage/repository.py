@@ -42,6 +42,21 @@ def _quality_scorer_external_idempotency_scope(receipt: dict[str, Any]) -> str:
     return f"{agent_hash}\0{version_hash}\0{idempotency_key}"
 
 
+def _quality_scorer_external_deduplicated_receipt(
+    stored: dict[str, Any], incoming: dict[str, Any]
+) -> dict[str, Any]:
+    if str(stored.get("payload_hash") or "") != str(incoming.get("payload_hash") or ""):
+        raise AgentOpsError(
+            "QUALITY_SCORER_INTAKE_IDEMPOTENCY_CONFLICT",
+            "External quality scorer intake idempotency key was reused with a different payload.",
+            denied_scope="quality_scorer_external_intake.idempotency_key",
+            audit_id=str(incoming.get("audit_id") or stored.get("audit_id") or ""),
+        )
+    deduplicated = deepcopy(stored)
+    deduplicated["intake_state"] = "deduplicated"
+    return deduplicated
+
+
 def _runtime_number_sort_value(value: Any) -> float:
     if isinstance(value, bool):
         return -1.0
@@ -986,8 +1001,7 @@ class InMemoryRepository:
             if idempotency_scope in self.quality_scorer_external_idempotency:
                 intake_id = self.quality_scorer_external_idempotency[idempotency_scope]
                 stored = deepcopy(self.quality_scorer_external_receipts[intake_id])
-                stored["intake_state"] = "deduplicated"
-                return stored
+                return _quality_scorer_external_deduplicated_receipt(stored, receipt)
             sequence = len(self.quality_scorer_external_receipts) + 1
             stored = deepcopy(receipt)
             stored["intake_sequence"] = sequence
@@ -1007,8 +1021,7 @@ class InMemoryRepository:
             if idempotency_scope in self.quality_scorer_external_idempotency:
                 intake_id = self.quality_scorer_external_idempotency[idempotency_scope]
                 stored = deepcopy(self.quality_scorer_external_receipts[intake_id])
-                stored["intake_state"] = "deduplicated"
-                return stored
+                return _quality_scorer_external_deduplicated_receipt(stored, receipt)
 
             execution_sequence = len(self.quality_scorer_executions) + 1
             stored_execution = deepcopy(execution)
