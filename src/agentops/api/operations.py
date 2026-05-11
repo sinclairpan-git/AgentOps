@@ -16,6 +16,7 @@ from agentops.core.operations import (
     build_multi_agent_handoff_evaluation,
     build_optimizer_recommendation,
     build_policy_simulation_projection,
+    build_quality_center_workbench,
     build_quality_score_projection,
     build_quality_scorer_comparison,
     build_quality_scorer_version,
@@ -142,6 +143,13 @@ def get_monthly_quality_report(
     **kwargs: Any,
 ) -> dict[str, Any]:
     return build_monthly_quality_report(repository, **kwargs)
+
+
+def get_quality_center_workbench(
+    repository: InMemoryRepository,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    return build_quality_center_workbench(repository, **kwargs)
 
 
 def get_runtime_budget_summary(
