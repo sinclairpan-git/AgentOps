@@ -24,6 +24,24 @@ def _quality_scorer_lookup_hash(field_name: str, value: Any) -> str:
     return f"sha256:{hashlib.sha256(material.encode('utf-8')).hexdigest()}"
 
 
+def _quality_scorer_external_idempotency_scope(receipt: dict[str, Any]) -> str:
+    lookup_identity = (
+        receipt.get("lookup_identity")
+        if isinstance(receipt.get("lookup_identity"), dict)
+        else {}
+    )
+    agent_hash = str(
+        lookup_identity.get("agent_id_hash")
+        or _quality_scorer_lookup_hash("agent_id", receipt.get("agent_id"))
+    )
+    version_hash = str(
+        lookup_identity.get("version_hash")
+        or _quality_scorer_lookup_hash("version", receipt.get("version"))
+    )
+    idempotency_key = str(receipt.get("idempotency_key") or "")
+    return f"{agent_hash}\0{version_hash}\0{idempotency_key}"
+
+
 def _runtime_number_sort_value(value: Any) -> float:
     if isinstance(value, bool):
         return -1.0
@@ -964,9 +982,9 @@ class InMemoryRepository:
         self, receipt: dict[str, Any]
     ) -> dict[str, Any]:
         with self._lock:
-            idempotency_key = str(receipt.get("idempotency_key") or "")
-            if idempotency_key in self.quality_scorer_external_idempotency:
-                intake_id = self.quality_scorer_external_idempotency[idempotency_key]
+            idempotency_scope = _quality_scorer_external_idempotency_scope(receipt)
+            if idempotency_scope in self.quality_scorer_external_idempotency:
+                intake_id = self.quality_scorer_external_idempotency[idempotency_scope]
                 stored = deepcopy(self.quality_scorer_external_receipts[intake_id])
                 stored["intake_state"] = "deduplicated"
                 return stored
@@ -975,21 +993,71 @@ class InMemoryRepository:
             stored["intake_sequence"] = sequence
             stored["intake_id"] = f"quality_scorer_external_intake_{sequence}"
             self.quality_scorer_external_receipts[stored["intake_id"]] = stored
-            if idempotency_key:
-                self.quality_scorer_external_idempotency[idempotency_key] = stored[
+            if stored.get("idempotency_key"):
+                self.quality_scorer_external_idempotency[idempotency_scope] = stored[
                     "intake_id"
                 ]
             return deepcopy(stored)
 
+    def store_quality_scorer_external_intake(
+        self, receipt: dict[str, Any], execution: dict[str, Any]
+    ) -> dict[str, Any]:
+        with self._lock:
+            idempotency_scope = _quality_scorer_external_idempotency_scope(receipt)
+            if idempotency_scope in self.quality_scorer_external_idempotency:
+                intake_id = self.quality_scorer_external_idempotency[idempotency_scope]
+                stored = deepcopy(self.quality_scorer_external_receipts[intake_id])
+                stored["intake_state"] = "deduplicated"
+                return stored
+
+            execution_sequence = len(self.quality_scorer_executions) + 1
+            stored_execution = deepcopy(execution)
+            stored_execution["execution_sequence"] = execution_sequence
+            stored_execution["execution_id"] = (
+                f"quality_scorer_execution_{execution_sequence}"
+            )
+            self.quality_scorer_executions[stored_execution["execution_id"]] = (
+                stored_execution
+            )
+
+            intake_sequence = len(self.quality_scorer_external_receipts) + 1
+            stored_receipt = deepcopy(receipt)
+            stored_receipt["intake_sequence"] = intake_sequence
+            stored_receipt["intake_id"] = (
+                f"quality_scorer_external_intake_{intake_sequence}"
+            )
+            stored_receipt["accepted_execution_id"] = stored_execution["execution_id"]
+            self.quality_scorer_external_receipts[stored_receipt["intake_id"]] = (
+                stored_receipt
+            )
+            if stored_receipt.get("idempotency_key"):
+                self.quality_scorer_external_idempotency[idempotency_scope] = (
+                    stored_receipt["intake_id"]
+                )
+            return deepcopy(stored_receipt)
+
     def quality_scorer_external_receipt_by_idempotency(
-        self, idempotency_key: str
+        self,
+        idempotency_key: str,
+        *,
+        agent_id: str | None = None,
+        version: str | None = None,
     ) -> dict[str, Any] | None:
         with self._lock:
-            intake_id = self.quality_scorer_external_idempotency.get(idempotency_key)
+            receipt = {
+                "idempotency_key": idempotency_key,
+                "lookup_identity": {
+                    "agent_id_hash": _quality_scorer_lookup_hash("agent_id", agent_id),
+                    "version_hash": _quality_scorer_lookup_hash("version", version),
+                },
+            }
+            intake_id = self.quality_scorer_external_idempotency.get(
+                _quality_scorer_external_idempotency_scope(receipt)
+            )
             if not intake_id:
                 return None
-            receipt = self.quality_scorer_external_receipts.get(intake_id)
-            return deepcopy(receipt) if receipt else None
+            stored = self.quality_scorer_external_receipts.get(intake_id)
+            return deepcopy(stored) if stored else None
 
     def runtime_dlq_records(
         self, *, agent_id: str | None = None, version: str | None = None

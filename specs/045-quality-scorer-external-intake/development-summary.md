@@ -27,3 +27,9 @@
 - `uv run ruff check src/agentops/core/runtime_contracts.py src/agentops/core/operations.py src/agentops/api/operations.py src/agentops/storage/repository.py tests/contract/test_ao45_ct_quality_scorer_external_intake.py`：通过。
 - `uv run ruff format --check src/agentops/core/runtime_contracts.py src/agentops/core/operations.py src/agentops/api/operations.py src/agentops/storage/repository.py tests/contract/test_ao45_ct_quality_scorer_external_intake.py`：通过。
 - `uv run pytest -q`：通过。
+
+## Review Fix
+
+- PR #47 Codex P1：external intake idempotency 现在按 agent/version lookup identity + `idempotency_key` 建作用域，避免不同 agent/version 复用同 key 时误判 deduplicated。
+- PR #47 Codex P1：external intake receipt 与 scorer execution evidence 现在在 repository 同一锁内原子写入，重复 key 并发请求只会创建一条 execution evidence。
+- Review fix 验证：AO45 8 passed；AO40/AO41/AO42/AO44/AO45 回归 43 passed；完整 pytest 通过；ruff check/format check 通过；AI-SDLC dry-run、truth sync、constraints 均通过。

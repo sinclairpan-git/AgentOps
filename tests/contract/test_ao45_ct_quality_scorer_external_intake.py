@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
@@ -133,7 +134,92 @@ def test_ao45_ct_003_external_intake_idempotency_does_not_duplicate_execution():
     )
 
 
-def test_ao45_ct_004_external_intake_rejects_untrusted_or_unsigned_source():
+def test_ao45_ct_004_external_intake_scopes_idempotency_by_agent_version():
+    repository = InMemoryRepository()
+    eval_case_a = _seed_eval_case(repository, run_id="run_failed_a")
+    eval_case_b = _seed_eval_case(
+        repository,
+        run_id="run_failed_b",
+        agent_id="agent.runtime",
+        version="2.0.0",
+    )
+
+    first = ingest_quality_scorer_external_execution(
+        repository,
+        "agent.ai-sdlc",
+        "1.0.0",
+        idempotency_key="scorer-external:run-1",
+        signature="sig:external-scorer-1",
+        scorer=_candidate_scorer(),
+        external_result={
+            "source_eval_cases": [eval_case_a],
+            "case_results": [
+                {"eval_case_id": eval_case_a, "outcome": "passed", "score": 0.91}
+            ],
+        },
+    )
+    second = ingest_quality_scorer_external_execution(
+        repository,
+        "agent.runtime",
+        "2.0.0",
+        idempotency_key="scorer-external:run-1",
+        signature="sig:external-scorer-1",
+        scorer=_candidate_scorer(),
+        external_result={
+            "source_eval_cases": [eval_case_b],
+            "case_results": [
+                {"eval_case_id": eval_case_b, "outcome": "passed", "score": 0.92}
+            ],
+        },
+    )
+
+    assert first["intake_state"] == "accepted"
+    assert second["intake_state"] == "accepted"
+    assert second["intake_id"] != first["intake_id"]
+    assert second["accepted_execution_id"] != first["accepted_execution_id"]
+    assert (
+        len(repository.quality_scorer_execution_records("agent.ai-sdlc", "1.0.0")) == 1
+    )
+    assert (
+        len(repository.quality_scorer_execution_records("agent.runtime", "2.0.0")) == 1
+    )
+
+
+def test_ao45_ct_005_external_intake_check_and_write_is_atomic_for_duplicate_key():
+    repository = InMemoryRepository()
+    eval_case_id = _seed_eval_case(repository)
+    payload = {
+        "source_eval_cases": [eval_case_id],
+        "case_results": [
+            {"eval_case_id": eval_case_id, "outcome": "passed", "score": 0.91}
+        ],
+    }
+
+    def ingest_once() -> dict:
+        return ingest_quality_scorer_external_execution(
+            repository,
+            "agent.ai-sdlc",
+            "1.0.0",
+            idempotency_key="scorer-external:atomic",
+            signature="sig:external-scorer-1",
+            scorer=_candidate_scorer(),
+            external_result=payload,
+        )
+
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        receipts = list(executor.map(lambda _: ingest_once(), range(8)))
+
+    assert sum(1 for receipt in receipts if receipt["intake_state"] == "accepted") == 1
+    assert (
+        sum(1 for receipt in receipts if receipt["intake_state"] == "deduplicated") == 7
+    )
+    assert len({receipt["accepted_execution_id"] for receipt in receipts}) == 1
+    assert (
+        len(repository.quality_scorer_execution_records("agent.ai-sdlc", "1.0.0")) == 1
+    )
+
+
+def test_ao45_ct_006_external_intake_rejects_untrusted_or_unsigned_source():
     repository = InMemoryRepository()
     eval_case_id = _seed_eval_case(repository)
 
@@ -168,7 +254,7 @@ def test_ao45_ct_004_external_intake_rejects_untrusted_or_unsigned_source():
     assert repository.quality_scorer_execution_records("agent.ai-sdlc", "1.0.0") == ()
 
 
-def test_ao45_ct_005_external_intake_rejects_sample_boundary_and_raw_payload():
+def test_ao45_ct_007_external_intake_rejects_sample_boundary_and_raw_payload():
     repository = InMemoryRepository()
     eval_case_id = _seed_eval_case(repository)
 
@@ -204,7 +290,7 @@ def test_ao45_ct_005_external_intake_rejects_sample_boundary_and_raw_payload():
     assert repository.quality_scorer_execution_records("agent.ai-sdlc", "1.0.0") == ()
 
 
-def test_ao45_ct_006_quality_center_aggregates_external_intake_execution():
+def test_ao45_ct_008_quality_center_aggregates_external_intake_execution():
     repository = InMemoryRepository()
     eval_case_id = _seed_eval_case(repository)
     ingest_quality_scorer_external_execution(
@@ -245,8 +331,20 @@ def test_ao45_ct_006_quality_center_aggregates_external_intake_execution():
     _assert_no_raw_leaks(workbench)
 
 
-def _seed_eval_case(repository: InMemoryRepository, run_id: str = "run_failed") -> str:
-    write_runtime_run(repository, run_id=run_id, status="failed")
+def _seed_eval_case(
+    repository: InMemoryRepository,
+    run_id: str = "run_failed",
+    *,
+    agent_id: str = "agent.ai-sdlc",
+    version: str = "1.0.0",
+) -> str:
+    write_runtime_run(
+        repository,
+        run_id=run_id,
+        agent_id=agent_id,
+        version=version,
+        status="failed",
+    )
     write_full_trace(repository, run_id=run_id)
     eval_case = create_eval_case(
         repository,

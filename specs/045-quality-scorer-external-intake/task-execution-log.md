@@ -128,3 +128,52 @@
 - 当前批次 branch disposition 状态：待提交/PR
 - 当前批次 worktree disposition 状态：保留
 - 是否继续下一批：否，本工作项进入 close verification。
+
+## Review Fix 2026-05-11-001 | Codex external intake idempotency scope
+
+### RF-001 | 按 agent/version 隔离 external intake idempotency
+
+- 触发来源：PR #47 Codex review P1 inline comment。
+- 问题：external intake receipt index 只使用 `idempotency_key`，不同 `agent_id`/`version` 复用同 key 时会误返回第一条 receipt，导致合法 scorer execution 被丢弃并可能跨 agent 误归因。
+- 改动范围：`src/agentops/storage/repository.py`、`src/agentops/core/operations.py`、`tests/contract/test_ao45_ct_quality_scorer_external_intake.py`、`src/agentops/core/runtime_contracts.py`。
+- 改动内容：repository idempotency scope 改为 agent/version lookup hash + `idempotency_key`；core 查询 dedup 时传入 agent/version；新增 AO45-CT-007 验证同 key 在不同 agent/version 下分别 accepted。
+
+### RF-002 | 原子化 receipt/execution check-and-write
+
+- 触发来源：PR #47 Codex review P1 inline comment。
+- 问题：core 先检查 idempotency，再分两步写 execution 和 receipt；并发同 key 请求可能同时通过检查并写入重复 execution evidence。
+- 改动范围：`src/agentops/storage/repository.py`、`src/agentops/core/operations.py`、`tests/contract/test_ao45_ct_quality_scorer_external_intake.py`。
+- 改动内容：新增 `store_quality_scorer_external_intake()`，在 repository 单个锁内完成 idempotency check、execution 写入、receipt 写入和 index 更新；core 改为构建 execution/receipt 后一次性提交；新增 AO45-CT-008 并发重复 key regression。
+
+### 统一验证命令
+
+- `ai-sdlc adapter status`：通过，host verification passed。
+- `ai-sdlc run --dry-run`：checkpoint 指向 044 时暂停，提示需 `ai-sdlc recover --reconcile`；执行 reconcile 后复跑通过，`close: PASS`。
+- `uv run pytest tests/contract/test_ao45_ct_quality_scorer_external_intake.py -q`：通过，8 passed。
+- `uv run pytest tests/contract/test_ao40_ct_quality_lifecycle_analytics.py tests/contract/test_ao41_ct_quality_scorer_versioning.py tests/contract/test_ao42_ct_quality_center_workbench.py tests/contract/test_ao44_ct_quality_scorer_execution_evidence.py tests/contract/test_ao45_ct_quality_scorer_external_intake.py -q`：通过，43 passed。
+- `uv run pytest -q`：通过。
+- `uv run ruff check src/agentops/core/operations.py src/agentops/storage/repository.py tests/contract/test_ao45_ct_quality_scorer_external_intake.py`：通过。
+- `uv run ruff format --check src/agentops/core/runtime_contracts.py src/agentops/core/operations.py src/agentops/storage/repository.py tests/contract/test_ao45_ct_quality_scorer_external_intake.py`：通过。
+- `python -m ai_sdlc program truth sync --execute --yes`：ready，45/45 mapped。
+- `uv run ai-sdlc verify constraints`：通过，无 BLOCKER。
+
+### 代码审查结论
+
+- 宪章/规格对齐：符合。修复只增强 external intake 幂等与并发安全，不改变 summary-only/no-auto-action 边界。
+- 代码质量：符合。作用域键使用不可逆 lookup hash，原子写入集中在 repository 锁内，core 不再分步持久化。
+- 测试质量：新增跨 agent/version 同 key 与并发重复 key regression。
+- 结论：通过。
+
+### 任务/计划同步状态
+
+- `tasks.md` 同步状态：045 任务仍为完成；review fix 不新增 scope。
+- `plan.md` 同步状态：Phase 2 repository/core/API external intake 的 idempotency 要求已补强。
+- 关联 branch/worktree disposition 计划：当前分支保留待 PR review fix 推送。
+
+### 归档后动作
+
+- **已完成 git 提交**：是，本 review fix 将作为当前提交追加。
+- **提交哈希**：见当前 Git HEAD。
+- 当前批次 branch disposition 状态：待 PR review fix 推送
+- 当前批次 worktree disposition 状态：保留
+- 是否继续下一批：否，继续 PR 收口

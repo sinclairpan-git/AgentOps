@@ -980,7 +980,9 @@ def ingest_quality_scorer_external_execution(
             audit_id=audit_id,
         )
     existing_receipt = repository.quality_scorer_external_receipt_by_idempotency(
-        safe_idempotency_key
+        safe_idempotency_key,
+        agent_id=agent_id,
+        version=version,
     )
     if existing_receipt:
         deduplicated = dict(existing_receipt)
@@ -1066,76 +1068,74 @@ def ingest_quality_scorer_external_execution(
     )
     scores = [item["score"] for item in case_results]
     received_at = _normalize_time(now or datetime.now(UTC)).isoformat()
-    execution = repository.store_quality_scorer_execution(
-        _without_forbidden_keys(
-            {
-                "schema_version": "quality_scorer_execution.v1",
-                "execution_id": "",
-                "agent_id": _safe_label(agent_id),
-                "version": _safe_label(version),
-                "lookup_identity": {
-                    "agent_id_hash": _quality_scorer_lookup_hash("agent_id", agent_id),
-                    "version_hash": _quality_scorer_lookup_hash("version", version),
-                },
-                "scorer": {
-                    "scorer_id": scorer_version["scorer_id"],
-                    "scorer_version": scorer_version["scorer_version"],
-                    "score_template_id": scorer_version["score_template_id"],
-                    "rollout_state": scorer_version["rollout_state"],
-                },
-                "source_eval_cases": source_eval_cases,
+    execution = _without_forbidden_keys(
+        {
+            "schema_version": "quality_scorer_execution.v1",
+            "execution_id": "",
+            "agent_id": _safe_label(agent_id),
+            "version": _safe_label(version),
+            "lookup_identity": {
+                "agent_id_hash": _quality_scorer_lookup_hash("agent_id", agent_id),
+                "version_hash": _quality_scorer_lookup_hash("version", version),
+            },
+            "scorer": {
+                "scorer_id": scorer_version["scorer_id"],
+                "scorer_version": scorer_version["scorer_version"],
+                "score_template_id": scorer_version["score_template_id"],
+                "rollout_state": scorer_version["rollout_state"],
+            },
+            "source_eval_cases": source_eval_cases,
+            "sample_size": sample_size,
+            "execution_state": execution_state,
+            "outcome_counts": outcome_counts,
+            "pass_rate": pass_rate,
+            "score_summary": {
+                "average": round(sum(scores) / len(scores), 4) if scores else 0.0,
+                "minimum": min(scores) if scores else 0.0,
+                "maximum": max(scores) if scores else 0.0,
+                "threshold": safe_threshold,
+            },
+            "evidence_window": {
+                "type": "external_eval_case_summary",
+                "minimum_required": min_eval_cases,
                 "sample_size": sample_size,
-                "execution_state": execution_state,
-                "outcome_counts": outcome_counts,
-                "pass_rate": pass_rate,
-                "score_summary": {
-                    "average": round(sum(scores) / len(scores), 4) if scores else 0.0,
-                    "minimum": min(scores) if scores else 0.0,
-                    "maximum": max(scores) if scores else 0.0,
-                    "threshold": safe_threshold,
-                },
-                "evidence_window": {
-                    "type": "external_eval_case_summary",
-                    "minimum_required": min_eval_cases,
-                    "sample_size": sample_size,
-                    "input_boundary": {
-                        "accepted_inputs": [
-                            "external_scorer_summary_result",
-                            "eval_case_summary",
-                            "scorer_version_summary",
-                        ],
-                        "raw_payload_access": "forbidden",
-                        "raw_prompt_access": "forbidden",
-                        "raw_diff_access": "forbidden",
-                        "terminal_output_access": "forbidden",
-                    },
-                },
-                "recommendation": recommendation,
-                "executed_by": _safe_label(producer),
-                "executed_at": received_at,
-                "execution_source": "external_intake",
-                "summary": {
+                "input_boundary": {
+                    "accepted_inputs": [
+                        "external_scorer_summary_result",
+                        "eval_case_summary",
+                        "scorer_version_summary",
+                    ],
                     "raw_payload_access": "forbidden",
                     "raw_prompt_access": "forbidden",
                     "raw_diff_access": "forbidden",
                     "terminal_output_access": "forbidden",
-                    "summary_only_execution": True,
-                    "external_scorer_result_received": True,
-                    "agentops_scorer_invoked": False,
-                    "automatic_rollout_enabled": False,
-                    "automatic_template_switch": False,
-                    "automatic_lifecycle_action": False,
-                    "store_write_performed": False,
-                    "notification_sent": False,
-                    "manual_approval_required": True,
                 },
-                "case_results": case_results,
-                "audit_id": (
-                    "audit_quality_scorer_execution_external_"
-                    f"{_stable_hash([agent_id, version, safe_idempotency_key])[-12:]}"
-                ),
-            }
-        )
+            },
+            "recommendation": recommendation,
+            "executed_by": _safe_label(producer),
+            "executed_at": received_at,
+            "execution_source": "external_intake",
+            "summary": {
+                "raw_payload_access": "forbidden",
+                "raw_prompt_access": "forbidden",
+                "raw_diff_access": "forbidden",
+                "terminal_output_access": "forbidden",
+                "summary_only_execution": True,
+                "external_scorer_result_received": True,
+                "agentops_scorer_invoked": False,
+                "automatic_rollout_enabled": False,
+                "automatic_template_switch": False,
+                "automatic_lifecycle_action": False,
+                "store_write_performed": False,
+                "notification_sent": False,
+                "manual_approval_required": True,
+            },
+            "case_results": case_results,
+            "audit_id": (
+                "audit_quality_scorer_execution_external_"
+                f"{_stable_hash([agent_id, version, safe_idempotency_key])[-12:]}"
+            ),
+        }
     )
     receipt = {
         "schema_version": "quality_scorer_external_intake.v1",
@@ -1152,7 +1152,7 @@ def ingest_quality_scorer_external_execution(
         "signature_state": "verified",
         "intake_state": "accepted",
         "payload_hash": _stable_hash(external_result),
-        "accepted_execution_id": str(execution.get("execution_id") or ""),
+        "accepted_execution_id": "",
         "producer": _safe_label(producer),
         "received_at": received_at,
         "sample_size": sample_size,
@@ -1172,8 +1172,8 @@ def ingest_quality_scorer_external_execution(
         },
         "audit_id": audit_id,
     }
-    return repository.store_quality_scorer_external_receipt(
-        _without_forbidden_keys(receipt)
+    return repository.store_quality_scorer_external_intake(
+        _without_forbidden_keys(receipt), execution
     )
 
 
