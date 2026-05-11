@@ -173,13 +173,13 @@ specs:
   path: specs/044-quality-scorer-execution-evidence
   depends_on: []
 truth_snapshot:
-  generated_at: '2026-05-11T09:10:44Z'
+  generated_at: '2026-05-11T09:23:06Z'
   generated_by: ai-sdlc program truth sync
   generator_version: program_truth_snapshot_v1
-  repo_revision: 171858c
+  repo_revision: 3973e5f
   authoring_hash: df58566d0ab9acf3b377cd63f9ee8008cb690cecd41a50eb4d11a74c85182336
   source_hashes: {}
-  snapshot_hash: fe304b14622bf94ed7cdde5dacb1471b3edc69c950de01d50c977b32d5a9a891
+  snapshot_hash: 7be1f23681904a4d91d5ca53417c3e5e5a43ca6a008d11715cdb93653b9a9664
   computed_capabilities: []
   source_inventory:
     state: complete
@@ -187,8 +187,8 @@ truth_snapshot:
     mapped_sources: 221
     unmapped_sources: 0
     missing_sources: 0
-    phase_signal_count: 633
-    deferred_signal_count: 788
+    phase_signal_count: 636
+    deferred_signal_count: 791
     non_goal_signal_count: 70
     layer_totals:
       blueprint: 1
@@ -2182,8 +2182,8 @@ truth_snapshot:
       mapped: true
       exists: true
       mapping_ref: 044-quality-scorer-execution-evidence
-      phase_signal_count: 6
-      deferred_signal_count: 7
+      phase_signal_count: 8
+      deferred_signal_count: 9
       non_goal_signal_count: 2
     - path: specs/044-quality-scorer-execution-evidence/development-summary.md
       source_type: development_summary
@@ -2191,8 +2191,8 @@ truth_snapshot:
       mapped: true
       exists: true
       mapping_ref: 044-quality-scorer-execution-evidence
-      phase_signal_count: 3
-      deferred_signal_count: 3
+      phase_signal_count: 4
+      deferred_signal_count: 4
       non_goal_signal_count: 0
     unmapped_paths: []
   state: ready

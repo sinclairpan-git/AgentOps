@@ -173,3 +173,33 @@
 - 当前批次 branch disposition 状态：待提交/PR review fix。
 - 当前批次 worktree disposition 状态：保留。
 - 是否继续下一批：否，本批继续 PR 收口。
+
+## Review Fix 2026-05-11-004 | Codex case result source run redaction
+
+### RF-004 | Redact case_results source_run_id and retain run hash
+
+- 触发来源：PR #46 Codex review P1 inline comment。
+- 问题：`_scorer_execution_case_result` 将 `source_run.run_id` 直接写入 `case_results.source_run_id`；若 run id 包含 URL/secret marker，会绕过 044 no-raw-output contract。
+- 改动范围：`src/agentops/core/operations.py`、`src/agentops/core/runtime_contracts.py`、`tests/contract/test_ao44_ct_quality_scorer_execution_evidence.py`。
+- 改动内容：`source_run_id` 改为展示安全字段，新增 `source_run_identity.run_id_hash`；AO44-CT-008 覆盖 URL/secret run id redaction。
+
+### 统一验证命令
+
+- `uv run pytest tests/contract/test_ao44_ct_quality_scorer_execution_evidence.py -q`：通过，8 passed。
+- `uv run pytest tests/contract/test_ao40_ct_quality_lifecycle_analytics.py tests/contract/test_ao41_ct_quality_scorer_versioning.py tests/contract/test_ao42_ct_quality_center_workbench.py tests/contract/test_ao44_ct_quality_scorer_execution_evidence.py -q`：通过，35 passed。
+- `uv run ruff check src/agentops/core/runtime_contracts.py src/agentops/core/operations.py tests/contract/test_ao44_ct_quality_scorer_execution_evidence.py`：通过。
+- `uv run ruff format --check src/agentops/core/runtime_contracts.py src/agentops/core/operations.py tests/contract/test_ao44_ct_quality_scorer_execution_evidence.py`：通过。
+- `uv run ai-sdlc verify constraints`：通过，无 BLOCKER。
+
+### 代码审查结论
+
+- Codex review P1 已修复：case result 不再输出 raw run id，仍保留可追踪 hash identity。
+- 输出仍满足 no raw/no URL/no secret marker 边界。
+
+### 任务/计划同步状态
+
+- 本修复不改变 044 scope；仍为 summary-only scorer execution evidence。
+- `quality_scorer_execution.v1` contract_tests 增加 AO44-CT-008。
+- 当前批次 branch disposition 状态：待提交/PR review fix。
+- 当前批次 worktree disposition 状态：保留。
+- 是否继续下一批：否，本批继续 PR 收口。

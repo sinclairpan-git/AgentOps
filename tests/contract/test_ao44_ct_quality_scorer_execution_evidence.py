@@ -301,6 +301,35 @@ def test_ao44_ct_007_quality_center_matches_redacted_execution_identity_by_hash(
     _assert_no_raw_leaks(workbench)
 
 
+def test_ao44_ct_008_scorer_execution_redacts_source_run_identity():
+    repository = InMemoryRepository()
+    run_id = "run_https://example.invalid/token_secret"
+    write_runtime_run(repository, run_id=run_id, status="failed")
+    write_full_trace(repository, run_id=run_id)
+    create_eval_case(
+        repository,
+        run_id,
+        owner_team="Quality",
+        expected_behavior="Classify failure from redacted summary.",
+    )
+
+    execution = create_quality_scorer_execution(
+        repository,
+        "agent.ai-sdlc",
+        "1.0.0",
+        pass_threshold=0.7,
+        scorer={
+            "scorer_id": "quality_summary_stage5_candidate",
+            "scorer_version": "1.1.0",
+        },
+    )
+
+    case_result = execution["case_results"][0]
+    assert case_result["source_run_id"] == "[redacted]"
+    assert case_result["source_run_identity"]["run_id_hash"].startswith("sha256:")
+    _assert_no_raw_leaks(execution)
+
+
 def _assert_no_raw_leaks(payload: dict) -> None:
     forbidden_keys = {
         "raw_payload",

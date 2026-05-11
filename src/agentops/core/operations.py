@@ -1781,9 +1781,13 @@ def _scorer_execution_case_result(
     missing_evidence = evidence_summary.get("missing_evidence")
     if not isinstance(missing_evidence, list):
         missing_evidence = []
+    source_run_id = str(source_run.get("run_id") or "")
     return {
         "eval_case_id": str(eval_case.get("eval_case_id") or ""),
-        "source_run_id": str(source_run.get("run_id") or ""),
+        "source_run_id": _safe_label(source_run_id),
+        "source_run_identity": {
+            "run_id_hash": _quality_scorer_lookup_hash("run_id", source_run_id),
+        },
         "outcome": outcome,
         "score": score,
         "evidence_level": _safe_label(evidence_summary.get("evidence_level") or ""),
