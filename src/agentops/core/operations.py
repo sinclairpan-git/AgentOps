@@ -847,7 +847,7 @@ def build_monthly_quality_report(
         "schema_version": "monthly_quality_report.v1",
         "report_period": report_period,
         "report_state": "ready" if agent_summaries else "insufficient_data",
-        "generated_by": generated_by,
+        "generated_by": _safe_label(generated_by),
         "agent_summaries": agent_summaries,
         "trend_summary": trend_summary,
         "summary": {
@@ -1200,7 +1200,9 @@ def _safe_adoption_metrics(metrics: dict[str, Any]) -> dict[str, Any]:
     ci_failure_types = source.get("ci_failure_types")
     if not isinstance(ci_failure_types, list | tuple):
         ci_failure_types = []
-    sampling_review_state = str(source.get("sampling_review_state") or "not_started")
+    sampling_review_state = str(
+        source.get("sampling_review_state") or "not_started"
+    ).lower()
     if sampling_review_state not in {"not_started", "pending", "passed", "failed"}:
         sampling_review_state = "not_started"
     merge_state = _safe_label(source.get("merge_state") or "unknown").lower()

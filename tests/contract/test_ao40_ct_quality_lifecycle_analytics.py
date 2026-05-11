@@ -192,6 +192,24 @@ def test_ao40_ct_003_adoption_normalizes_merge_state_for_adopted_samples():
     _assert_no_raw_leaks(projection)
 
 
+def test_ao40_ct_003_adoption_normalizes_sampling_review_state():
+    projection = get_adoption_roi_projection(
+        agent_id="agent.ai-sdlc",
+        version="1.0.0",
+        adoption_metrics={
+            "generated_lines": 100,
+            "retained_lines": 80,
+            "merge_state": "merged",
+            "sampling_review_state": "PASSED",
+        },
+    )
+
+    assert projection["sampling_review_state"] == "passed"
+    assert projection["adoption_state"] == "adopted"
+    assert projection["summary"]["requires_sampling_review"] is False
+    _assert_no_raw_leaks(projection)
+
+
 def test_ao40_ct_003_adoption_redacts_owner_team_label():
     projection = get_adoption_roi_projection(
         agent_id="agent.ai-sdlc",
@@ -256,6 +274,20 @@ def test_ao40_ct_005_monthly_report_aggregates_quality_and_adoption():
     assert report["agent_summaries"][0]["adoption_state"] == "adopted"
     assert report["summary"]["automatic_publish_performed"] is False
     assert report["summary"]["store_write_performed"] is False
+    _assert_no_raw_leaks(report)
+
+
+def test_ao40_ct_005_monthly_report_redacts_generated_by_label():
+    repository = InMemoryRepository()
+
+    report = get_monthly_quality_report(
+        repository,
+        report_period="2026-05",
+        generated_by="token_secret HTTPS://example.invalid/report",
+        agent_refs=[],
+    )
+
+    assert report["generated_by"] == "[redacted]"
     _assert_no_raw_leaks(report)
 
 
