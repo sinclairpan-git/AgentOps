@@ -699,6 +699,139 @@ def build_quality_score_projection(
     }
 
 
+def build_quality_scorer_version(
+    *,
+    scorer_id: str = "quality_summary_stage5",
+    scorer_version: str = "1.0.0",
+    score_template_id: str = "quality_summary_stage5",
+    rollout_state: str = "candidate",
+    owner_team: str = "",
+    required_evidence: list[str] | None = None,
+    scoring_policy: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    safe_rollout_state = (
+        rollout_state
+        if rollout_state in {"draft", "candidate", "approved", "retired"}
+        else "draft"
+    )
+    policy = _safe_scorer_policy(scoring_policy)
+    return {
+        "schema_version": "quality_scorer_version.v1",
+        "scorer_id": _safe_label(scorer_id) or "quality_summary_stage5",
+        "scorer_version": _safe_label(scorer_version) or "1.0.0",
+        "score_template_id": _safe_label(score_template_id) or "quality_summary_stage5",
+        "rollout_state": safe_rollout_state,
+        "owner_team": _safe_label(owner_team),
+        "required_evidence": _safe_required_evidence(required_evidence),
+        "input_boundary": {
+            "accepted_inputs": [
+                "runtime_health_summary",
+                "runtime_evidence_summary",
+                "eval_case_summary",
+            ],
+            "raw_payload_access": "forbidden",
+            "raw_prompt_access": "forbidden",
+            "raw_diff_access": "forbidden",
+            "terminal_output_access": "forbidden",
+        },
+        "scoring_policy": policy,
+        "summary": {
+            "score_model": "deterministic_summary_projection",
+            "manual_approval_required": safe_rollout_state != "approved",
+            "automatic_rollout_enabled": False,
+            "automatic_template_switch": False,
+            "store_write_performed": False,
+        },
+        "audit_id": (
+            f"audit_quality_scorer_{_safe_label(scorer_id) or 'quality_summary_stage5'}"
+            f"_{_safe_label(scorer_version) or '1.0.0'}"
+        ),
+    }
+
+
+def build_quality_scorer_comparison(
+    repository: InMemoryRepository,
+    agent_id: str,
+    version: str,
+    *,
+    baseline_scorer: dict[str, Any] | None = None,
+    candidate_scorer: dict[str, Any] | None = None,
+    min_eval_cases: int = 1,
+) -> dict[str, Any]:
+    if min_eval_cases <= 0:
+        raise AgentOpsError(
+            "SCORER_COMPARISON_UNAVAILABLE",
+            "Scorer comparison evidence threshold must be positive.",
+            denied_scope="scorer_comparison.min_eval_cases",
+            audit_id=f"audit_quality_scorer_comparison_{agent_id}_{version}",
+        )
+
+    baseline = _coerce_scorer_version(
+        baseline_scorer,
+        default_scorer_id="quality_summary_stage5",
+        default_scorer_version="1.0.0",
+        default_policy={"evidence_weight": 20, "failure_sensitivity": 25},
+    )
+    candidate = _coerce_scorer_version(
+        candidate_scorer,
+        default_scorer_id="quality_summary_stage5_candidate",
+        default_scorer_version="1.1.0",
+        default_policy={"evidence_weight": 24, "failure_sensitivity": 32},
+    )
+    eval_cases = [
+        record
+        for record in repository.eval_case_records()
+        if (record.get("source_run") or {}).get("agent_id") == agent_id
+        and (record.get("source_run") or {}).get("version") == version
+    ]
+    source_eval_cases = [str(record.get("eval_case_id") or "") for record in eval_cases]
+    if len(eval_cases) < min_eval_cases:
+        comparison_state = "insufficient_evidence"
+        safety_impact = "needs_review"
+        recommendation = "collect_more_samples"
+        baseline_alignment = 0.0
+        candidate_alignment = 0.0
+    else:
+        baseline_alignment = _scorer_alignment_score(baseline, eval_cases)
+        candidate_alignment = _scorer_alignment_score(candidate, eval_cases)
+        safety_impact = _scorer_safety_impact(
+            baseline, candidate, baseline_alignment, candidate_alignment
+        )
+        comparison_state, recommendation = _scorer_comparison_decision(safety_impact)
+    alignment_delta = round(candidate_alignment - baseline_alignment, 2)
+    return {
+        "schema_version": "quality_scorer_comparison.v1",
+        "agent_id": agent_id,
+        "version": version,
+        "source_eval_cases": source_eval_cases,
+        "sample_size": len(eval_cases),
+        "baseline_scorer": _scorer_ref(baseline, baseline_alignment),
+        "candidate_scorer": _scorer_ref(candidate, candidate_alignment),
+        "comparison_state": comparison_state,
+        "alignment_delta": alignment_delta,
+        "safety_impact": safety_impact,
+        "recommendation": recommendation,
+        "evidence_window": {
+            "type": "eval_case_summary",
+            "minimum_required": min_eval_cases,
+            "sample_size": len(eval_cases),
+        },
+        "summary": {
+            "raw_payload_access": "forbidden",
+            "raw_prompt_access": "forbidden",
+            "raw_diff_access": "forbidden",
+            "terminal_output_access": "forbidden",
+            "automatic_rollout_enabled": False,
+            "automatic_template_switch": False,
+            "automatic_lifecycle_action": False,
+            "store_write_performed": False,
+            "manual_approval_required": recommendation
+            == "submit_for_manual_rollout_approval",
+        },
+        "audit_id": f"audit_quality_scorer_comparison_{agent_id}_{version}",
+    }
+
+
 def build_adoption_roi_projection(
     *,
     agent_id: str,
@@ -1192,6 +1325,124 @@ def _quality_explanation(
         "policy_block_count": _safe_int(health_summary.get("policy_block_count")),
         "missing_evidence": list(missing_evidence),
         "guardrail": "low_confidence_requires_manual_review",
+    }
+
+
+def _safe_required_evidence(values: list[str] | None) -> list[str]:
+    source = values or ["runtime_run", "runtime_evidence_summary", "eval_case"]
+    safe_values = [_safe_label(value) for value in source]
+    return [value for value in _unique_strings(safe_values) if value]
+
+
+def _safe_scorer_policy(policy: dict[str, Any] | None) -> dict[str, int]:
+    source = policy if isinstance(policy, dict) else {}
+    evidence_weight = _safe_int(source.get("evidence_weight"))
+    failure_sensitivity = _safe_int(source.get("failure_sensitivity"))
+    return {
+        "evidence_weight": min(max(evidence_weight or 20, 0), 50),
+        "failure_sensitivity": min(max(failure_sensitivity or 25, 0), 50),
+    }
+
+
+def _coerce_scorer_version(
+    scorer: dict[str, Any] | None,
+    *,
+    default_scorer_id: str,
+    default_scorer_version: str,
+    default_policy: dict[str, Any],
+) -> dict[str, Any]:
+    source = scorer if isinstance(scorer, dict) else {}
+    return build_quality_scorer_version(
+        scorer_id=str(source.get("scorer_id") or default_scorer_id),
+        scorer_version=str(source.get("scorer_version") or default_scorer_version),
+        score_template_id=str(source.get("score_template_id") or default_scorer_id),
+        rollout_state=str(source.get("rollout_state") or "candidate"),
+        owner_team=str(source.get("owner_team") or ""),
+        required_evidence=source.get("required_evidence")
+        if isinstance(source.get("required_evidence"), list)
+        else None,
+        scoring_policy=source.get("scoring_policy")
+        if isinstance(source.get("scoring_policy"), dict)
+        else default_policy,
+    )
+
+
+def _scorer_alignment_score(
+    scorer: dict[str, Any], eval_cases: list[dict[str, Any]]
+) -> float:
+    if not eval_cases:
+        return 0.0
+    policy = (
+        scorer.get("scoring_policy")
+        if isinstance(scorer.get("scoring_policy"), dict)
+        else {}
+    )
+    evidence_weight = _safe_int(policy.get("evidence_weight"))
+    failure_sensitivity = _safe_int(policy.get("failure_sensitivity"))
+    scores = []
+    for record in eval_cases:
+        source_run = (
+            record.get("source_run")
+            if isinstance(record.get("source_run"), dict)
+            else {}
+        )
+        evidence_summary = (
+            record.get("evidence_summary")
+            if isinstance(record.get("evidence_summary"), dict)
+            else {}
+        )
+        status_signal = (
+            1.0 if str(source_run.get("status") or "") in FAILURE_SAMPLE_STATES else 0.0
+        )
+        expected_signal = 1.0 if str(record.get("expected_behavior") or "") else 0.0
+        evidence_signal = _safe_float(evidence_summary.get("completeness"))
+        scores.append(
+            min(
+                100.0,
+                35.0
+                + (evidence_weight * evidence_signal)
+                + (failure_sensitivity * status_signal)
+                + (10.0 * expected_signal),
+            )
+        )
+    return round(sum(scores) / len(scores), 2)
+
+
+def _scorer_safety_impact(
+    baseline: dict[str, Any],
+    candidate: dict[str, Any],
+    baseline_alignment: float,
+    candidate_alignment: float,
+) -> str:
+    baseline_evidence = set(baseline.get("required_evidence") or [])
+    candidate_evidence = set(candidate.get("required_evidence") or [])
+    alignment_delta = candidate_alignment - baseline_alignment
+    if candidate_evidence and not candidate_evidence.issuperset(baseline_evidence):
+        return "negative"
+    if alignment_delta >= 5.0:
+        return "improved"
+    if alignment_delta < -5.0:
+        return "negative"
+    if abs(alignment_delta) < 1.0:
+        return "neutral"
+    return "needs_review"
+
+
+def _scorer_comparison_decision(safety_impact: str) -> tuple[str, str]:
+    if safety_impact == "improved":
+        return ("ready_for_manual_approval", "submit_for_manual_rollout_approval")
+    if safety_impact == "negative":
+        return ("needs_human_review", "keep_baseline")
+    return ("needs_human_review", "needs_human_review")
+
+
+def _scorer_ref(scorer: dict[str, Any], alignment_score: float) -> dict[str, Any]:
+    return {
+        "scorer_id": scorer["scorer_id"],
+        "scorer_version": scorer["scorer_version"],
+        "score_template_id": scorer["score_template_id"],
+        "rollout_state": scorer["rollout_state"],
+        "alignment_score": alignment_score,
     }
 
 
