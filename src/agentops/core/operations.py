@@ -718,7 +718,7 @@ def build_adoption_roi_projection(
         "schema_version": "adoption_roi_projection.v1",
         "agent_id": agent_id,
         "version": version,
-        "owner_team": owner_team,
+        "owner_team": _safe_label(owner_team),
         "adoption_state": adoption_state,
         "retention_rate": retention_rate,
         "rework_risk": rework_risk,
@@ -806,7 +806,14 @@ def build_monthly_quality_report(
     generated_by: str = "system",
 ) -> dict[str, Any]:
     agent_summaries = []
-    for ref in agent_refs:
+    for index, ref in enumerate(agent_refs):
+        if not isinstance(ref, dict):
+            raise AgentOpsError(
+                "MONTHLY_REPORT_UNAVAILABLE",
+                "Monthly quality report agent_refs entries must be objects.",
+                denied_scope=f"agent_refs[{index}]",
+                audit_id=f"audit_monthly_quality_{report_period}",
+            )
         agent_id = str(ref.get("agent_id") or "")
         version = str(ref.get("version") or "")
         adoption_metrics = (

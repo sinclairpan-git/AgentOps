@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from agentops.api.operations import (
     create_eval_case,
     get_adoption_roi_projection,
@@ -9,6 +11,7 @@ from agentops.api.operations import (
     get_monthly_quality_report,
     get_quality_score_projection,
 )
+from agentops.core.errors import AgentOpsError
 from agentops.core.runtime_contracts import get_contract
 from agentops.storage.repository import InMemoryRepository
 from tests.contract.test_ao32_ct_evidence_health_summary_loop import (
@@ -189,6 +192,23 @@ def test_ao40_ct_003_adoption_normalizes_merge_state_for_adopted_samples():
     _assert_no_raw_leaks(projection)
 
 
+def test_ao40_ct_003_adoption_redacts_owner_team_label():
+    projection = get_adoption_roi_projection(
+        agent_id="agent.ai-sdlc",
+        version="1.0.0",
+        owner_team="token_secret https://example.invalid/team",
+        adoption_metrics={
+            "generated_lines": 100,
+            "retained_lines": 80,
+            "merge_state": "merged",
+            "sampling_review_state": "passed",
+        },
+    )
+
+    assert projection["owner_team"] == "[redacted]"
+    _assert_no_raw_leaks(projection)
+
+
 def test_ao40_ct_004_lifecycle_recommendation_never_executes_store_action():
     repository = InMemoryRepository()
     write_runtime_run(repository, run_id="run_blocked", status="blocked")
@@ -237,6 +257,20 @@ def test_ao40_ct_005_monthly_report_aggregates_quality_and_adoption():
     assert report["summary"]["automatic_publish_performed"] is False
     assert report["summary"]["store_write_performed"] is False
     _assert_no_raw_leaks(report)
+
+
+def test_ao40_ct_005_monthly_report_rejects_malformed_agent_refs():
+    repository = InMemoryRepository()
+
+    with pytest.raises(AgentOpsError) as exc_info:
+        get_monthly_quality_report(
+            repository,
+            report_period="2026-05",
+            agent_refs=["bad"],
+        )
+
+    assert exc_info.value.error_code == "MONTHLY_REPORT_UNAVAILABLE"
+    assert exc_info.value.denied_scope == "agent_refs[0]"
 
 
 def _assert_no_raw_leaks(payload: dict) -> None:
