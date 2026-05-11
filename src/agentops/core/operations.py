@@ -1213,7 +1213,8 @@ def _safe_adoption_metrics(metrics: dict[str, Any]) -> dict[str, Any]:
 
 def _safe_label(value: Any) -> str:
     text = str(value or "")
-    if any(marker in text for marker in FORBIDDEN_TEXT_MARKERS):
+    normalized = text.lower()
+    if any(marker.lower() in normalized for marker in FORBIDDEN_TEXT_MARKERS):
         return "[redacted]"
     return text[:80]
 
@@ -1237,6 +1238,8 @@ def _adoption_state(
         return "insufficient_data"
     if rework_risk == "high" or metrics["sampling_review_state"] == "failed":
         return "needs_review"
+    if metrics["sampling_review_state"] != "passed":
+        return "watching"
     if retention_rate >= 0.6 and metrics["merge_state"] == "merged":
         return "adopted"
     return "watching"

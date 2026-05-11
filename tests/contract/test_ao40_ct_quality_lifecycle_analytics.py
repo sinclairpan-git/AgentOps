@@ -137,7 +137,7 @@ def test_ao40_ct_003_adoption_roi_is_summary_only_and_redacts_unsafe_labels():
             "deleted_lines": 10,
             "rework_rounds": 1,
             "pr_review_issue_count": 2,
-            "ci_failure_types": ["unit", "https://example.invalid/raw-diff"],
+            "ci_failure_types": ["unit", "HTTPS://example.invalid/raw-diff"],
             "merge_state": "merged",
             "rollback_count": 0,
             "sampling_review_state": "passed",
@@ -152,6 +152,23 @@ def test_ao40_ct_003_adoption_roi_is_summary_only_and_redacts_unsafe_labels():
     assert projection["adoption_state"] == "needs_review"
     assert "[redacted]" in projection["review_summary"]["ci_failure_types"]
     assert projection["summary"]["raw_diff_access"] == "forbidden"
+    _assert_no_raw_leaks(projection)
+
+
+def test_ao40_ct_003_adoption_waits_for_sampling_review_before_adopted():
+    projection = get_adoption_roi_projection(
+        agent_id="agent.ai-sdlc",
+        version="1.0.0",
+        adoption_metrics={
+            "generated_lines": 100,
+            "retained_lines": 80,
+            "merge_state": "merged",
+            "sampling_review_state": "pending",
+        },
+    )
+
+    assert projection["adoption_state"] == "watching"
+    assert projection["summary"]["requires_sampling_review"] is True
     _assert_no_raw_leaks(projection)
 
 

@@ -70,3 +70,31 @@
 - 当前批次 branch disposition 状态：`codex/040-quality-lifecycle-analytics` 待提交和 PR
 - 当前批次 worktree disposition 状态：retained
 - 是否继续下一批：否，本批继续 PR 收口。
+
+### Review Fix 2026-05-10-002 | Codex adoption boundary feedback
+
+#### RF-002 | enforce case-insensitive URL redaction and sampling review gating
+
+- 覆盖任务：PR #42 Codex review P1/P2 feedback
+- 覆盖阶段：PR close-out review fix
+- 预读范围：Codex review threads、AO40 adoption ROI projection、AO40 contract tests
+- 激活的规则：PR close-out 固定规则、summary-only adoption metrics、no raw URL/diff/prompt、采纳结论需抽样复核
+- **验证画像**：code-change
+- 改动范围：`src/agentops/core/operations.py`、`tests/contract/test_ao40_ct_quality_lifecycle_analytics.py`
+- 改动内容：`_safe_label` 现在对 forbidden marker 做大小写不敏感匹配，阻止 `HTTPS://.../raw` 混合大小写 URL 泄漏；`_adoption_state` 现在只有 `sampling_review_state=passed` 且 retention/merge 条件满足时才返回 `adopted`。
+- 新增/调整的测试：调整 unsafe URL 回归为 uppercase `HTTPS://.../raw-diff`；新增 pending sampling review 时 adoption state 保持 `watching` 的回归。
+- 统一验证命令：
+  - `uv run pytest tests/contract/test_ao40_ct_quality_lifecycle_analytics.py`
+  - `uv run pytest tests/contract/test_ao32_ct_evidence_health_summary_loop.py tests/contract/test_ao37_ct_p1_evidence_eval_cost_operations.py tests/contract/test_ao39_ct_p2_ecosystem_governance.py tests/contract/test_ao40_ct_quality_lifecycle_analytics.py`
+  - `uv run ruff check src/agentops/core/operations.py tests/contract/test_ao40_ct_quality_lifecycle_analytics.py`
+  - `uv run ruff format --check src/agentops/core/operations.py tests/contract/test_ao40_ct_quality_lifecycle_analytics.py`
+  - `uv run ai-sdlc verify constraints`
+- 测试结果：AO40 8 passed；AO32/AO37/AO39/AO40 回归 48 passed；ruff check 通过；ruff format --check 通过；AI-SDLC constraints 无 BLOCKER。
+- 是否符合任务目标：是。
+- 代码审查结论：Codex 指出的 adoption summary-only 与 adopted 状态过早问题已用行为回归锁定；修复不新增 raw diff/PR 读取、不改变 lifecycle no-action 边界。
+- 任务/计划同步状态：AO40 plan/spec 不变，本次为 PR review fix；branch disposition 仍为 PR #42 收口中。
+- **已完成 git 提交**：是，本次 review fix 将在当前提交中一并提交。
+- **提交哈希**：见当前 Git HEAD。
+- 当前批次 branch disposition 状态：`codex/040-quality-lifecycle-analytics` 待提交和 PR
+- 当前批次 worktree disposition 状态：retained
+- 是否继续下一批：否，本批继续 PR 收口。

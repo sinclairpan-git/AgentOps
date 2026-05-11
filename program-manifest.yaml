@@ -157,13 +157,13 @@ specs:
   - 037-p1-evidence-eval-cost-operations
   - 039-p2-ecosystem-governance
 truth_snapshot:
-  generated_at: '2026-05-11T02:47:07Z'
+  generated_at: '2026-05-11T02:56:46Z'
   generated_by: ai-sdlc program truth sync
   generator_version: program_truth_snapshot_v1
-  repo_revision: d13b2bb
+  repo_revision: e46bd1a
   authoring_hash: 230acfabb5e2bd96183092244123bc04dca44bf517237db5aeec525faf0733ae
   source_hashes: {}
-  snapshot_hash: 17cc7787709629f63490342d9d612f2b15a2c8d6d054dea30df6006c47be058e
+  snapshot_hash: 74ba48cc79236404e183c6e184df0b31801f1477379ad81feaf92ab16179f984
   computed_capabilities: []
   source_inventory:
     state: complete
@@ -171,8 +171,8 @@ truth_snapshot:
     mapped_sources: 201
     unmapped_sources: 0
     missing_sources: 0
-    phase_signal_count: 573
-    deferred_signal_count: 725
+    phase_signal_count: 577
+    deferred_signal_count: 729
     non_goal_signal_count: 66
     layer_totals:
       blueprint: 1
@@ -1986,8 +1986,8 @@ truth_snapshot:
       mapped: true
       exists: true
       mapping_ref: 040-quality-lifecycle-analytics
-      phase_signal_count: 2
-      deferred_signal_count: 2
+      phase_signal_count: 4
+      deferred_signal_count: 4
       non_goal_signal_count: 0
     - path: specs/040-quality-lifecycle-analytics/development-summary.md
       source_type: development_summary
@@ -1995,8 +1995,8 @@ truth_snapshot:
       mapped: true
       exists: true
       mapping_ref: 040-quality-lifecycle-analytics
-      phase_signal_count: 1
-      deferred_signal_count: 1
+      phase_signal_count: 3
+      deferred_signal_count: 3
       non_goal_signal_count: 0
     unmapped_paths: []
   state: ready
