@@ -45,6 +45,15 @@ ALLOWED_ORIGINS = {
 
 AUDIT_QUERY_DEFAULT_LIMIT = 50
 AUDIT_QUERY_MAX_LIMIT = 200
+EXTERNAL_INTAKE_INDEX_DEFAULT_LIMIT = 25
+EXTERNAL_INTAKE_INDEX_MAX_LIMIT = 100
+EXTERNAL_INTAKE_FORBIDDEN_QUERY_MARKERS = (
+    "token_secret",
+    "credential_secret",
+    "device_key",
+    "://",
+    "/raw",
+)
 AUDIT_QUERY_CURSOR_VERSION = 1
 AUDIT_QUERY_CURSOR_SECRET_ENV = "AGENTOPS_AUDIT_CURSOR_SECRET"
 AUDIT_EXPORT_FILTER_NAMES = ("audit_id", "request_id", "action", "outcome")
@@ -115,6 +124,43 @@ def create_http_handler(
                     action="console.snapshot.read",
                     outcome="accepted",
                     resource=request_path,
+                )
+                self._send_json(HTTPStatus.OK, response)
+                return
+
+            if request_path == "/v1/quality/scorers/external-intake/index":
+                action = "quality.scorer.external_intake.index"
+                auth_error = self._require_scope("quality.scorer.intake.read")
+                if auth_error:
+                    self._send_auth_error(
+                        auth_error,
+                        action=action,
+                        resource=request_path,
+                    )
+                    return
+                try:
+                    response = self._quality_scorer_external_intake_index_response(
+                        self._request_query()
+                    )
+                except AgentOpsError as exc:
+                    self._append_audit_record(
+                        action=action,
+                        outcome="rejected",
+                        resource=request_path,
+                        error_code=exc.error_code,
+                        audit_id=exc.audit_id,
+                        request_id=exc.request_id,
+                    )
+                    self._send_json(
+                        self._quality_scorer_external_intake_index_status(exc),
+                        exc.to_response(),
+                    )
+                    return
+                self._append_audit_record(
+                    action=action,
+                    outcome="accepted",
+                    resource=request_path,
+                    audit_id=response.get("audit_id"),
                 )
                 self._send_json(HTTPStatus.OK, response)
                 return
@@ -1448,6 +1494,90 @@ def create_http_handler(
             if exc.error_code == "QUALITY_SCORER_INTAKE_IDEMPOTENCY_CONFLICT":
                 return HTTPStatus.CONFLICT
             return HTTPStatus.BAD_REQUEST
+
+        def _quality_scorer_external_intake_index_response(
+            self, query: dict[str, list[str]]
+        ) -> dict[str, Any]:
+            agent_id = self._query_value(query, "agent_id")
+            version = self._query_value(query, "version")
+            if not agent_id or not version:
+                raise AgentOpsError(
+                    "QUALITY_SCORER_INTAKE_INDEX_QUERY_REQUIRED",
+                    "Quality scorer external intake index requires agent_id and version.",
+                    denied_scope="quality_scorer_external_intake_index.query",
+                )
+            limit = self._quality_scorer_external_intake_index_limit(query)
+            receipts = live_repository.quality_scorer_external_receipt_records(
+                agent_id=agent_id,
+                version=version,
+                limit=limit,
+            )
+            audit_hash = hashlib.sha256(
+                f"{agent_id}:{version}:{limit}".encode("utf-8")
+            ).hexdigest()[:12]
+            return {
+                "schema_version": "quality_scorer_external_intake_index.v1",
+                "route": "/v1/quality/scorers/external-intake/index",
+                "method": "GET",
+                "agent_id": self._external_intake_safe_query_label(agent_id),
+                "version": self._external_intake_safe_query_label(version),
+                "limit": limit,
+                "returned": len(receipts),
+                "receipts": list(receipts),
+                "summary": {
+                    "summary_only_index": True,
+                    "full_scope_required": True,
+                    "key_only_lookup_allowed": False,
+                    "agentops_scorer_invoked": False,
+                    "automatic_rollout_enabled": False,
+                    "automatic_template_switch": False,
+                    "store_write_performed": False,
+                    "notification_sent": False,
+                },
+                "audit_id": f"audit_quality_scorer_external_intake_index_{audit_hash}",
+            }
+
+        def _quality_scorer_external_intake_index_limit(
+            self, query: dict[str, list[str]]
+        ) -> int:
+            raw_limit = self._query_value(query, "limit")
+            if not raw_limit:
+                return EXTERNAL_INTAKE_INDEX_DEFAULT_LIMIT
+            try:
+                limit = int(raw_limit)
+            except ValueError as exc:
+                raise AgentOpsError(
+                    "QUALITY_SCORER_INTAKE_INDEX_LIMIT_INVALID",
+                    "Quality scorer external intake index limit must be a positive integer.",
+                    denied_scope="quality_scorer_external_intake_index.limit",
+                ) from exc
+            if limit < 1:
+                raise AgentOpsError(
+                    "QUALITY_SCORER_INTAKE_INDEX_LIMIT_INVALID",
+                    "Quality scorer external intake index limit must be a positive integer.",
+                    denied_scope="quality_scorer_external_intake_index.limit",
+                )
+            return min(limit, EXTERNAL_INTAKE_INDEX_MAX_LIMIT)
+
+        def _quality_scorer_external_intake_index_status(
+            self, exc: AgentOpsError
+        ) -> HTTPStatus:
+            return HTTPStatus.BAD_REQUEST
+
+        def _external_intake_query_contains_forbidden(self, *values: str) -> bool:
+            for value in values:
+                normalized = value.lower()
+                if any(
+                    marker in normalized
+                    for marker in EXTERNAL_INTAKE_FORBIDDEN_QUERY_MARKERS
+                ):
+                    return True
+            return False
+
+        def _external_intake_safe_query_label(self, value: str) -> str:
+            if self._external_intake_query_contains_forbidden(value):
+                return "[redacted]"
+            return value[:80]
 
         def _read_json(self) -> dict[str, Any] | None:
             try:

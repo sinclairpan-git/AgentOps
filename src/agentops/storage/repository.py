@@ -1124,6 +1124,39 @@ class InMemoryRepository:
             stored = self.quality_scorer_external_receipts.get(intake_id)
             return deepcopy(stored) if stored else None
 
+    def quality_scorer_external_receipt_records(
+        self,
+        *,
+        agent_id: str,
+        version: str,
+        limit: int | None = None,
+    ) -> tuple[dict[str, Any], ...]:
+        agent_id_hash = _quality_scorer_lookup_hash("agent_id", agent_id)
+        version_hash = _quality_scorer_lookup_hash("version", version)
+        with self._lock:
+            receipts = []
+            for receipt in self.quality_scorer_external_receipts.values():
+                lookup_identity = (
+                    receipt.get("lookup_identity")
+                    if isinstance(receipt.get("lookup_identity"), dict)
+                    else {}
+                )
+                if lookup_identity.get("agent_id_hash") != agent_id_hash:
+                    continue
+                if lookup_identity.get("version_hash") != version_hash:
+                    continue
+                receipts.append(deepcopy(receipt))
+            receipts = sorted(
+                receipts,
+                key=lambda item: item.get("intake_sequence", 0),
+                reverse=True,
+            )
+            if limit == 0:
+                return ()
+            if limit is not None and limit > 0:
+                receipts = receipts[:limit]
+            return tuple(receipts)
+
     def runtime_dlq_records(
         self, *, agent_id: str | None = None, version: str | None = None
     ) -> tuple[dict[str, Any], ...]:
