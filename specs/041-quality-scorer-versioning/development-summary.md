@@ -31,3 +31,8 @@
 - `python -m ai_sdlc program truth sync --execute --yes`：ready，41/41 mapped。
 - `uv run ai-sdlc verify constraints`：no BLOCKERs。
 - `python -m ai_sdlc workitem close-check --wi specs/041-quality-scorer-versioning --json`：提交前仅 git closure 阻塞；提交后复跑。
+
+## Review Fix
+
+- PR #43 Codex P1/P2：scorer version 现在保留显式空 `required_evidence=[]`，comparison 会将其视为 evidence regression；显式 0 scorer policy 权重不再被默认值覆盖。
+- Review fix 验证：AO41 8 passed；AO37/AO40/AO41 回归 36 passed；完整 pytest 通过；ruff check/format check 通过；AI-SDLC constraints 无 BLOCKER。

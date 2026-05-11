@@ -1329,19 +1329,30 @@ def _quality_explanation(
 
 
 def _safe_required_evidence(values: list[str] | None) -> list[str]:
-    source = values or ["runtime_run", "runtime_evidence_summary", "eval_case"]
+    source = (
+        ["runtime_run", "runtime_evidence_summary", "eval_case"]
+        if values is None
+        else values
+    )
     safe_values = [_safe_label(value) for value in source]
     return [value for value in _unique_strings(safe_values) if value]
 
 
 def _safe_scorer_policy(policy: dict[str, Any] | None) -> dict[str, int]:
     source = policy if isinstance(policy, dict) else {}
-    evidence_weight = _safe_int(source.get("evidence_weight"))
-    failure_sensitivity = _safe_int(source.get("failure_sensitivity"))
     return {
-        "evidence_weight": min(max(evidence_weight or 20, 0), 50),
-        "failure_sensitivity": min(max(failure_sensitivity or 25, 0), 50),
+        "evidence_weight": _bounded_policy_weight(source, "evidence_weight", 20),
+        "failure_sensitivity": _bounded_policy_weight(
+            source, "failure_sensitivity", 25
+        ),
     }
+
+
+def _bounded_policy_weight(
+    source: dict[str, Any], field_name: str, default: int
+) -> int:
+    value = _safe_int(source[field_name]) if field_name in source else default
+    return min(max(value, 0), 50)
 
 
 def _coerce_scorer_version(
@@ -1417,7 +1428,7 @@ def _scorer_safety_impact(
     baseline_evidence = set(baseline.get("required_evidence") or [])
     candidate_evidence = set(candidate.get("required_evidence") or [])
     alignment_delta = candidate_alignment - baseline_alignment
-    if candidate_evidence and not candidate_evidence.issuperset(baseline_evidence):
+    if not candidate_evidence or not candidate_evidence.issuperset(baseline_evidence):
         return "negative"
     if alignment_delta >= 5.0:
         return "improved"

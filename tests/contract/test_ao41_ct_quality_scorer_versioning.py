@@ -87,6 +87,16 @@ def test_ao41_ct_002_scorer_version_redacts_unsafe_labels():
     _assert_no_raw_leaks(scorer)
 
 
+def test_ao41_ct_002_scorer_version_preserves_explicit_zero_weights():
+    scorer = get_quality_scorer_version(
+        scoring_policy={"evidence_weight": 0, "failure_sensitivity": 0},
+    )
+
+    assert scorer["scoring_policy"]["evidence_weight"] == 0
+    assert scorer["scoring_policy"]["failure_sensitivity"] == 0
+    _assert_no_raw_leaks(scorer)
+
+
 def test_ao41_ct_003_scorer_comparison_uses_eval_case_summaries_only():
     repository = InMemoryRepository()
     write_runtime_run(repository, run_id="run_failed", status="failed")
@@ -131,6 +141,39 @@ def test_ao41_ct_003_scorer_comparison_uses_eval_case_summaries_only():
     assert comparison["alignment_delta"] > 0
     assert comparison["summary"]["automatic_rollout_enabled"] is False
     assert comparison["summary"]["automatic_template_switch"] is False
+    _assert_no_raw_leaks(comparison)
+
+
+def test_ao41_ct_003_scorer_comparison_treats_empty_required_evidence_as_regression():
+    repository = InMemoryRepository()
+    write_runtime_run(repository, run_id="run_failed", status="failed")
+    write_full_trace(repository, run_id="run_failed")
+    create_eval_case(
+        repository,
+        "run_failed",
+        owner_team="Quality",
+        expected_behavior="Failure should remain evidence-bound.",
+    )
+
+    comparison = get_quality_scorer_comparison(
+        repository,
+        "agent.ai-sdlc",
+        "1.0.0",
+        candidate_scorer={
+            "scorer_id": "quality_summary_stage5_candidate",
+            "scorer_version": "1.1.0",
+            "required_evidence": [],
+            "scoring_policy": {"evidence_weight": 0, "failure_sensitivity": 36},
+        },
+    )
+
+    assert comparison["candidate_scorer"]["scorer_id"] == (
+        "quality_summary_stage5_candidate"
+    )
+    assert comparison["comparison_state"] == "needs_human_review"
+    assert comparison["safety_impact"] == "negative"
+    assert comparison["recommendation"] == "keep_baseline"
+    assert comparison["summary"]["automatic_rollout_enabled"] is False
     _assert_no_raw_leaks(comparison)
 
 
