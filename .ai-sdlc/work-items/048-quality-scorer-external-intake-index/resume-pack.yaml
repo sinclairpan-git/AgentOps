@@ -1,0 +1,11 @@
+schema_version: '1'
+work_item_id: 048-quality-scorer-external-intake-index
+status: active
+summary: >
+  AO48 adds a read-only, scoped HTTP index for external quality scorer intake
+  receipts. The index requires full agent_id/version scope, returns recent
+  summary-only receipts, and does not replay payloads or create execution evidence.
+next_steps:
+  - Run AO48 focused contract tests and regressions.
+  - Run AI-SDLC close gates.
+  - Create PR and trigger Codex review.
