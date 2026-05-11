@@ -174,6 +174,7 @@ def test_ao41_ct_003_scorer_comparison_treats_empty_required_evidence_as_regress
     assert comparison["safety_impact"] == "negative"
     assert comparison["recommendation"] == "keep_baseline"
     assert comparison["summary"]["automatic_rollout_enabled"] is False
+    assert comparison["summary"]["manual_approval_required"] is True
     _assert_no_raw_leaks(comparison)
 
 

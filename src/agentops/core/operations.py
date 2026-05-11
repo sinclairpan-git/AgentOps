@@ -825,8 +825,8 @@ def build_quality_scorer_comparison(
             "automatic_template_switch": False,
             "automatic_lifecycle_action": False,
             "store_write_performed": False,
-            "manual_approval_required": recommendation
-            == "submit_for_manual_rollout_approval",
+            "manual_approval_required": comparison_state
+            in {"ready_for_manual_approval", "needs_human_review"},
         },
         "audit_id": f"audit_quality_scorer_comparison_{agent_id}_{version}",
     }

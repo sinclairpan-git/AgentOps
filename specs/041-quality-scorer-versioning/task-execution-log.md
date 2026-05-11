@@ -71,3 +71,31 @@
 - 当前批次 branch disposition 状态：`codex/041-quality-scorer-versioning` 待提交和 PR
 - 当前批次 worktree disposition 状态：retained
 - 是否继续下一批：否，本批继续 PR 收口。
+
+### Review Fix 2026-05-10-002 | Codex manual approval feedback
+
+#### RF-002 | require manual approval for human-review scorer comparisons
+
+- 覆盖任务：PR #43 Codex review P2 feedback
+- 覆盖阶段：PR close-out review fix
+- 预读范围：Codex review thread、AO41 scorer comparison、AO41 contract tests
+- 激活的规则：PR close-out 固定规则、summary-only scorer comparison、no automatic rollout
+- **验证画像**：code-change
+- 改动范围：`src/agentops/core/operations.py`、`tests/contract/test_ao41_ct_quality_scorer_versioning.py`
+- 改动内容：`quality_scorer_comparison.v1` 现在在 `ready_for_manual_approval` 或 `needs_human_review` 时均返回 `summary.manual_approval_required=true`。
+- 新增/调整的测试：调整 empty required evidence regression，验证 `needs_human_review/keep_baseline` 同时要求 manual approval。
+- 统一验证命令：
+  - `uv run pytest tests/contract/test_ao41_ct_quality_scorer_versioning.py -q`
+  - `uv run pytest tests/contract/test_ao37_ct_p1_evidence_eval_cost_operations.py tests/contract/test_ao40_ct_quality_lifecycle_analytics.py tests/contract/test_ao41_ct_quality_scorer_versioning.py -q`
+  - `uv run ruff check src/agentops/core/operations.py tests/contract/test_ao41_ct_quality_scorer_versioning.py`
+  - `uv run ruff format --check src/agentops/core/operations.py tests/contract/test_ao41_ct_quality_scorer_versioning.py`
+  - `uv run ai-sdlc verify constraints`
+- 测试结果：AO41 8 passed；AO37/AO40/AO41 回归 36 passed；ruff check/format check 通过；AI-SDLC constraints 无 BLOCKER。
+- 是否符合任务目标：是。
+- 代码审查结论：Codex 指出的 human-review outcome 可能跳过人工路由问题已用行为回归锁定；修复不新增 raw evidence 读取或 rollout 自动动作。
+- 任务/计划同步状态：AO41 plan/spec 不变，本次为 PR review fix；branch disposition 仍为 PR #43 收口中。
+- **已完成 git 提交**：是，本次 review fix 将在当前提交中一并提交。
+- **提交哈希**：见当前 Git HEAD。
+- 当前批次 branch disposition 状态：`codex/041-quality-scorer-versioning` 待提交和 PR
+- 当前批次 worktree disposition 状态：retained
+- 是否继续下一批：否，本批继续 PR 收口。
