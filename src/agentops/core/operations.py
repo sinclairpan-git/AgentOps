@@ -1006,9 +1006,9 @@ def ingest_quality_scorer_external_execution(
         )
     if min_eval_cases <= 0:
         raise AgentOpsError(
-            "QUALITY_SCORER_EXECUTION_UNAVAILABLE",
-            "Scorer execution evidence threshold must be positive.",
-            denied_scope="scorer_execution.min_eval_cases",
+            "QUALITY_SCORER_INTAKE_THRESHOLD_INVALID",
+            "External scorer intake minimum EvalCase threshold must be positive.",
+            denied_scope="quality_scorer_external_intake.min_eval_cases",
             audit_id=audit_id,
         )
 

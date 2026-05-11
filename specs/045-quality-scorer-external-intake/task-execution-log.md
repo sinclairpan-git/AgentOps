@@ -26,6 +26,47 @@
 
 ## 2. 批次记录
 
+## Review Fix 2026-05-11-007 | Codex external intake threshold error contract
+
+### RF-009 | min_eval_cases invalid 使用 intake-specific error code
+
+- 触发来源：PR #47 Codex review P2 inline comment。
+- 问题：`ingest_quality_scorer_external_execution()` 对 `min_eval_cases <= 0` 抛出 `QUALITY_SCORER_EXECUTION_UNAVAILABLE`，但 `quality_scorer_external_intake.v1` 只声明 intake-specific 错误码，严格 contract consumer 会收到未声明错误。
+- 改动范围：`src/agentops/core/operations.py`、`src/agentops/core/runtime_contracts.py`、`tests/contract/test_ao45_ct_quality_scorer_external_intake.py`。
+- 改动内容：新增并使用 `QUALITY_SCORER_INTAKE_THRESHOLD_INVALID`；contract registry 声明该错误码；新增 AO45-CT-015 验证 invalid threshold 不写 execution evidence 且返回 intake-specific error。
+
+### 统一验证命令
+
+- `ai-sdlc adapter status`：通过，host verification passed。
+- `ai-sdlc run --dry-run`：通过，`close: PASS`。
+- `uv run pytest tests/contract/test_ao45_ct_quality_scorer_external_intake.py tests/contract/test_ao31_ct_runtime_governance_foundation.py::test_ao31_ct_001_contract_registry_has_required_runtime_governance_entries tests/unit/test_runtime_contracts.py::test_runtime_contract_registry_covers_p0_contracts -q`：通过，17 passed。
+- `uv run pytest tests/contract/test_ao40_ct_quality_lifecycle_analytics.py tests/contract/test_ao41_ct_quality_scorer_versioning.py tests/contract/test_ao42_ct_quality_center_workbench.py tests/contract/test_ao44_ct_quality_scorer_execution_evidence.py tests/contract/test_ao45_ct_quality_scorer_external_intake.py -q`：通过，50 passed。
+- `uv run pytest -q`：通过，完整测试集 passed。
+- `uv run ruff check src/agentops/core/operations.py src/agentops/core/runtime_contracts.py tests/contract/test_ao45_ct_quality_scorer_external_intake.py`：通过。
+- `uv run ruff format --check src/agentops/core/operations.py src/agentops/core/runtime_contracts.py tests/contract/test_ao45_ct_quality_scorer_external_intake.py`：通过。
+- `python -m ai_sdlc program truth sync --execute --yes`：通过，45/45 mapped，snapshot 已更新。
+
+### 代码审查结论
+
+- 宪章/规格对齐：符合。修复将 documented external intake input failure 归入 045 intake contract，不改变 scorer execution contract。
+- 代码质量：符合。错误码、denied scope、contract registry 和 regression test 保持一致。
+- 测试质量：新增 invalid min_eval_cases contract regression。
+- 结论：通过。
+
+### 任务/计划同步状态
+
+- `tasks.md` 同步状态：045 任务仍为完成；review fix 不新增 scope。
+- `plan.md` 同步状态：Phase 2 external intake validation error contract 已补齐。
+- 关联 branch/worktree disposition 计划：当前分支保留待 PR review fix 推送。
+
+### 归档后动作
+
+- **已完成 git 提交**：是，本 review fix 将作为当前提交追加。
+- **提交哈希**：见当前 Git HEAD。
+- 当前批次 branch disposition 状态：待 PR review fix 推送
+- 当前批次 worktree disposition 状态：保留
+- 是否继续下一批：否，继续 PR 收口
+
 ## Review Fix 2026-05-11-006 | Codex external intake sample/hash boundary
 
 ### RF-008 | case_results sample boundary 与 execution-shaping idempotency hash

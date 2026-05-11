@@ -1273,6 +1273,7 @@ CONTRACT_REGISTRY: dict[str, ContractRegistryEntry] = {
             "QUALITY_SCORER_INTAKE_RAW_INPUT",
             "QUALITY_SCORER_INTAKE_IDEMPOTENCY_REQUIRED",
             "QUALITY_SCORER_INTAKE_IDEMPOTENCY_CONFLICT",
+            "QUALITY_SCORER_INTAKE_THRESHOLD_INVALID",
         ),
         contract_tests=(
             "AO45-CT-001",
@@ -1289,6 +1290,7 @@ CONTRACT_REGISTRY: dict[str, ContractRegistryEntry] = {
             "AO45-CT-012",
             "AO45-CT-013",
             "AO45-CT-014",
+            "AO45-CT-015",
         ),
         compatibility_policy="p1_backward_compatible",
     ),
@@ -1778,6 +1780,14 @@ ERROR_CODE_REGISTRY: dict[str, ErrorCodeDefinition] = {
         False,
         "外部质量评分器接入幂等键与既有载荷冲突。",
         "External quality scorer intake idempotency key conflicts with an existing payload.",
+        False,
+    ),
+    "QUALITY_SCORER_INTAKE_THRESHOLD_INVALID": ErrorCodeDefinition(
+        "QUALITY_SCORER_INTAKE_THRESHOLD_INVALID",
+        400,
+        False,
+        "外部质量评分器接入最小样本阈值无效。",
+        "External quality scorer intake minimum sample threshold is invalid.",
         False,
     ),
     "QUALITY_CENTER_WORKBENCH_UNAVAILABLE": ErrorCodeDefinition(

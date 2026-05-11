@@ -567,6 +567,31 @@ def test_ao45_ct_014_quality_center_aggregates_external_intake_execution():
     _assert_no_raw_leaks(workbench)
 
 
+def test_ao45_ct_015_external_intake_uses_intake_error_for_invalid_threshold():
+    repository = InMemoryRepository()
+    eval_case_id = _seed_eval_case(repository)
+
+    with pytest.raises(AgentOpsError) as threshold_exc:
+        ingest_quality_scorer_external_execution(
+            repository,
+            "agent.ai-sdlc",
+            "1.0.0",
+            idempotency_key="scorer-external:invalid-threshold",
+            signature="sig:external-scorer-1",
+            scorer=_candidate_scorer(),
+            external_result={
+                "source_eval_cases": [eval_case_id],
+                "case_results": [
+                    {"eval_case_id": eval_case_id, "outcome": "passed", "score": 0.91}
+                ],
+            },
+            min_eval_cases=0,
+        )
+
+    assert threshold_exc.value.error_code == "QUALITY_SCORER_INTAKE_THRESHOLD_INVALID"
+    assert repository.quality_scorer_execution_records("agent.ai-sdlc", "1.0.0") == ()
+
+
 def _seed_eval_case(
     repository: InMemoryRepository,
     run_id: str = "run_failed",
