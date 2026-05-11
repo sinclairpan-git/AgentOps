@@ -1,12 +1,12 @@
 pipeline_started_at: '2026-05-04T06:14:47+00:00'
-pipeline_last_updated: '2026-05-11T10:08:17+00:00'
+pipeline_last_updated: '2026-05-11T12:00:00+00:00'
 current_stage: close
 feature:
-  id: 045-quality-scorer-external-intake
-  spec_dir: specs/045-quality-scorer-external-intake
-  design_branch: design/045-quality-scorer-external-intake-docs
-  feature_branch: feature/045-quality-scorer-external-intake-dev
-  current_branch: codex/045-quality-scorer-external-intake
+  id: 046-quality-scorer-external-intake-http
+  spec_dir: specs/046-quality-scorer-external-intake-http
+  design_branch: design/046-quality-scorer-external-intake-http-docs
+  feature_branch: feature/046-quality-scorer-external-intake-http-dev
+  current_branch: codex/046-quality-scorer-external-intake-http
   docs_baseline_ref: ''
   docs_baseline_at: ''
 multi_agent:
@@ -43,6 +43,6 @@ completed_stages:
 execute_progress: null
 ai_decisions_count: 0
 execution_mode: auto
-linked_wi_id: 045-quality-scorer-external-intake
-linked_plan_uri: specs/045-quality-scorer-external-intake/plan.md
+linked_wi_id: 046-quality-scorer-external-intake-http
+linked_plan_uri: specs/046-quality-scorer-external-intake-http/plan.md
 last_synced_at: '2026-05-11T08:40:18+00:00'

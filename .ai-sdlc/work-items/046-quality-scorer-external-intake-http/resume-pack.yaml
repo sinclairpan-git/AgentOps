@@ -1,0 +1,11 @@
+schema_version: '1'
+work_item_id: 046-quality-scorer-external-intake-http
+status: active
+summary: >
+  AO46 exposes AO45 external scorer summary intake through a governed HTTP/webhook
+  boundary. The route parses body/header metadata, enforces production scope and
+  minimal audit, then delegates all intake validation to AO45 core logic.
+next_steps:
+  - Implement HTTP route and registry entry.
+  - Add AO46 contract tests.
+  - Run AI-SDLC close gates and create PR.
