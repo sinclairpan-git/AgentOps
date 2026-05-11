@@ -111,6 +111,20 @@ def test_ao40_ct_002_quality_score_uses_summary_health_and_eval_case():
     _assert_no_raw_leaks(score)
 
 
+def test_ao40_ct_002_quality_explanation_uses_latest_evidence_completeness():
+    repository = InMemoryRepository()
+    write_runtime_run(repository, run_id="run_complete", status="succeeded")
+    write_full_trace(repository, run_id="run_complete")
+    write_runtime_run(repository, run_id="run_latest_sparse", status="succeeded")
+
+    score = get_quality_score_projection(repository, "agent.ai-sdlc", "1.0.0")
+
+    assert score["explanation"]["evidence_completeness"] == 0.0
+    assert score["explanation"]["health_window_evidence_completeness"] > 0.0
+    assert "trace_span" in score["missing_evidence"]
+    _assert_no_raw_leaks(score)
+
+
 def test_ao40_ct_003_adoption_roi_is_summary_only_and_redacts_unsafe_labels():
     projection = get_adoption_roi_projection(
         agent_id="agent.ai-sdlc",

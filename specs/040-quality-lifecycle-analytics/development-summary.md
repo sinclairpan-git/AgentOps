@@ -34,3 +34,8 @@
 - `uv run ruff format --check src/agentops/core/operations.py src/agentops/api/operations.py src/agentops/core/runtime_contracts.py tests/contract/test_ao40_ct_quality_lifecycle_analytics.py`：通过。
 - `python -m ai_sdlc program truth sync --execute --yes`：ready，40/40 mapped。
 - `uv run ai-sdlc verify constraints`：no BLOCKERs。
+
+## Review Fix
+
+- PR #42 Codex P2：quality score explanation 现在使用 latest evidence completeness，与 score 计算来源一致，并保留 health window completeness 作为上下文。
+- Review fix 验证：AO40 7 passed；AO32/AO37/AO39/AO40 回归 47 passed；ruff check/format check 通过；AI-SDLC constraints 无 BLOCKER。

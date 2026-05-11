@@ -42,3 +42,31 @@
 - 当前批次 branch disposition 状态：`codex/040-quality-lifecycle-analytics` 待提交和 PR
 - 当前批次 worktree disposition 状态：retained
 - 是否继续下一批：否，本工作项进入提交与 PR 收口。
+
+### Review Fix 2026-05-10-001 | Codex P2 quality explanation feedback
+
+#### RF-001 | align quality explanation with latest evidence completeness
+
+- 覆盖任务：PR #42 Codex review P2 feedback
+- 覆盖阶段：PR close-out review fix
+- 预读范围：Codex review thread、AO40 quality score projection、AO40 contract tests
+- 激活的规则：PR close-out 固定规则、summary-only evidence/config、质量低置信人工复核
+- **验证画像**：code-change
+- 改动范围：`src/agentops/core/operations.py`、`tests/contract/test_ao40_ct_quality_lifecycle_analytics.py`
+- 改动内容：`quality_score_projection.v1` 的 `explanation.evidence_completeness` 现在与实际参与 score 计算的 latest evidence completeness 对齐；另保留 `health_window_evidence_completeness` 作为窗口上下文，避免解释链误导人工 lifecycle 决策。
+- 新增/调整的测试：新增 latest sparse evidence + earlier complete evidence 的回归，验证 explanation 使用 latest evidence completeness。
+- 统一验证命令：
+  - `uv run pytest tests/contract/test_ao40_ct_quality_lifecycle_analytics.py`
+  - `uv run pytest tests/contract/test_ao32_ct_evidence_health_summary_loop.py tests/contract/test_ao37_ct_p1_evidence_eval_cost_operations.py tests/contract/test_ao39_ct_p2_ecosystem_governance.py tests/contract/test_ao40_ct_quality_lifecycle_analytics.py`
+  - `uv run ruff check src/agentops/core/operations.py tests/contract/test_ao40_ct_quality_lifecycle_analytics.py`
+  - `uv run ruff format --check src/agentops/core/operations.py tests/contract/test_ao40_ct_quality_lifecycle_analytics.py`
+  - `uv run ai-sdlc verify constraints`
+- 测试结果：AO40 7 passed；AO32/AO37/AO39/AO40 回归 47 passed；ruff check 通过；ruff format --check 通过；AI-SDLC constraints 无 BLOCKER。
+- 是否符合任务目标：是。
+- 代码审查结论：Codex 指出的解释链不一致问题已用行为回归锁定；修复不改变 score 算法、不新增 raw evidence 读取或自动 lifecycle 动作。
+- 任务/计划同步状态：AO40 plan/spec 不变，本次为 PR review fix；branch disposition 仍为 PR #42 收口中。
+- **已完成 git 提交**：是，本次 review fix 将在当前提交中一并提交。
+- **提交哈希**：见当前 Git HEAD。
+- 当前批次 branch disposition 状态：`codex/040-quality-lifecycle-analytics` 待提交和 PR
+- 当前批次 worktree disposition 状态：retained
+- 是否继续下一批：否，本批继续 PR 收口。

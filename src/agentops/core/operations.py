@@ -681,7 +681,9 @@ def build_quality_score_projection(
         "evidence_level": str(latest_evidence.get("evidence_level") or "L3"),
         "confidence": confidence,
         "missing_evidence": missing_evidence,
-        "explanation": _quality_explanation(health_summary, missing_evidence),
+        "explanation": _quality_explanation(
+            health_summary, latest_evidence, missing_evidence
+        ),
         "source_run_ids": [str(run.get("run_id") or "") for run in runs],
         "health_summary": health_summary,
         "summary": {
@@ -1169,12 +1171,15 @@ def _quality_state(score: float, confidence: float) -> str:
 
 
 def _quality_explanation(
-    health_summary: dict[str, Any], missing_evidence: list[str]
+    health_summary: dict[str, Any],
+    latest_evidence: dict[str, Any],
+    missing_evidence: list[str],
 ) -> dict[str, Any]:
     return {
         "success_rate": _safe_float(health_summary.get("success_rate")),
         "failure_rate": _safe_float(health_summary.get("failure_rate")),
-        "evidence_completeness": _safe_float(
+        "evidence_completeness": _safe_float(latest_evidence.get("completeness")),
+        "health_window_evidence_completeness": _safe_float(
             health_summary.get("evidence_completeness")
         ),
         "policy_block_count": _safe_int(health_summary.get("policy_block_count")),
