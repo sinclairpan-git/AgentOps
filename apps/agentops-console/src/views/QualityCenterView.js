@@ -108,9 +108,9 @@ export const QualityCenterView = {
       return [
         { label: "原始证据", value: this.guardrailSummary.payload_access || "forbidden" },
         { label: "提示词 / 变更", value: `${this.guardrailSummary.prompt_access || "forbidden"} / ${this.guardrailSummary.change_access || "forbidden"}` },
-        { label: "自动发布", value: this.guardrailSummary.automatic_rollout_enabled ? "enabled" : "disabled" },
+        { label: "发布执行", value: this.guardrailSummary.automatic_rollout_enabled ? "enabled" : "disabled" },
         { label: "Store 写回", value: this.guardrailSummary.store_write_performed ? "performed" : "not_performed" },
-        { label: "自动发布/通知", value: this.guardrailSummary.automatic_publish_performed || this.guardrailSummary.notification_sent ? "performed" : "not_performed" }
+        { label: "发布/通知", value: this.guardrailSummary.automatic_publish_performed || this.guardrailSummary.notification_sent ? "performed" : "not_performed" }
       ];
     }
   },
@@ -156,7 +156,7 @@ export const QualityCenterView = {
           <div><dt>待审批</dt><dd>{{ rolloutPanel.ready_for_manual_approval_count || 0 }}</dd></div>
           <div><dt>需复核</dt><dd>{{ rolloutPanel.needs_human_review_count || 0 }}</dd></div>
           <div><dt>证据不足</dt><dd>{{ rolloutPanel.insufficient_evidence_count || 0 }}</dd></div>
-          <div><dt>自动发布</dt><dd>{{ rolloutPanel.automatic_rollout_enabled ? '开启' : '关闭' }}</dd></div>
+          <div><dt>发布执行</dt><dd>{{ rolloutPanel.automatic_rollout_enabled ? '开启' : '关闭' }}</dd></div>
         </dl>
       </section>
       <section class="ent-card">
