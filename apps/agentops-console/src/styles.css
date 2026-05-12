@@ -625,6 +625,20 @@ button {
   color: #5c6b80;
 }
 
+.compact-guardrails {
+  margin-top: 12px;
+}
+
+.subsection-stack {
+  display: grid;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.sub-title {
+  margin-bottom: 8px;
+}
+
 .boundary-list {
   display: grid;
   gap: 0;

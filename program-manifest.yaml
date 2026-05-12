@@ -207,38 +207,43 @@ specs:
   path: specs/053-quality-center-external-intake-console
   depends_on:
   - 052-quality-center-external-intake-portfolio-http
+- id: 054-p2-ecosystem-governance-console
+  path: specs/054-p2-ecosystem-governance-console
+  depends_on:
+  - 039-p2-ecosystem-governance
+  - 014-console-connector-health-workbench
 truth_snapshot:
-  generated_at: '2026-05-12T10:43:03Z'
+  generated_at: '2026-05-12T15:43:52Z'
   generated_by: ai-sdlc program truth sync
   generator_version: program_truth_snapshot_v1
-  repo_revision: 5901de5
-  authoring_hash: 2781a7e93ada4970b91249bf53d57680d35ab81c60a91a66eacc3a32b9d130f2
+  repo_revision: 96afb64
+  authoring_hash: d5841fbe5607a2768a31afca6a64e62488153428449c198032cec2a036def9ef
   source_hashes: {}
-  snapshot_hash: 57c0f85050305f9967ae0ae085b299c5bab12c845f3ac299bdffc56034e8fb88
+  snapshot_hash: 8fd390765ac0c11eb937691f7a794da9e2c13be52195cddadd73a7d9a48121df
   computed_capabilities: []
   source_inventory:
     state: complete
-    total_sources: 266
-    mapped_sources: 266
+    total_sources: 271
+    mapped_sources: 271
     unmapped_sources: 0
     missing_sources: 0
-    phase_signal_count: 730
-    deferred_signal_count: 896
-    non_goal_signal_count: 94
+    phase_signal_count: 769
+    deferred_signal_count: 935
+    non_goal_signal_count: 96
     layer_totals:
       blueprint: 1
-      spec: 53
-      plan: 53
-      tasks: 53
-      execution: 53
-      close: 53
+      spec: 54
+      plan: 54
+      tasks: 54
+      execution: 54
+      close: 54
     layer_materialized:
       blueprint: 1
-      spec: 53
-      plan: 53
-      tasks: 53
-      execution: 53
-      close: 53
+      spec: 54
+      plan: 54
+      tasks: 54
+      execution: 54
+      close: 54
     entries:
     - path: /Users/sinclairpan/project/AI-Native底座开发文档/AgentOps_项目_PRD.md
       source_type: prd
@@ -2633,6 +2638,51 @@ truth_snapshot:
       mapping_ref: 053-quality-center-external-intake-console
       phase_signal_count: 0
       deferred_signal_count: 0
+      non_goal_signal_count: 0
+    - path: specs/054-p2-ecosystem-governance-console/spec.md
+      source_type: spec_doc
+      truth_layer: spec
+      mapped: true
+      exists: true
+      mapping_ref: 054-p2-ecosystem-governance-console
+      phase_signal_count: 7
+      deferred_signal_count: 7
+      non_goal_signal_count: 0
+    - path: specs/054-p2-ecosystem-governance-console/plan.md
+      source_type: plan_doc
+      truth_layer: plan
+      mapped: true
+      exists: true
+      mapping_ref: 054-p2-ecosystem-governance-console
+      phase_signal_count: 8
+      deferred_signal_count: 8
+      non_goal_signal_count: 1
+    - path: specs/054-p2-ecosystem-governance-console/tasks.md
+      source_type: tasks_doc
+      truth_layer: tasks
+      mapped: true
+      exists: true
+      mapping_ref: 054-p2-ecosystem-governance-console
+      phase_signal_count: 6
+      deferred_signal_count: 6
+      non_goal_signal_count: 0
+    - path: specs/054-p2-ecosystem-governance-console/task-execution-log.md
+      source_type: execution_log
+      truth_layer: execution
+      mapped: true
+      exists: true
+      mapping_ref: 054-p2-ecosystem-governance-console
+      phase_signal_count: 14
+      deferred_signal_count: 14
+      non_goal_signal_count: 1
+    - path: specs/054-p2-ecosystem-governance-console/development-summary.md
+      source_type: development_summary
+      truth_layer: close
+      mapped: true
+      exists: true
+      mapping_ref: 054-p2-ecosystem-governance-console
+      phase_signal_count: 4
+      deferred_signal_count: 4
       non_goal_signal_count: 0
     unmapped_paths: []
   state: ready

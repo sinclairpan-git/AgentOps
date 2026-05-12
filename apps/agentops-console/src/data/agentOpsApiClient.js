@@ -27,6 +27,15 @@ const allowedStates = new Set([
   "unknown",
   "empty",
   "pending",
+  "required",
+  "configured",
+  "not_configured",
+  "not_started",
+  "passed",
+  "missing",
+  "low",
+  "medium",
+  "high",
   "needs_more_info",
   "approved",
   "rejected",
@@ -247,11 +256,12 @@ function consoleDataWithWorkbenchDefaults(consoleData) {
       ...withApprovalWorkbench,
       connectorWorkbench: legacyConnectorWorkbench(withApprovalWorkbench.connectors)
     };
-  const withSdlcRunWorkbench = Object.prototype.hasOwnProperty.call(withConnectorWorkbench, "sdlcRunWorkbench")
-    ? withConnectorWorkbench
+  const withConnectorEcosystem = connectorWorkbenchDefaulted(withConnectorWorkbench);
+  const withSdlcRunWorkbench = Object.prototype.hasOwnProperty.call(withConnectorEcosystem, "sdlcRunWorkbench")
+    ? withConnectorEcosystem
     : {
-      ...withConnectorWorkbench,
-      sdlcRunWorkbench: legacySdlcRunWorkbench(withConnectorWorkbench)
+      ...withConnectorEcosystem,
+      sdlcRunWorkbench: legacySdlcRunWorkbench(withConnectorEcosystem)
     };
   const withQualityCenterWorkbench = Object.prototype.hasOwnProperty.call(withSdlcRunWorkbench, "qualityCenterWorkbench")
     ? withSdlcRunWorkbench
@@ -269,6 +279,23 @@ function credentialHandoffDefaulted(consoleData) {
   return {
     ...consoleData,
     credentialHandoff: emptyCredentialHandoff()
+  };
+}
+
+function connectorWorkbenchDefaulted(consoleData) {
+  const workbench = consoleData.connectorWorkbench;
+  if (!isRecord(workbench)) {
+    return consoleData;
+  }
+  if (Object.prototype.hasOwnProperty.call(workbench, "ecosystemGovernance")) {
+    return consoleData;
+  }
+  return {
+    ...consoleData,
+    connectorWorkbench: {
+      ...workbench,
+      ecosystemGovernance: emptyEcosystemGovernance()
+    }
   };
 }
 
@@ -293,6 +320,35 @@ function emptyCredentialHandoff() {
       "signature_verified 只表示签名测试事件通过，不构成 verified_loaded 或 L5。",
       "控制台不展示 token 值、私钥、原始载荷、下载链接、PR 原文或外部 URL。"
     ]
+  };
+}
+
+function emptyEcosystemGovernance() {
+  return {
+    schema_version: "ecosystem_governance_workbench.v1",
+    workbench_state: "empty",
+    mcp_a2a: [],
+    exporters: [],
+    handoffs: [],
+    riskProfiles: [],
+    summary: {
+      runtime_gateway_required: true,
+      direct_connection_allowed: false,
+      external_write_enabled: false,
+      network_dispatch_performed: false,
+      runtime_execution_performed: false,
+      automatic_store_action: false,
+      notification_sent: false,
+      monitored_agent_count: 0,
+      ecosystem_state: "not_configured"
+    },
+    guardrails: [
+      "旧版快照未提供生态治理工作台，前端仅展示安全空态。",
+      "MCP/A2A 必须经 Runtime Gateway 和 Policy Check；旧快照不得伪造 configured。",
+      "Exporter 只展示 dry-run configuration_hash，不执行网络写入。",
+      "多 Agent handoff 只读取 TraceSpan 摘要字段，不触发自动生命周期动作、不写 Store、不通知。"
+    ],
+    audit_id: "audit_ecosystem_governance_legacy_fallback"
   };
 }
 
@@ -709,10 +765,13 @@ function legacyConnectorWorkbench(connectorItems) {
     health: items.map((item) => legacyConnectorHealth(item)),
     dlq: items.map((item) => legacyConnectorDlq(item)),
     syncTrail: items.map((item) => legacyConnectorSyncTrail(item)),
+    ecosystemGovernance: emptyEcosystemGovernance(),
     guardrails: [
       "连接器新鲜度 SLO 为 15 分钟内，超过 20 分钟必须告警并降低证据等级。",
       "DLQ 与 Outbox Replay 只展示只读摘要，本页不执行回放、重试或生产写操作。",
       "Git、PR、CI、测试、IAM 等外部连接器必须展示限流状态、降级动作和负责人。",
+      "MCP/A2A 必须经 Runtime Gateway 和 Policy Check；直连只能作为 suspected 外部线索。",
+      "Exporter 生态只展示 dry-run 摘要和 configuration_hash，本页不执行网络写入。",
       "materialized/unverified 只能说明配置已生成或 CLI 预演成功，不构成 verified_loaded 治理激活证明。",
       "连接器工作台不得展示原始载荷、下载链接、PR 原文或外部 URL。"
     ]
@@ -1387,7 +1446,21 @@ function consoleDataHasConnectorWorkbenchShape(consoleData) {
   return Array.isArray(consoleData.connectorWorkbench.health) &&
     Array.isArray(consoleData.connectorWorkbench.dlq) &&
     Array.isArray(consoleData.connectorWorkbench.syncTrail) &&
+    consoleDataHasEcosystemGovernanceShape(consoleData.connectorWorkbench.ecosystemGovernance) &&
     Array.isArray(consoleData.connectorWorkbench.guardrails);
+}
+
+function consoleDataHasEcosystemGovernanceShape(ecosystem) {
+  if (!isRecord(ecosystem)) {
+    return false;
+  }
+  return Array.isArray(ecosystem.mcp_a2a) &&
+    Array.isArray(ecosystem.exporters) &&
+    Array.isArray(ecosystem.handoffs) &&
+    Array.isArray(ecosystem.riskProfiles) &&
+    isRecord(ecosystem.summary) &&
+    Array.isArray(ecosystem.guardrails) &&
+    typeof ecosystem.audit_id === "string";
 }
 
 function consoleDataHasSdlcRunWorkbenchShape(consoleData) {
@@ -1612,6 +1685,19 @@ export function statesAreKnown(consoleData) {
     ]),
     ...(consoleData.connectorWorkbench?.dlq || []).map((item) => item.replay_state),
     ...(consoleData.connectorWorkbench?.syncTrail || []).map((item) => item.status),
+    consoleData.connectorWorkbench?.ecosystemGovernance?.workbench_state,
+    consoleData.connectorWorkbench?.ecosystemGovernance?.summary?.ecosystem_state,
+    ...(consoleData.connectorWorkbench?.ecosystemGovernance?.mcp_a2a || []).flatMap((item) => [
+      item.gateway_state,
+      item.policy_check_state,
+      item.evidence_state
+    ]),
+    ...(consoleData.connectorWorkbench?.ecosystemGovernance?.exporters || []).flatMap((item) => [
+      item.configuration_state,
+      item.dispatch_state
+    ]),
+    ...(consoleData.connectorWorkbench?.ecosystemGovernance?.handoffs || []).map((item) => item.handoff_quality_state),
+    ...(consoleData.connectorWorkbench?.ecosystemGovernance?.riskProfiles || []).map((item) => item.risk_profile_state),
     consoleData.sdlcRunWorkbench?.summary?.adapter_status,
     consoleData.sdlcRunWorkbench?.summary?.proof_state,
     consoleData.sdlcRunWorkbench?.summary?.dry_run_state,
@@ -2173,7 +2259,7 @@ export function connectorWorkbenchIsComplete(consoleData) {
   if (!Array.isArray(consoleData.connectors) || containsUnsafeAuditReference(consoleData.connectors)) {
     return false;
   }
-  if (!keysAreExactly(workbench, ["health", "dlq", "syncTrail", "guardrails"])) {
+  if (!keysAreExactly(workbench, ["health", "dlq", "syncTrail", "ecosystemGovernance", "guardrails"])) {
     return false;
   }
   const connectors = consoleData.connectors || [];
@@ -2273,14 +2359,161 @@ export function connectorWorkbenchIsComplete(consoleData) {
   return healthOk &&
     dlqOk &&
     syncOk &&
+    ecosystemGovernanceIsComplete(workbench.ecosystemGovernance) &&
     sdlcConnectorProofStateIsSafe(consoleData, workbench) &&
     workbench.guardrails.every((item) => typeof item === "string" && item) &&
     /15 分钟/.test(guardrailsText) &&
     /超过 20 分钟/.test(guardrailsText) &&
     /DLQ/.test(guardrailsText) &&
     /Outbox Replay/.test(guardrailsText) &&
+    /MCP\/A2A/.test(guardrailsText) &&
+    /Exporter/.test(guardrailsText) &&
     /不构成 verified_loaded/.test(guardrailsText) &&
     /原始载荷/.test(guardrailsText) &&
+    !containsUnsafeLifecycleText(guardrailsText);
+}
+
+function ecosystemGovernanceIsComplete(ecosystem) {
+  if (
+    !consoleDataHasEcosystemGovernanceShape(ecosystem) ||
+    containsUnsafeAuditReference(ecosystem)
+  ) {
+    return false;
+  }
+  if (!keysAreExactly(ecosystem, [
+    "schema_version",
+    "workbench_state",
+    "mcp_a2a",
+    "exporters",
+    "handoffs",
+    "riskProfiles",
+    "summary",
+    "guardrails",
+    "audit_id"
+  ])) {
+    return false;
+  }
+  if (ecosystem.schema_version !== "ecosystem_governance_workbench.v1") {
+    return false;
+  }
+  if (!keysAreExactly(ecosystem.summary, [
+    "runtime_gateway_required",
+    "direct_connection_allowed",
+    "external_write_enabled",
+    "network_dispatch_performed",
+    "runtime_execution_performed",
+    "automatic_store_action",
+    "notification_sent",
+    "monitored_agent_count",
+    "ecosystem_state"
+  ])) {
+    return false;
+  }
+  if (
+    ecosystem.summary.runtime_gateway_required !== true ||
+    ecosystem.summary.direct_connection_allowed !== false ||
+    ecosystem.summary.external_write_enabled !== false ||
+    ecosystem.summary.network_dispatch_performed !== false ||
+    ecosystem.summary.runtime_execution_performed !== false ||
+    ecosystem.summary.automatic_store_action !== false ||
+    ecosystem.summary.notification_sent !== false ||
+    typeof ecosystem.summary.monitored_agent_count !== "number"
+  ) {
+    return false;
+  }
+  const mcpOk = ecosystem.mcp_a2a.every((item) =>
+    keysAreExactly(item, [
+      "id",
+      "protocol",
+      "endpoint_ref",
+      "subject_agent_id",
+      "resource_scope",
+      "gateway_state",
+      "policy_check_state",
+      "evidence_state",
+      "runtime_gateway_required",
+      "direct_connection_allowed",
+      "runtime_execution_performed",
+      "external_side_effects_enabled",
+      "audit_id"
+    ]) &&
+    ["mcp", "a2a"].includes(item.protocol) &&
+    item.endpoint_ref &&
+    item.subject_agent_id &&
+    item.runtime_gateway_required === true &&
+    item.direct_connection_allowed === false &&
+    item.runtime_execution_performed === false &&
+    item.external_side_effects_enabled === false
+  );
+  const exportersOk = ecosystem.exporters.every((item) =>
+    keysAreExactly(item, [
+      "id",
+      "exporter_id",
+      "exporter_type",
+      "endpoint_ref",
+      "configuration_state",
+      "dispatch_state",
+      "external_write_enabled",
+      "configuration_hash"
+    ]) &&
+    item.exporter_id &&
+    item.exporter_type &&
+    item.endpoint_ref &&
+    item.external_write_enabled === false &&
+    /^sha256:/.test(item.configuration_hash || "")
+  );
+  const handoffsOk = ecosystem.handoffs.every((item) =>
+    keysAreExactly(item, [
+      "id",
+      "agent_id",
+      "version",
+      "handoff_count",
+      "failed_handoff_count",
+      "handoff_quality_state",
+      "automatic_handoff_action",
+      "runtime_execution_performed",
+      "derived_from",
+      "audit_id"
+    ]) &&
+    typeof item.handoff_count === "number" &&
+    typeof item.failed_handoff_count === "number" &&
+    item.automatic_handoff_action === false &&
+    item.runtime_execution_performed === false &&
+    item.derived_from === "trace_span_summary_fields"
+  );
+  const riskProfilesOk = ecosystem.riskProfiles.every((item) =>
+    keysAreExactly(item, [
+      "id",
+      "agent_id",
+      "version",
+      "risk_profile_state",
+      "risk_factor_count",
+      "recommended_action",
+      "handoff_quality_state",
+      "failed_handoff_count",
+      "dlq_backlog_count",
+      "automatic_runtime_action",
+      "automatic_store_action",
+      "audit_id"
+    ]) &&
+    typeof item.risk_factor_count === "number" &&
+    typeof item.failed_handoff_count === "number" &&
+    typeof item.dlq_backlog_count === "number" &&
+    item.automatic_runtime_action === false &&
+    item.automatic_store_action === false
+  );
+  const guardrailsText = ecosystem.guardrails.join(" ");
+  return mcpOk &&
+    exportersOk &&
+    handoffsOk &&
+    riskProfilesOk &&
+    ecosystem.guardrails.every((item) => typeof item === "string" && item) &&
+    /MCP\/A2A/.test(guardrailsText) &&
+    /Runtime Gateway/.test(guardrailsText) &&
+    /Exporter/.test(guardrailsText) &&
+    /dry-run|dry run/.test(guardrailsText) &&
+    /TraceSpan/.test(guardrailsText) &&
+    /不自动|不触发自动生命周期动作/.test(guardrailsText) &&
     !containsUnsafeLifecycleText(guardrailsText);
 }
 
@@ -2865,7 +3098,7 @@ export function containsUnsafeAuditReference(value) {
     "pull_request_body"
   ]);
   if (typeof value === "string") {
-    return /https?:\/\//i.test(value);
+    return /(?:https?:\/\/|:\/\/)/i.test(value);
   }
   if (Array.isArray(value)) {
     return value.some(containsUnsafeAuditReference);
@@ -2892,7 +3125,7 @@ export function containsUnsafeAuditReference(value) {
         /^code/i.test(key) ||
         /snippet/i.test(key) ||
         /^diff/i.test(key) ||
-        /patch/i.test(key) ||
+        /^patch(?:$|[_\-\s])|[_\-\s]patch(?:$|[_\-\s])/i.test(key) ||
         /^pullrequest/i.test(normalizedKey);
     }) ||
       Object.values(value).some(containsUnsafeAuditReference);

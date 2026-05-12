@@ -608,10 +608,118 @@ consoleData.connectorWorkbench = {
     status: item.status,
     request_id: item.request_id
   })),
+  ecosystemGovernance: {
+    schema_version: "ecosystem_governance_workbench.v1",
+    workbench_state: "ready",
+    mcp_a2a: [
+      {
+        id: "ecosystem_mcp_agent_ai_sdlc",
+        protocol: "mcp",
+        endpoint_ref: "gateway_tools_summary_ref",
+        subject_agent_id: "agent.ai-sdlc",
+        resource_scope: "tools.summary",
+        gateway_state: "configured",
+        policy_check_state: "required",
+        evidence_state: "summary_only",
+        runtime_gateway_required: true,
+        direct_connection_allowed: false,
+        runtime_execution_performed: false,
+        external_side_effects_enabled: false,
+        audit_id: "audit_mcp_a2a_mcp_agent_ai_sdlc"
+      },
+      {
+        id: "ecosystem_a2a_agent_ai_sdlc",
+        protocol: "a2a",
+        endpoint_ref: "gateway_agent_handoff_summary_ref",
+        subject_agent_id: "agent.ai-sdlc",
+        resource_scope: "agent.handoff",
+        gateway_state: "configured",
+        policy_check_state: "required",
+        evidence_state: "summary_only",
+        runtime_gateway_required: true,
+        direct_connection_allowed: false,
+        runtime_execution_performed: false,
+        external_side_effects_enabled: false,
+        audit_id: "audit_mcp_a2a_a2a_agent_ai_sdlc"
+      }
+    ],
+    exporters: [
+      {
+        id: "ecosystem_exporter_otel_summary",
+        exporter_id: "otel_summary",
+        exporter_type: "otlp",
+        endpoint_ref: "collector_otlp_summary_ref",
+        configuration_state: "configured",
+        dispatch_state: "not_started",
+        external_write_enabled: false,
+        configuration_hash: "sha256:otel-summary"
+      },
+      {
+        id: "ecosystem_exporter_openinference_summary",
+        exporter_id: "openinference_summary",
+        exporter_type: "openinference",
+        endpoint_ref: "collector_openinference_summary_ref",
+        configuration_state: "configured",
+        dispatch_state: "not_started",
+        external_write_enabled: false,
+        configuration_hash: "sha256:openinference-summary"
+      }
+    ],
+    handoffs: [
+      {
+        id: "ecosystem_handoff_agent_ai_sdlc_1_0_0",
+        agent_id: "agent.ai-sdlc",
+        version: "1.0.0",
+        handoff_count: 0,
+        failed_handoff_count: 0,
+        handoff_quality_state: "insufficient_data",
+        automatic_handoff_action: false,
+        runtime_execution_performed: false,
+        derived_from: "trace_span_summary_fields",
+        audit_id: "audit_handoff_evaluation_agent.ai-sdlc_1.0.0"
+      }
+    ],
+    riskProfiles: [
+      {
+        id: "ecosystem_risk_agent_ai_sdlc_1_0_0",
+        agent_id: "agent.ai-sdlc",
+        version: "1.0.0",
+        risk_profile_state: "low",
+        risk_factor_count: 0,
+        recommended_action: "none",
+        handoff_quality_state: "insufficient_data",
+        failed_handoff_count: 0,
+        dlq_backlog_count: 0,
+        automatic_runtime_action: false,
+        automatic_store_action: false,
+        audit_id: "audit_complex_risk_profile_agent.ai-sdlc_1.0.0"
+      }
+    ],
+    summary: {
+      runtime_gateway_required: true,
+      direct_connection_allowed: false,
+      external_write_enabled: false,
+      network_dispatch_performed: false,
+      runtime_execution_performed: false,
+      automatic_store_action: false,
+      notification_sent: false,
+      monitored_agent_count: 1,
+      ecosystem_state: "configured"
+    },
+    guardrails: [
+      "MCP/A2A 只展示 Runtime Gateway 和 Policy Check 摘要，不允许直连。",
+      "Exporter 只展示 dry-run configuration_hash，不执行网络写入。",
+      "多 Agent 移交只读取 TraceSpan 摘要字段，不重跑 handoff。",
+      "复杂风险画像只进入人工复核，不自动 disable、不写 Store、不通知。"
+    ],
+    audit_id: "audit_ecosystem_governance_console"
+  },
   guardrails: [
     "连接器新鲜度 SLO 为 15 分钟内，超过 20 分钟必须告警并降低证据等级。",
     "DLQ 与 Outbox Replay 只展示只读摘要，本页不执行回放、重试或生产写操作。",
     "Git、PR、CI、测试、IAM 等外部连接器必须展示限流状态、降级动作和负责人。",
+    "MCP/A2A 必须经 Runtime Gateway 和 Policy Check；直连只能作为 suspected 外部线索。",
+    "Exporter 生态只展示 dry-run 摘要和 configuration_hash，本页不执行网络写入。",
     "materialized/unverified 只能说明配置已生成或 CLI 预演成功，不构成 verified_loaded 治理激活证明。",
     "连接器工作台不得展示原始载荷、下载链接、PR 原文或外部 URL。"
   ]
