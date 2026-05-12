@@ -22,9 +22,11 @@
 1. 在 PR 中触发 `@codex review`。
 2. 等待 GitHub checks 全部完成，且必须包含 `Compatibility Gate Result` 通过。
 3. 若 Codex review 反馈具体问题，回到当前分支修复、提交、推送，并重新触发 `@codex review`。
-4. 若 Codex review 明确“未发现问题”或等价通过，且所有 GitHub checks 均通过、`mergeStateStatus=CLEAN`，则合入 `main` 并同步本地 `main`。
-5. PR 创建并触发 `@codex review` 后，Codex 必须主动创建或确认存在 5 分钟轮询 heartbeat，不等待用户再次要求。heartbeat 任务需检查 Codex review、GitHub checks、`Compatibility Gate Result` 和 `mergeStateStatus`。
-6. 若 review 或 checks 未完成，继续维持 5 分钟轮询；轮询发现问题则修复、提交、推送并重新触发 review；发现满足合入条件则合入主线并同步本地 `main`。
+4. 若 Codex review 配额不足、无法触发、长时间不可用或没有返回可执行结论，则每次创建 PR 后都必须启动一个单独的云端 review 任务作为 fallback。该任务必须保持独立、客观、严谨，使用与 Codex review 相同的 review 规则和阻断标准，对 PR diff、测试、治理证据、兼容门和安全边界进行 review，并将具体问题评论到 PR。
+5. 云端 fallback review 若反馈具体问题，回到当前分支修复、提交、推送，并再次触发云端 fallback review；若 Codex review 配额恢复，也同时重新触发 `@codex review`。
+6. 只有 Codex review 或云端 fallback review 明确“未发现问题”或等价通过，且所有 GitHub checks 均通过、`Compatibility Gate Result` 通过、`mergeStateStatus=CLEAN`，才可合入 `main` 并同步本地 `main`。
+7. PR 创建并触发 `@codex review` 或云端 fallback review 后，Codex 必须主动创建或确认存在 5 分钟轮询 heartbeat，不等待用户再次要求。heartbeat 任务需检查 Codex review 或云端 fallback review、GitHub checks、`Compatibility Gate Result` 和 `mergeStateStatus`。
+8. 若 review 或 checks 未完成，继续维持 5 分钟轮询；轮询发现问题则修复、提交、推送并重新触发对应 review；发现满足合入条件则合入主线并同步本地 `main`。
 
 该规则适用于 AgentOps 项目的常规功能 PR；若用户明确要求暂停、仅观察、不得自动合入或改用其他分支策略，则以用户最新指令为准。
 
