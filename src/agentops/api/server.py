@@ -23,7 +23,10 @@ from agentops.api.credentials import (
     revoke_credentials,
 )
 from agentops.api.ingestion import ingest_events_batch
-from agentops.api.operations import ingest_quality_scorer_external_execution
+from agentops.api.operations import (
+    get_quality_center_external_intake_portfolio,
+    ingest_quality_scorer_external_execution,
+)
 from agentops.api.runtime import (
     get_runtime_evidence_summary,
     get_runtime_health_summary,
@@ -49,6 +52,8 @@ EXTERNAL_INTAKE_INDEX_DEFAULT_LIMIT = 25
 EXTERNAL_INTAKE_INDEX_MAX_LIMIT = 100
 EXTERNAL_INTAKE_SUMMARY_DEFAULT_LIMIT = 100
 EXTERNAL_INTAKE_SUMMARY_MAX_LIMIT = 250
+QUALITY_CENTER_PORTFOLIO_SCOPE_DEFAULT_LIMIT = 25
+QUALITY_CENTER_PORTFOLIO_SCOPE_MAX_LIMIT = 25
 EXTERNAL_INTAKE_FORBIDDEN_QUERY_MARKERS = (
     "token_secret",
     "credential_secret",
@@ -192,6 +197,43 @@ def create_http_handler(
                     )
                     self._send_json(
                         self._quality_scorer_external_intake_summary_status(exc),
+                        exc.to_response(),
+                    )
+                    return
+                self._append_audit_record(
+                    action=action,
+                    outcome="accepted",
+                    resource=request_path,
+                    audit_id=response.get("audit_id"),
+                )
+                self._send_json(HTTPStatus.OK, response)
+                return
+
+            if request_path == "/v1/quality/center/external-intake/portfolio":
+                action = "quality.center.external_intake.portfolio"
+                auth_error = self._require_scope("quality.scorer.intake.read")
+                if auth_error:
+                    self._send_auth_error(
+                        auth_error,
+                        action=action,
+                        resource=request_path,
+                    )
+                    return
+                try:
+                    response = self._quality_center_external_intake_portfolio_response(
+                        self._request_query()
+                    )
+                except AgentOpsError as exc:
+                    self._append_audit_record(
+                        action=action,
+                        outcome="rejected",
+                        resource=request_path,
+                        error_code=exc.error_code,
+                        audit_id=exc.audit_id,
+                        request_id=exc.request_id,
+                    )
+                    self._send_json(
+                        self._quality_center_external_intake_portfolio_status(exc),
                         exc.to_response(),
                     )
                     return
@@ -1033,6 +1075,9 @@ def create_http_handler(
             values = query.get(name) or []
             return values[0].strip() if values else ""
 
+        def _query_values(self, query: dict[str, list[str]], name: str) -> list[str]:
+            return [value.strip() for value in query.get(name, []) if value.strip()]
+
         def _runtime_audit_query_response(
             self, query: dict[str, list[str]]
         ) -> dict[str, Any]:
@@ -1698,6 +1743,157 @@ def create_http_handler(
             return min(limit, EXTERNAL_INTAKE_SUMMARY_MAX_LIMIT)
 
         def _quality_scorer_external_intake_summary_status(
+            self, exc: AgentOpsError
+        ) -> HTTPStatus:
+            return HTTPStatus.BAD_REQUEST
+
+        def _quality_center_external_intake_portfolio_response(
+            self, query: dict[str, list[str]]
+        ) -> dict[str, Any]:
+            limit = self._quality_center_external_intake_portfolio_limit(query)
+            scope_values = self._query_values(query, "scope")
+            if not scope_values:
+                raise AgentOpsError(
+                    "QUALITY_CENTER_INTAKE_PORTFOLIO_SCOPE_REQUIRED",
+                    "Quality Center external intake portfolio requires at least one scope=agent_id@version query value.",
+                    denied_scope="quality_center_external_intake_portfolio.scope",
+                )
+            required_scopes = {
+                (item["agent_id"], item["version"])
+                for item in self._quality_center_external_intake_scope_refs(
+                    self._query_values(query, "required_scope"),
+                    field_name="required_scope",
+                )
+            }
+            scope_refs = self._quality_center_external_intake_scope_refs(
+                scope_values,
+                field_name="scope",
+            )[:limit]
+            agent_refs = [
+                {
+                    "agent_id": item["agent_id"],
+                    "version": item["version"],
+                    "external_intake_required": (
+                        item["agent_id"],
+                        item["version"],
+                    )
+                    in required_scopes,
+                }
+                for item in scope_refs
+            ]
+            report_period = self._query_value(query, "report_period") or "http"
+            portfolio = get_quality_center_external_intake_portfolio(
+                live_repository,
+                report_period=report_period,
+                generated_by="quality_center_http",
+                agent_refs=agent_refs,
+            )
+            audit_hash = hashlib.sha256(
+                json.dumps(
+                    {
+                        "scope_hashes": [
+                            self._quality_center_external_intake_scope_hash(item)
+                            for item in scope_refs
+                        ],
+                        "required_hashes": [
+                            self._quality_center_external_intake_scope_hash(
+                                {
+                                    "agent_id": agent_id,
+                                    "version": version,
+                                }
+                            )
+                            for agent_id, version in sorted(required_scopes)
+                        ],
+                        "limit": limit,
+                    },
+                    sort_keys=True,
+                ).encode("utf-8")
+            ).hexdigest()[:12]
+            return {
+                "schema_version": "quality_center_external_intake_portfolio_http.v1",
+                "route": "/v1/quality/center/external-intake/portfolio",
+                "method": "GET",
+                "window_limit": limit,
+                "requested_scope_count": len(scope_values),
+                "returned_scope_count": len(agent_refs),
+                "portfolio": portfolio,
+                "summary": {
+                    "summary_only_portfolio_http": True,
+                    "request_body_read": False,
+                    "query_payload_recorded": False,
+                    "agentops_scorer_invoked": False,
+                    "automatic_rollout_enabled": False,
+                    "automatic_template_switch": False,
+                    "automatic_lifecycle_action": False,
+                    "store_write_performed": False,
+                    "notification_sent": False,
+                },
+                "audit_id": (
+                    f"audit_quality_center_external_intake_portfolio_{audit_hash}"
+                ),
+            }
+
+        def _quality_center_external_intake_portfolio_limit(
+            self, query: dict[str, list[str]]
+        ) -> int:
+            raw_limit = self._query_value(query, "limit")
+            if not raw_limit:
+                return QUALITY_CENTER_PORTFOLIO_SCOPE_DEFAULT_LIMIT
+            try:
+                limit = int(raw_limit)
+            except ValueError as exc:
+                raise AgentOpsError(
+                    "QUALITY_CENTER_INTAKE_PORTFOLIO_LIMIT_INVALID",
+                    "Quality Center external intake portfolio limit must be a positive integer.",
+                    denied_scope="quality_center_external_intake_portfolio.limit",
+                ) from exc
+            if limit < 1:
+                raise AgentOpsError(
+                    "QUALITY_CENTER_INTAKE_PORTFOLIO_LIMIT_INVALID",
+                    "Quality Center external intake portfolio limit must be a positive integer.",
+                    denied_scope="quality_center_external_intake_portfolio.limit",
+                )
+            return min(limit, QUALITY_CENTER_PORTFOLIO_SCOPE_MAX_LIMIT)
+
+        def _quality_center_external_intake_scope_refs(
+            self,
+            values: list[str],
+            *,
+            field_name: str,
+        ) -> list[dict[str, str]]:
+            refs: list[dict[str, str]] = []
+            seen: set[tuple[str, str]] = set()
+            for raw_value in values:
+                agent_id, separator, version = str(raw_value or "").rpartition("@")
+                if not separator or not agent_id or not version:
+                    raise AgentOpsError(
+                        "QUALITY_CENTER_INTAKE_PORTFOLIO_SCOPE_INVALID",
+                        "Quality Center external intake portfolio scopes must use agent_id@version.",
+                        denied_scope=(
+                            f"quality_center_external_intake_portfolio.{field_name}"
+                        ),
+                    )
+                key = (agent_id, version)
+                if key in seen:
+                    continue
+                seen.add(key)
+                refs.append({"agent_id": agent_id, "version": version})
+            return refs
+
+        def _quality_center_external_intake_scope_hash(
+            self,
+            scope_ref: dict[str, str],
+        ) -> dict[str, str]:
+            return {
+                "agent_id_hash": hashlib.sha256(
+                    f"agent_id\x00{scope_ref['agent_id']}".encode("utf-8")
+                ).hexdigest(),
+                "version_hash": hashlib.sha256(
+                    f"version\x00{scope_ref['version']}".encode("utf-8")
+                ).hexdigest(),
+            }
+
+        def _quality_center_external_intake_portfolio_status(
             self, exc: AgentOpsError
         ) -> HTTPStatus:
             return HTTPStatus.BAD_REQUEST

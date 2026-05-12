@@ -129,6 +129,9 @@ for (const expectedChineseText of [
   "Agent 质量摘要",
   "评分器发布",
   "发布执行",
+  "外部评分输入",
+  "组合覆盖",
+  "缺失必需接入",
   "原质量信号",
   "质量解释链",
   "复核队列",
@@ -1909,6 +1912,18 @@ assert.equal(
   false
 );
 assert.equal(
+  apiLoad.consoleData.qualityCenterWorkbench.external_intake_panel.automatic_scorer_invocation,
+  false
+);
+assert.equal(
+  apiLoad.consoleData.qualityCenterWorkbench.external_intake_portfolio.schema_version,
+  "quality_center_external_intake_portfolio.v1"
+);
+assert.equal(
+  apiLoad.consoleData.qualityCenterWorkbench.agent_summaries[0].external_intake_health.health_state,
+  "no_receipts"
+);
+assert.equal(
   validateSnapshot({
     ...validApiSnapshot,
     consoleData: {
@@ -1950,6 +1965,44 @@ assert.equal(
         agent_summaries: [{
           ...apiLoad.consoleData.qualityCenterWorkbench.agent_summaries[0],
           explanation: "查看 https://example.invalid/raw-quality"
+        }]
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      qualityCenterWorkbench: {
+        ...apiLoad.consoleData.qualityCenterWorkbench,
+        external_intake_panel: {
+          ...apiLoad.consoleData.qualityCenterWorkbench.external_intake_panel,
+          automatic_scorer_invocation: true
+        }
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      qualityCenterWorkbench: {
+        ...apiLoad.consoleData.qualityCenterWorkbench,
+        agent_summaries: [{
+          ...apiLoad.consoleData.qualityCenterWorkbench.agent_summaries[0],
+          external_intake_health: {
+            ...apiLoad.consoleData.qualityCenterWorkbench.agent_summaries[0].external_intake_health,
+            summary: {
+              ...apiLoad.consoleData.qualityCenterWorkbench.agent_summaries[0].external_intake_health.summary,
+              notification_sent: true
+            }
+          }
         }]
       }
     }
@@ -2015,6 +2068,8 @@ assert.equal(legacyQualityCenterApiLoad.source, "api_snapshot");
 assert.equal(legacyQualityCenterApiLoad.consoleData.qualityCenterWorkbench.agent_summaries.length, consoleData.quality.length);
 assert.equal(legacyQualityCenterApiLoad.consoleData.qualityCenterWorkbench.summary.store_write_performed, false);
 assert.equal(legacyQualityCenterApiLoad.consoleData.qualityCenterWorkbench.review_queue[0].manual_review_required, true);
+assert.equal(legacyQualityCenterApiLoad.consoleData.qualityCenterWorkbench.external_intake_panel.no_receipts_count, consoleData.quality.length);
+assert.equal(legacyQualityCenterApiLoad.consoleData.qualityCenterWorkbench.external_intake_portfolio.portfolio_state, "no_receipts");
 
 const liveApiLoad = await loadAgentOpsSnapshot(async () => ({
   ok: true,

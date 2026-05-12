@@ -31,6 +31,7 @@ def create_app() -> dict[str, str]:
         "quality_scorer_external_intake_readback": "GET /v1/quality/scorers/external-intake",
         "quality_scorer_external_intake_index": "GET /v1/quality/scorers/external-intake/index",
         "quality_scorer_external_intake_summary": "GET /v1/quality/scorers/external-intake/summary",
+        "quality_center_external_intake_portfolio": "GET /v1/quality/center/external-intake/portfolio",
         "health": "/v1/health",
         "console_snapshot": "/v1/console/snapshot",
         "production_auth_boundary": "upstream headers: X-AgentOps-Principal, X-AgentOps-Roles, X-AgentOps-Scopes",

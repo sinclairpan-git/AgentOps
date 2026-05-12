@@ -8,7 +8,7 @@ detected_ide: generic
 agent_target: codex
 adapter_applied: codex
 adapter_version: '1'
-adapter_applied_at: '2026-05-08T06:39:26+00:00'
+adapter_applied_at: '2026-05-12T08:59:51+00:00'
 adapter_activation_state: acknowledged
 adapter_support_tier: soft_installed
 agent_target_source: ''
@@ -18,7 +18,7 @@ adapter_activated_at: ''
 adapter_ingress_state: verified_loaded
 adapter_verification_result: verified
 adapter_canonical_path: AGENTS.md
-adapter_canonical_content_digest: sha256:8fca5a4906237dfebc99174d2a90fb8695010aa4eb80e02a797224c250a7533a
+adapter_canonical_content_digest: sha256:2860c40506003e8835ccadac7db5c3bdd5ff46367f2dc4415c18001f8feeec72
 adapter_canonical_consumption_result: unverified
 adapter_canonical_consumption_evidence: ''
 adapter_canonical_consumed_at: ''
