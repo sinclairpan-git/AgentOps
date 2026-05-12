@@ -2,11 +2,11 @@ pipeline_started_at: '2026-05-04T06:14:47+00:00'
 pipeline_last_updated: '2026-05-11T15:35:00+00:00'
 current_stage: close
 feature:
-  id: 049-quality-scorer-external-intake-summary
-  spec_dir: specs/049-quality-scorer-external-intake-summary
-  design_branch: design/049-quality-scorer-external-intake-summary-docs
-  feature_branch: feature/049-quality-scorer-external-intake-summary-dev
-  current_branch: codex/049-quality-scorer-external-intake-summary
+  id: 050-quality-center-external-intake-health
+  spec_dir: specs/050-quality-center-external-intake-health
+  design_branch: design/050-quality-center-external-intake-health-docs
+  feature_branch: feature/050-quality-center-external-intake-health-dev
+  current_branch: codex/050-quality-center-external-intake-health
   docs_baseline_ref: ''
   docs_baseline_at: ''
 multi_agent:
@@ -43,6 +43,6 @@ completed_stages:
 execute_progress: null
 ai_decisions_count: 0
 execution_mode: auto
-linked_wi_id: 049-quality-scorer-external-intake-summary
-linked_plan_uri: specs/049-quality-scorer-external-intake-summary/plan.md
+linked_wi_id: 050-quality-center-external-intake-health
+linked_plan_uri: specs/050-quality-center-external-intake-health/plan.md
 last_synced_at: '2026-05-11T08:40:18+00:00'

@@ -1,0 +1,12 @@
+schema_version: '1'
+work_item_id: 050-quality-center-external-intake-health
+status: active
+summary: >
+  AO50 integrates external quality scorer intake health into the Quality Center
+  backend workbench. It adds per-agent external_intake_health and a workbench
+  external_intake_panel while preserving summary-only, read-only, no-auto-action
+  boundaries.
+next_steps:
+  - Run AO50 focused contract tests and regressions.
+  - Run AI-SDLC close gates.
+  - Create PR and trigger Codex review.

@@ -191,38 +191,42 @@ specs:
   path: specs/049-quality-scorer-external-intake-summary
   depends_on:
   - 048-quality-scorer-external-intake-index
+- id: 050-quality-center-external-intake-health
+  path: specs/050-quality-center-external-intake-health
+  depends_on:
+  - 049-quality-scorer-external-intake-summary
 truth_snapshot:
-  generated_at: '2026-05-11T16:11:01Z'
+  generated_at: '2026-05-12T00:39:33Z'
   generated_by: ai-sdlc program truth sync
   generator_version: program_truth_snapshot_v1
-  repo_revision: 7b48ff5
-  authoring_hash: ecf9bbf4c93cac36eb47a0252eb6aa4a0ab4333d0f394b605a8987d1f7d1dbe3
+  repo_revision: f6321c5
+  authoring_hash: cf528929b7f7c6f58a7f1b94bd749066863f570d1af42d1134bc9f5cd185157d
   source_hashes: {}
-  snapshot_hash: 95ff22a1eb9968eb42c60de42677ae8bd42eb847e7c3e3b973aa63eb5a66b96d
+  snapshot_hash: 2461c3f73f10b2a9b0c0e1af99f2aa5cec062f1a18faa39f6b56142834fa7b7b
   computed_capabilities: []
   source_inventory:
     state: complete
-    total_sources: 246
-    mapped_sources: 246
+    total_sources: 251
+    mapped_sources: 251
     unmapped_sources: 0
     missing_sources: 0
-    phase_signal_count: 707
-    deferred_signal_count: 871
-    non_goal_signal_count: 81
+    phase_signal_count: 712
+    deferred_signal_count: 876
+    non_goal_signal_count: 84
     layer_totals:
       blueprint: 1
-      spec: 49
-      plan: 49
-      tasks: 49
-      execution: 49
-      close: 49
+      spec: 50
+      plan: 50
+      tasks: 50
+      execution: 50
+      close: 50
     layer_materialized:
       blueprint: 1
-      spec: 49
-      plan: 49
-      tasks: 49
-      execution: 49
-      close: 49
+      spec: 50
+      plan: 50
+      tasks: 50
+      execution: 50
+      close: 50
     entries:
     - path: /Users/sinclairpan/project/AI-Native底座开发文档/AgentOps_项目_PRD.md
       source_type: prd
@@ -2438,5 +2442,50 @@ truth_snapshot:
       phase_signal_count: 0
       deferred_signal_count: 0
       non_goal_signal_count: 0
+    - path: specs/050-quality-center-external-intake-health/spec.md
+      source_type: spec_doc
+      truth_layer: spec
+      mapped: true
+      exists: true
+      mapping_ref: 050-quality-center-external-intake-health
+      phase_signal_count: 3
+      deferred_signal_count: 3
+      non_goal_signal_count: 0
+    - path: specs/050-quality-center-external-intake-health/plan.md
+      source_type: plan_doc
+      truth_layer: plan
+      mapped: true
+      exists: true
+      mapping_ref: 050-quality-center-external-intake-health
+      phase_signal_count: 2
+      deferred_signal_count: 2
+      non_goal_signal_count: 1
+    - path: specs/050-quality-center-external-intake-health/tasks.md
+      source_type: tasks_doc
+      truth_layer: tasks
+      mapped: true
+      exists: true
+      mapping_ref: 050-quality-center-external-intake-health
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 0
+    - path: specs/050-quality-center-external-intake-health/task-execution-log.md
+      source_type: execution_log
+      truth_layer: execution
+      mapped: true
+      exists: true
+      mapping_ref: 050-quality-center-external-intake-health
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 1
+    - path: specs/050-quality-center-external-intake-health/development-summary.md
+      source_type: development_summary
+      truth_layer: close
+      mapped: true
+      exists: true
+      mapping_ref: 050-quality-center-external-intake-health
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 1
     unmapped_paths: []
   state: ready
