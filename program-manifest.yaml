@@ -199,38 +199,42 @@ specs:
   path: specs/051-quality-center-external-intake-portfolio
   depends_on:
   - 050-quality-center-external-intake-health
+- id: 052-quality-center-external-intake-portfolio-http
+  path: specs/052-quality-center-external-intake-portfolio-http
+  depends_on:
+  - 051-quality-center-external-intake-portfolio
 truth_snapshot:
-  generated_at: '2026-05-12T06:28:23Z'
+  generated_at: '2026-05-12T09:15:51Z'
   generated_by: ai-sdlc program truth sync
   generator_version: program_truth_snapshot_v1
-  repo_revision: e33dee9
-  authoring_hash: 2b04bcda156cbb82d6b6139dd348d4364a5d819bbdca368f85e249767df668e4
+  repo_revision: 67b24c2
+  authoring_hash: c04375d5bab8c9d5e92877f7a3884b8c24311a4eefc0c6a62b155d0907c56220
   source_hashes: {}
-  snapshot_hash: f5ce4df00b9936bebd4b055908328dcda3578d29f104428ef05f5dc469606f78
+  snapshot_hash: fe4145cbf44e8b2b07d17d03752d3566230338fdfab006e426a922c021dc1ea2
   computed_capabilities: []
   source_inventory:
     state: complete
-    total_sources: 256
-    mapped_sources: 256
+    total_sources: 261
+    mapped_sources: 261
     unmapped_sources: 0
     missing_sources: 0
-    phase_signal_count: 718
-    deferred_signal_count: 883
-    non_goal_signal_count: 89
+    phase_signal_count: 724
+    deferred_signal_count: 890
+    non_goal_signal_count: 93
     layer_totals:
       blueprint: 1
-      spec: 51
-      plan: 51
-      tasks: 51
-      execution: 51
-      close: 51
+      spec: 52
+      plan: 52
+      tasks: 52
+      execution: 52
+      close: 52
     layer_materialized:
       blueprint: 1
-      spec: 51
-      plan: 51
-      tasks: 51
-      execution: 51
-      close: 51
+      spec: 52
+      plan: 52
+      tasks: 52
+      execution: 52
+      close: 52
     entries:
     - path: /Users/sinclairpan/project/AI-Native底座开发文档/AgentOps_项目_PRD.md
       source_type: prd
@@ -2533,6 +2537,51 @@ truth_snapshot:
       mapped: true
       exists: true
       mapping_ref: 051-quality-center-external-intake-portfolio
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 1
+    - path: specs/052-quality-center-external-intake-portfolio-http/spec.md
+      source_type: spec_doc
+      truth_layer: spec
+      mapped: true
+      exists: true
+      mapping_ref: 052-quality-center-external-intake-portfolio-http
+      phase_signal_count: 3
+      deferred_signal_count: 3
+      non_goal_signal_count: 1
+    - path: specs/052-quality-center-external-intake-portfolio-http/plan.md
+      source_type: plan_doc
+      truth_layer: plan
+      mapped: true
+      exists: true
+      mapping_ref: 052-quality-center-external-intake-portfolio-http
+      phase_signal_count: 2
+      deferred_signal_count: 3
+      non_goal_signal_count: 0
+    - path: specs/052-quality-center-external-intake-portfolio-http/tasks.md
+      source_type: tasks_doc
+      truth_layer: tasks
+      mapped: true
+      exists: true
+      mapping_ref: 052-quality-center-external-intake-portfolio-http
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 0
+    - path: specs/052-quality-center-external-intake-portfolio-http/task-execution-log.md
+      source_type: execution_log
+      truth_layer: execution
+      mapped: true
+      exists: true
+      mapping_ref: 052-quality-center-external-intake-portfolio-http
+      phase_signal_count: 1
+      deferred_signal_count: 1
+      non_goal_signal_count: 2
+    - path: specs/052-quality-center-external-intake-portfolio-http/development-summary.md
+      source_type: development_summary
+      truth_layer: close
+      mapped: true
+      exists: true
+      mapping_ref: 052-quality-center-external-intake-portfolio-http
       phase_signal_count: 0
       deferred_signal_count: 0
       non_goal_signal_count: 1
