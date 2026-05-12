@@ -1419,6 +1419,12 @@ def build_quality_center_workbench(
         execution_summary = _quality_center_execution_summary(
             execution_records[-1] if execution_records else None
         )
+        external_intake_health = _quality_center_external_intake_health(
+            repository,
+            agent_id,
+            version,
+            external_intake_required=bool(ref.get("external_intake_required", False)),
+        )
         comparison_state = str(comparison.get("comparison_state") or "")
         comparison_counts["candidate_count"] += 1
         comparison_count_key = f"{comparison_state}_count"
@@ -1457,6 +1463,7 @@ def build_quality_center_workbench(
                 },
             },
             "scorer_execution": execution_summary,
+            "external_intake_health": external_intake_health,
         }
         agent_summaries.append(summary)
         review_queue.extend(
@@ -1491,6 +1498,9 @@ def build_quality_center_workbench(
                 if item.get("review_type") == "scorer_rollout"
             ),
         },
+        "external_intake_panel": _quality_center_external_intake_panel(
+            agent_summaries, review_queue
+        ),
         "review_queue": review_queue,
         "trend_summary": monthly_report["trend_summary"],
         "summary": {
@@ -1508,6 +1518,10 @@ def build_quality_center_workbench(
                 for item in agent_summaries
                 if item.get("scorer_execution", {}).get("execution_state")
                 != "not_recorded"
+            ),
+            "external_intake_receipt_count": sum(
+                _safe_int(item.get("external_intake_health", {}).get("receipt_count"))
+                for item in agent_summaries
             ),
         },
         "audit_id": f"audit_quality_center_workbench_{report_period}",
@@ -2341,6 +2355,151 @@ def _quality_center_execution_counts(
     }
 
 
+def _quality_center_external_intake_health(
+    repository: InMemoryRepository,
+    agent_id: str,
+    version: str,
+    *,
+    external_intake_required: bool = False,
+    limit: int = 25,
+) -> dict[str, Any]:
+    receipts = list(
+        repository.quality_scorer_external_receipt_records(
+            agent_id=agent_id,
+            version=version,
+            limit=limit,
+        )
+    )
+    latest = receipts[0] if receipts else {}
+    latest_summary = (
+        latest.get("summary") if isinstance(latest.get("summary"), dict) else {}
+    )
+    health_state = _quality_center_external_intake_health_state(receipts)
+    manual_review_required = health_state == "needs_review" or (
+        external_intake_required and health_state == "no_receipts"
+    )
+    return {
+        "schema_version": "quality_center_external_intake_health.v1",
+        "health_state": health_state,
+        "receipt_count": len(receipts),
+        "window_limit": limit,
+        "latest_intake_id": str(latest.get("intake_id") or ""),
+        "latest_received_at": str(latest.get("received_at") or ""),
+        "latest_pass_rate": round(_safe_float(latest.get("pass_rate")), 4),
+        "latest_sample_size": _safe_int(latest.get("sample_size")),
+        "intake_state_counts": _quality_center_value_counts(receipts, "intake_state"),
+        "source_trust_counts": _quality_center_value_counts(receipts, "source_trust"),
+        "accepted_execution_count": sum(
+            1 for receipt in receipts if receipt.get("accepted_execution_id")
+        ),
+        "scorer_refs": _quality_center_external_scorer_refs(receipts),
+        "manual_review_required": manual_review_required,
+        "recommendation": _quality_center_external_intake_recommendation(
+            health_state,
+            external_intake_required=external_intake_required,
+        ),
+        "summary": {
+            "summary_only_intake_health": True,
+            "latest_summary_keys": sorted(str(key) for key in latest_summary.keys()),
+            "automatic_rollout_enabled": False,
+            "automatic_template_switch": False,
+            "scorer_execution_performed": False,
+            "store_write_performed": False,
+            "notification_sent": False,
+        },
+    }
+
+
+def _quality_center_external_intake_panel(
+    agent_summaries: list[dict[str, Any]], review_queue: list[dict[str, Any]]
+) -> dict[str, Any]:
+    health_items = [
+        item.get("external_intake_health", {})
+        for item in agent_summaries
+        if isinstance(item.get("external_intake_health"), dict)
+    ]
+    states = [str(item.get("health_state") or "") for item in health_items]
+    return {
+        "monitored_agent_count": len(health_items),
+        "receiving_count": states.count("receiving"),
+        "no_receipts_count": states.count("no_receipts"),
+        "needs_review_count": states.count("needs_review"),
+        "receipt_count": sum(
+            _safe_int(item.get("receipt_count")) for item in health_items
+        ),
+        "accepted_execution_count": sum(
+            _safe_int(item.get("accepted_execution_count")) for item in health_items
+        ),
+        "manual_review_queue_size": sum(
+            1 for item in review_queue if item.get("review_type") == "external_intake"
+        ),
+        "automatic_rollout_enabled": False,
+        "automatic_scorer_invocation": False,
+        "store_write_performed": False,
+    }
+
+
+def _quality_center_external_intake_health_state(
+    receipts: list[dict[str, Any]],
+) -> str:
+    if not receipts:
+        return "no_receipts"
+    latest_state = str(receipts[0].get("intake_state") or "")
+    if latest_state == "accepted":
+        return "receiving"
+    return "needs_review"
+
+
+def _quality_center_external_intake_recommendation(
+    health_state: str,
+    *,
+    external_intake_required: bool,
+) -> str:
+    if health_state == "receiving":
+        return "monitor"
+    if health_state == "needs_review":
+        return "open_manual_intake_review"
+    if external_intake_required:
+        return "connect_external_scorer"
+    return "optional"
+
+
+def _quality_center_value_counts(
+    records: list[dict[str, Any]], field: str
+) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for record in records:
+        key = _safe_label(record.get(field) or "unknown")
+        counts[key] = counts.get(key, 0) + 1
+    return counts
+
+
+def _quality_center_external_scorer_refs(
+    receipts: list[dict[str, Any]],
+) -> list[dict[str, str]]:
+    refs: list[dict[str, str]] = []
+    seen: set[tuple[str, str, str]] = set()
+    for receipt in receipts:
+        scorer = (
+            receipt.get("scorer") if isinstance(receipt.get("scorer"), dict) else {}
+        )
+        scorer_id = _safe_label(scorer.get("scorer_id") or "")
+        scorer_version = _safe_label(scorer.get("scorer_version") or "")
+        score_template_id = _safe_label(scorer.get("score_template_id") or "")
+        key = (scorer_id, scorer_version, score_template_id)
+        if key in seen or key == ("", "", ""):
+            continue
+        seen.add(key)
+        refs.append(
+            {
+                "scorer_id": scorer_id,
+                "scorer_version": scorer_version,
+                "score_template_id": score_template_id,
+            }
+        )
+    return refs
+
+
 def _quality_center_agent_identity(agent_id: str, version: str) -> dict[str, str]:
     return {
         "agent_id_hash": _quality_scorer_lookup_hash("agent_id", agent_id),
@@ -2427,6 +2586,25 @@ def _quality_center_review_items(
                 recommended_action=str(
                     scorer_execution.get("recommendation")
                     or "open_manual_scorer_review"
+                ),
+                owner_team=owner_team,
+                agent_identity=agent_identity,
+            )
+        )
+    external_intake = (
+        summary.get("external_intake_health")
+        if isinstance(summary.get("external_intake_health"), dict)
+        else {}
+    )
+    if external_intake.get("manual_review_required"):
+        items.append(
+            _quality_center_review_item(
+                agent_id,
+                version,
+                review_type="external_intake",
+                reason=str(external_intake.get("health_state") or ""),
+                recommended_action=str(
+                    external_intake.get("recommendation") or "open_manual_intake_review"
                 ),
                 owner_team=owner_team,
                 agent_identity=agent_identity,
