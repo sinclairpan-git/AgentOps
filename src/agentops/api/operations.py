@@ -174,6 +174,15 @@ def get_quality_center_workbench(
     return build_quality_center_workbench(repository, **kwargs)
 
 
+def get_quality_center_external_intake_portfolio(
+    repository: InMemoryRepository,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    return build_quality_center_workbench(repository, **kwargs)[
+        "external_intake_portfolio"
+    ]
+
+
 def get_runtime_budget_summary(
     repository: InMemoryRepository,
     agent_id: str,
