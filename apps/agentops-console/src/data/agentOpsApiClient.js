@@ -57,6 +57,9 @@ const allowedStates = new Set([
   "needs_review",
   "critical",
   "insufficient_evidence",
+  "no_receipts",
+  "receiving",
+  "incomplete",
   "review_required",
   "disable_review_recommended",
   "ready_for_manual_approval",
@@ -1056,6 +1059,8 @@ function legacyQualityCenterWorkbench(consoleData) {
       automatic_template_switch: false,
       manual_approval_queue_size: reviewQueue.filter((item) => item.review_type === "scorer_rollout").length
     },
+    external_intake_panel: legacyExternalIntakePanel(agentSummaries, reviewQueue),
+    external_intake_portfolio: legacyExternalIntakePortfolio(agentSummaries, reviewQueue),
     review_queue: reviewQueue,
     trend_summary: {
       report_state: adoption.metrics ? "ready" : "insufficient_data",
@@ -1074,7 +1079,8 @@ function legacyQualityCenterWorkbench(consoleData) {
       automatic_lifecycle_action: false,
       store_write_performed: false,
       automatic_publish_performed: false,
-      notification_sent: false
+      notification_sent: false,
+      external_intake_receipt_count: 0
     },
     audit_id: "audit_quality_center_legacy_fallback"
   };
@@ -1110,6 +1116,86 @@ function legacyQualityAgentSummary(item, index) {
         ? "submit_for_manual_rollout_approval"
         : "collect_more_samples",
       manual_approval_required: true
+    },
+    external_intake_health: legacyExternalIntakeHealth()
+  };
+}
+
+function legacyExternalIntakeHealth() {
+  return {
+    schema_version: "quality_center_external_intake_health.v1",
+    health_state: "no_receipts",
+    receipt_count: 0,
+    window_limit: 25,
+    latest_intake_id: "",
+    latest_received_at: "",
+    latest_pass_rate: 0,
+    latest_sample_size: 0,
+    intake_state_counts: {},
+    source_trust_counts: {},
+    accepted_execution_count: 0,
+    scorer_refs: [],
+    manual_review_required: false,
+    recommendation: "optional",
+    summary: {
+      summary_only_intake_health: true,
+      latest_summary_keys: [],
+      automatic_rollout_enabled: false,
+      automatic_template_switch: false,
+      scorer_execution_performed: false,
+      store_write_performed: false,
+      notification_sent: false
+    }
+  };
+}
+
+function legacyExternalIntakePanel(agentSummaries, reviewQueue) {
+  const healthItems = agentSummaries.map((item) => item.external_intake_health);
+  return {
+    monitored_agent_count: healthItems.length,
+    receiving_count: healthItems.filter((item) => item.health_state === "receiving").length,
+    no_receipts_count: healthItems.filter((item) => item.health_state === "no_receipts").length,
+    needs_review_count: healthItems.filter((item) => item.health_state === "needs_review").length,
+    receipt_count: healthItems.reduce((sum, item) => sum + Number(item.receipt_count || 0), 0),
+    accepted_execution_count: healthItems.reduce((sum, item) => sum + Number(item.accepted_execution_count || 0), 0),
+    manual_review_queue_size: reviewQueue.filter((item) => item.review_type === "external_intake").length,
+    automatic_rollout_enabled: false,
+    automatic_scorer_invocation: false,
+    store_write_performed: false
+  };
+}
+
+function legacyExternalIntakePortfolio(agentSummaries, reviewQueue) {
+  const panel = legacyExternalIntakePanel(agentSummaries, reviewQueue);
+  return {
+    schema_version: "quality_center_external_intake_portfolio.v1",
+    portfolio_state: agentSummaries.length ? "no_receipts" : "empty",
+    scope_count: agentSummaries.length,
+    version_scope_count: new Set(agentSummaries.map((item) => `${item.agent_id}@${item.version}`)).size,
+    state_counts: {
+      receiving: panel.receiving_count,
+      no_receipts: panel.no_receipts_count,
+      needs_review: panel.needs_review_count
+    },
+    receipt_count: panel.receipt_count,
+    accepted_execution_count: panel.accepted_execution_count,
+    manual_review_queue_size: panel.manual_review_queue_size,
+    required_missing_scope_count: 0,
+    required_missing_scopes: [],
+    latest_receipts: [],
+    scorer_coverage: {
+      unique_scorer_count: 0,
+      scopes_with_scorer_receipts: 0,
+      scorer_refs: []
+    },
+    summary: {
+      summary_only_intake_portfolio: true,
+      automatic_rollout_enabled: false,
+      automatic_template_switch: false,
+      automatic_scorer_invocation: false,
+      scorer_execution_performed: false,
+      store_write_performed: false,
+      notification_sent: false
     }
   };
 }
@@ -1322,6 +1408,8 @@ function consoleDataHasQualityCenterWorkbenchShape(consoleData) {
   const workbench = consoleData.qualityCenterWorkbench;
   return Array.isArray(workbench.agent_summaries) &&
     isRecord(workbench.scorer_rollout_panel) &&
+    isRecord(workbench.external_intake_panel) &&
+    isRecord(workbench.external_intake_portfolio) &&
     Array.isArray(workbench.review_queue) &&
     isRecord(workbench.trend_summary) &&
     isRecord(workbench.summary) &&
@@ -1551,8 +1639,10 @@ export function statesAreKnown(consoleData) {
       item.lifecycle_state,
       item.scorer?.rollout_state,
       item.scorer_comparison?.comparison_state,
-      item.scorer_comparison?.safety_impact
+      item.scorer_comparison?.safety_impact,
+      item.external_intake_health?.health_state
     ]),
+    consoleData.qualityCenterWorkbench?.external_intake_portfolio?.portfolio_state,
     consoleData.qualityCenterWorkbench?.trend_summary?.report_state,
     consoleData.credentialHandoff?.summary?.verified_loaded,
     consoleData.credentialHandoff?.summary?.l5_status,
@@ -2455,7 +2545,8 @@ export function qualityCenterWorkbenchIsComplete(consoleData) {
     "automatic_lifecycle_action",
     "store_write_performed",
     "automatic_publish_performed",
-    "notification_sent"
+    "notification_sent",
+    "external_intake_receipt_count"
   ])) {
     return false;
   }
@@ -2470,6 +2561,10 @@ export function qualityCenterWorkbenchIsComplete(consoleData) {
   ])) {
     return false;
   }
+  if (!externalIntakePanelIsSafe(workbench.external_intake_panel) ||
+    !externalIntakePortfolioIsSafe(workbench.external_intake_portfolio)) {
+    return false;
+  }
   if (
     workbench.summary.automatic_rollout_enabled !== false ||
     workbench.summary.automatic_lifecycle_action !== false ||
@@ -2477,7 +2572,10 @@ export function qualityCenterWorkbenchIsComplete(consoleData) {
     workbench.summary.automatic_publish_performed !== false ||
     workbench.summary.notification_sent !== false ||
     workbench.scorer_rollout_panel.automatic_rollout_enabled !== false ||
-    workbench.scorer_rollout_panel.automatic_template_switch !== false
+    workbench.scorer_rollout_panel.automatic_template_switch !== false ||
+    workbench.external_intake_panel.automatic_rollout_enabled !== false ||
+    workbench.external_intake_panel.automatic_scorer_invocation !== false ||
+    workbench.external_intake_panel.store_write_performed !== false
   ) {
     return false;
   }
@@ -2496,7 +2594,8 @@ export function qualityCenterWorkbenchIsComplete(consoleData) {
       "lifecycle_state",
       "lifecycle_action",
       "scorer",
-      "scorer_comparison"
+      "scorer_comparison",
+      "external_intake_health"
     ]) &&
     typeof summary.score === "number" &&
     typeof summary.confidence === "number" &&
@@ -2510,6 +2609,7 @@ export function qualityCenterWorkbenchIsComplete(consoleData) {
       "manual_approval_required"
     ]) &&
     summary.scorer_comparison.manual_approval_required === true &&
+    externalIntakeHealthIsSafe(summary.external_intake_health) &&
     !containsUnsafeLifecycleText(summary) &&
     !containsForbiddenCredentialMaterial(summary)
   );
@@ -2540,6 +2640,124 @@ export function qualityCenterWorkbenchIsComplete(consoleData) {
   ]) &&
     !containsUnsafeLifecycleText(workbench.trend_summary);
   return agentSummariesOk && reviewQueueOk && trendOk;
+}
+
+function externalIntakeHealthIsSafe(health) {
+  return keysAreExactly(health, [
+    "schema_version",
+    "health_state",
+    "receipt_count",
+    "window_limit",
+    "latest_intake_id",
+    "latest_received_at",
+    "latest_pass_rate",
+    "latest_sample_size",
+    "intake_state_counts",
+    "source_trust_counts",
+    "accepted_execution_count",
+    "scorer_refs",
+    "manual_review_required",
+    "recommendation",
+    "summary"
+  ]) &&
+    health.schema_version === "quality_center_external_intake_health.v1" &&
+    ["no_receipts", "receiving", "needs_review"].includes(health.health_state) &&
+    Number.isFinite(Number(health.receipt_count)) &&
+    Number.isFinite(Number(health.accepted_execution_count)) &&
+    Array.isArray(health.scorer_refs) &&
+    health.scorer_refs.every((item) => keysAreExactly(item, ["scorer_id", "scorer_version"])) &&
+    keysAreExactly(health.summary, [
+      "summary_only_intake_health",
+      "latest_summary_keys",
+      "automatic_rollout_enabled",
+      "automatic_template_switch",
+      "scorer_execution_performed",
+      "store_write_performed",
+      "notification_sent"
+    ]) &&
+    Array.isArray(health.summary.latest_summary_keys) &&
+    health.summary.summary_only_intake_health === true &&
+    health.summary.automatic_rollout_enabled === false &&
+    health.summary.automatic_template_switch === false &&
+    health.summary.scorer_execution_performed === false &&
+    health.summary.store_write_performed === false &&
+    health.summary.notification_sent === false;
+}
+
+function externalIntakePanelIsSafe(panel) {
+  return keysAreExactly(panel, [
+    "monitored_agent_count",
+    "receiving_count",
+    "no_receipts_count",
+    "needs_review_count",
+    "receipt_count",
+    "accepted_execution_count",
+    "manual_review_queue_size",
+    "automatic_rollout_enabled",
+    "automatic_scorer_invocation",
+    "store_write_performed"
+  ]) &&
+    panel.automatic_rollout_enabled === false &&
+    panel.automatic_scorer_invocation === false &&
+    panel.store_write_performed === false;
+}
+
+function externalIntakePortfolioIsSafe(portfolio) {
+  return keysAreExactly(portfolio, [
+    "schema_version",
+    "portfolio_state",
+    "scope_count",
+    "version_scope_count",
+    "state_counts",
+    "receipt_count",
+    "accepted_execution_count",
+    "manual_review_queue_size",
+    "required_missing_scope_count",
+    "required_missing_scopes",
+    "latest_receipts",
+    "scorer_coverage",
+    "summary"
+  ]) &&
+    portfolio.schema_version === "quality_center_external_intake_portfolio.v1" &&
+    ["empty", "no_receipts", "receiving", "incomplete", "needs_review"].includes(portfolio.portfolio_state) &&
+    Array.isArray(portfolio.required_missing_scopes) &&
+    Array.isArray(portfolio.latest_receipts) &&
+    portfolio.required_missing_scopes.every((item) =>
+      keysAreExactly(item, ["agent_id", "version", "owner_team", "health_state", "recommendation"])
+    ) &&
+    portfolio.latest_receipts.every((item) =>
+      keysAreExactly(item, [
+        "agent_id",
+        "version",
+        "health_state",
+        "latest_intake_id",
+        "latest_received_at",
+        "latest_pass_rate",
+        "latest_sample_size"
+      ])
+    ) &&
+    keysAreExactly(portfolio.scorer_coverage, [
+      "unique_scorer_count",
+      "scopes_with_scorer_receipts",
+      "scorer_refs"
+    ]) &&
+    Array.isArray(portfolio.scorer_coverage.scorer_refs) &&
+    keysAreExactly(portfolio.summary, [
+      "summary_only_intake_portfolio",
+      "automatic_rollout_enabled",
+      "automatic_template_switch",
+      "automatic_scorer_invocation",
+      "scorer_execution_performed",
+      "store_write_performed",
+      "notification_sent"
+    ]) &&
+    portfolio.summary.summary_only_intake_portfolio === true &&
+    portfolio.summary.automatic_rollout_enabled === false &&
+    portfolio.summary.automatic_template_switch === false &&
+    portfolio.summary.automatic_scorer_invocation === false &&
+    portfolio.summary.scorer_execution_performed === false &&
+    portfolio.summary.store_write_performed === false &&
+    portfolio.summary.notification_sent === false;
 }
 
 function sdlcWorkbenchRowsMatchRuns(sdlcRuns, rows) {

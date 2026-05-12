@@ -17,6 +17,9 @@ from agentops.core.agent_store import (
 )
 from agentops.core.errors import AgentOpsError
 from agentops.core.l5_gate import evaluate_l5_gate
+from agentops.core.operations import (
+    build_quality_center_workbench as build_repository_quality_center_workbench,
+)
 from agentops.storage.repository import InMemoryRepository
 
 SCHEMA_VERSION = "agentops.console.snapshot.v1"
@@ -47,7 +50,7 @@ def build_console_snapshot(
         if repository is not None
         else _console_data()
     )
-    console_data = _with_workbenches(console_data)
+    console_data = _with_workbenches(console_data, repository=repository)
     return {
         "schema_version": SCHEMA_VERSION,
         "generated_at": generated_at or datetime.now(UTC).isoformat(),
@@ -74,6 +77,8 @@ def _console_data_from_repository(repository: InMemoryRepository) -> dict[str, A
     evidence_models: list[dict[str, str]] = []
     risk_models: list[dict[str, str]] = []
     quality_models: list[dict[str, str]] = []
+    quality_center_agent_refs: list[dict[str, str]] = []
+    seen_quality_center_refs: set[tuple[str, str]] = set()
     l5_count = 0
     pending_count = 0
     degraded_count = 0
@@ -98,6 +103,7 @@ def _console_data_from_repository(repository: InMemoryRepository) -> dict[str, A
         )
         evidence_state = "summary_only" if evaluation["result"] == "L5" else "degraded"
         agent = str(events[0].get("agent_id") or "未知 Agent")
+        version = str(events[0].get("agent_version") or "unknown")
         skill = _run_skill(events)
         risk_level = "低" if evaluation["result"] == "L5" else "高"
 
@@ -150,6 +156,16 @@ def _console_data_from_repository(repository: InMemoryRepository) -> dict[str, A
                 else "保持基线",
             )
         )
+        quality_center_key = (agent, version)
+        if quality_center_key not in seen_quality_center_refs:
+            seen_quality_center_refs.add(quality_center_key)
+            quality_center_agent_refs.append(
+                {
+                    "agent_id": agent,
+                    "version": version,
+                    "owner_team": "质量负责人",
+                }
+            )
 
     for gap in discover_agent_store_gaps(repository):
         risk_models.append(
@@ -214,6 +230,7 @@ def _console_data_from_repository(repository: InMemoryRepository) -> dict[str, A
         "policies": _policies_from_grants(repository.grant_records()),
         "risks": risk_models,
         "quality": quality_models,
+        "_qualityCenterAgentRefs": quality_center_agent_refs,
         "agentStore": _agent_store_workbench(repository, events_by_run),
         "credentialHandoff": _credential_handoff_workbench(repository),
         "connectors": _repository_connectors(repository, event_count=len(raw_events)),
@@ -221,12 +238,19 @@ def _console_data_from_repository(repository: InMemoryRepository) -> dict[str, A
     }
 
 
-def _with_workbenches(console_data: dict[str, Any]) -> dict[str, Any]:
+def _with_workbenches(
+    console_data: dict[str, Any], *, repository: InMemoryRepository | None = None
+) -> dict[str, Any]:
     adoption = _adoption_workbench(console_data)
+    public_console_data = {
+        key: value for key, value in console_data.items() if not key.startswith("_")
+    }
     enriched = {
-        **console_data,
+        **public_console_data,
         "adoption": adoption,
-        "qualityCenterWorkbench": _quality_center_workbench(console_data, adoption),
+        "qualityCenterWorkbench": _quality_center_workbench(
+            console_data, adoption, repository=repository
+        ),
         "evidenceVault": _evidence_vault_workbench(console_data),
         "approvalWorkbench": _approval_workbench(console_data),
         "connectorWorkbench": _connector_workbench(console_data),
@@ -240,8 +264,23 @@ def _with_workbenches(console_data: dict[str, Any]) -> dict[str, Any]:
 
 
 def _quality_center_workbench(
-    console_data: dict[str, Any], adoption: dict[str, Any]
+    console_data: dict[str, Any],
+    adoption: dict[str, Any],
+    *,
+    repository: InMemoryRepository | None = None,
 ) -> dict[str, Any]:
+    if repository is not None:
+        agent_refs = _quality_center_agent_refs(console_data)
+        if agent_refs:
+            return _console_quality_center_workbench(
+                build_repository_quality_center_workbench(
+                    repository,
+                    agent_refs=agent_refs,
+                    report_period="console_snapshot",
+                    generated_by="agentops_console_snapshot",
+                )
+            )
+
     quality_items = list(console_data.get("quality", []))
     agent_summaries = [
         _quality_center_agent_summary(item, index)
@@ -280,6 +319,12 @@ def _quality_center_workbench(
                 if item.get("review_type") == "scorer_rollout"
             ),
         },
+        "external_intake_panel": _quality_center_external_intake_panel(
+            agent_summaries, review_queue
+        ),
+        "external_intake_portfolio": _quality_center_external_intake_portfolio(
+            agent_summaries, review_queue
+        ),
         "review_queue": review_queue,
         "trend_summary": trend_summary,
         "summary": {
@@ -292,9 +337,479 @@ def _quality_center_workbench(
             "store_write_performed": False,
             "automatic_publish_performed": False,
             "notification_sent": False,
+            "external_intake_receipt_count": sum(
+                _safe_int(item.get("external_intake_health", {}).get("receipt_count"))
+                for item in agent_summaries
+            ),
         },
         "audit_id": "audit_quality_center_console_snapshot",
     }
+
+
+def _quality_center_agent_refs(console_data: dict[str, Any]) -> list[dict[str, Any]]:
+    explicit_refs = console_data.get("_qualityCenterAgentRefs")
+    if isinstance(explicit_refs, list):
+        return [dict(ref) for ref in explicit_refs if isinstance(ref, dict)]
+
+    refs: list[dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+    for run in console_data.get("runs", []):
+        agent_id = str(run.get("agent_id") or run.get("agent") or "")
+        version = str(run.get("version") or run.get("agent_version") or "")
+        if not agent_id or not version:
+            continue
+        key = (agent_id, version)
+        if key in seen:
+            continue
+        seen.add(key)
+        refs.append(
+            {
+                "agent_id": agent_id,
+                "version": version,
+                "owner_team": str(run.get("owner_team") or "质量负责人"),
+            }
+        )
+    return refs
+
+
+def _console_quality_center_workbench(workbench: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "schema_version": str(workbench.get("schema_version") or ""),
+        "report_period": str(workbench.get("report_period") or "console_snapshot"),
+        "workbench_state": str(workbench.get("workbench_state") or "empty"),
+        "generated_by": str(
+            workbench.get("generated_by") or "agentops_console_snapshot"
+        ),
+        "agent_summaries": [
+            _console_quality_center_agent_summary(summary)
+            for summary in workbench.get("agent_summaries", [])
+            if isinstance(summary, dict)
+        ],
+        "scorer_rollout_panel": _console_quality_center_rollout_panel(
+            workbench.get("scorer_rollout_panel", {})
+        ),
+        "external_intake_panel": _console_quality_center_external_intake_panel(
+            workbench.get("external_intake_panel", {})
+        ),
+        "external_intake_portfolio": _console_quality_center_external_intake_portfolio(
+            workbench.get("external_intake_portfolio", {})
+        ),
+        "review_queue": [
+            _console_quality_center_review_item(item)
+            for item in workbench.get("review_queue", [])
+            if isinstance(item, dict)
+        ],
+        "trend_summary": _console_quality_center_trend_summary(
+            workbench.get("trend_summary", {})
+        ),
+        "summary": _console_quality_center_summary(workbench.get("summary", {})),
+        "audit_id": str(workbench.get("audit_id") or "audit_quality_center_snapshot"),
+    }
+
+
+def _console_quality_center_agent_summary(summary: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "agent_id": _display_safe_text(str(summary.get("agent_id") or "")),
+        "version": _display_safe_text(str(summary.get("version") or "")),
+        "owner_team": _display_safe_text(str(summary.get("owner_team") or "")),
+        "score": _safe_float(summary.get("score")),
+        "quality_state": str(summary.get("quality_state") or "insufficient_evidence"),
+        "confidence": _safe_float(summary.get("confidence")),
+        "score_template_id": _display_safe_text(
+            str(summary.get("score_template_id") or "")
+        ),
+        "evidence_level": _display_safe_text(str(summary.get("evidence_level") or "")),
+        "missing_evidence": [
+            _display_safe_text(str(item))
+            for item in summary.get("missing_evidence", [])
+        ],
+        "explanation": _display_safe_text(str(summary.get("explanation") or "")),
+        "lifecycle_state": str(summary.get("lifecycle_state") or "review_required"),
+        "lifecycle_action": _display_safe_text(
+            str(summary.get("lifecycle_action") or "open_ops_review")
+        ),
+        "scorer": _console_quality_center_scorer(summary.get("scorer", {})),
+        "scorer_comparison": _console_quality_center_scorer_comparison(
+            summary.get("scorer_comparison", {})
+        ),
+        "external_intake_health": _console_quality_center_external_intake_health(
+            summary.get("external_intake_health", {})
+        ),
+    }
+
+
+def _console_quality_center_scorer(scorer: Any) -> dict[str, Any]:
+    scorer = scorer if isinstance(scorer, dict) else {}
+    return {
+        "scorer_id": _display_safe_text(str(scorer.get("scorer_id") or "")),
+        "scorer_version": _display_safe_text(str(scorer.get("scorer_version") or "")),
+        "rollout_state": str(scorer.get("rollout_state") or "candidate"),
+    }
+
+
+def _console_quality_center_scorer_comparison(comparison: Any) -> dict[str, Any]:
+    comparison = comparison if isinstance(comparison, dict) else {}
+    return {
+        "comparison_state": str(
+            comparison.get("comparison_state") or "insufficient_evidence"
+        ),
+        "safety_impact": str(comparison.get("safety_impact") or "neutral"),
+        "alignment_delta": _safe_float(comparison.get("alignment_delta")),
+        "recommendation": _display_safe_text(
+            str(comparison.get("recommendation") or "collect_more_samples")
+        ),
+        "manual_approval_required": True,
+    }
+
+
+def _console_quality_center_review_item(item: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": _display_safe_text(str(item.get("id") or "")),
+        "agent_id": _display_safe_text(str(item.get("agent_id") or "")),
+        "version": _display_safe_text(str(item.get("version") or "")),
+        "review_type": _display_safe_text(str(item.get("review_type") or "")),
+        "reason": _display_safe_text(str(item.get("reason") or "")),
+        "recommended_action": _display_safe_text(
+            str(item.get("recommended_action") or "")
+        ),
+        "owner_team": _display_safe_text(str(item.get("owner_team") or "")),
+        "manual_review_required": True,
+        "automatic_action_performed": False,
+    }
+
+
+def _console_quality_center_rollout_panel(panel: Any) -> dict[str, Any]:
+    panel = panel if isinstance(panel, dict) else {}
+    return {
+        "candidate_count": _safe_int(panel.get("candidate_count")),
+        "ready_for_manual_approval_count": _safe_int(
+            panel.get("ready_for_manual_approval_count")
+        ),
+        "needs_human_review_count": _safe_int(panel.get("needs_human_review_count")),
+        "insufficient_evidence_count": _safe_int(
+            panel.get("insufficient_evidence_count")
+        ),
+        "automatic_rollout_enabled": False,
+        "automatic_template_switch": False,
+        "manual_approval_queue_size": _safe_int(
+            panel.get("manual_approval_queue_size")
+        ),
+    }
+
+
+def _console_quality_center_trend_summary(trend: Any) -> dict[str, Any]:
+    trend = trend if isinstance(trend, dict) else {}
+    return {
+        "report_state": str(trend.get("report_state") or "insufficient_data"),
+        "retention_rate": str(trend.get("retention_rate") or "0%"),
+        "review_queue_size": _safe_int(trend.get("review_queue_size")),
+        "rework_rounds": _safe_int(trend.get("rework_rounds")),
+        "pr_review_findings": _safe_int(trend.get("pr_review_findings")),
+        "recommendation": _display_safe_text(
+            str(
+                trend.get("recommendation")
+                or "人工复核缺证据、低置信和评分器发布项；不执行自动生命周期动作。"
+            )
+        ),
+    }
+
+
+def _console_quality_center_summary(summary: Any) -> dict[str, Any]:
+    summary = summary if isinstance(summary, dict) else {}
+    return {
+        "payload_access": str(
+            summary.get("payload_access")
+            or summary.get("raw_payload_access")
+            or "forbidden"
+        ),
+        "prompt_access": str(
+            summary.get("prompt_access")
+            or summary.get("raw_prompt_access")
+            or "forbidden"
+        ),
+        "change_access": str(
+            summary.get("change_access")
+            or summary.get("raw_diff_access")
+            or "forbidden"
+        ),
+        "terminal_access": str(
+            summary.get("terminal_access")
+            or summary.get("terminal_output_access")
+            or "forbidden"
+        ),
+        "automatic_rollout_enabled": False,
+        "automatic_lifecycle_action": False,
+        "store_write_performed": False,
+        "automatic_publish_performed": False,
+        "notification_sent": False,
+        "external_intake_receipt_count": _safe_int(
+            summary.get("external_intake_receipt_count")
+        ),
+    }
+
+
+def _console_quality_center_external_intake_health(health: Any) -> dict[str, Any]:
+    health = health if isinstance(health, dict) else {}
+    summary = health.get("summary") if isinstance(health.get("summary"), dict) else {}
+    return {
+        "schema_version": "quality_center_external_intake_health.v1",
+        "health_state": str(health.get("health_state") or "no_receipts"),
+        "receipt_count": _safe_int(health.get("receipt_count")),
+        "window_limit": _safe_int(health.get("window_limit") or 25),
+        "latest_intake_id": _display_safe_text(
+            str(health.get("latest_intake_id") or "")
+        ),
+        "latest_received_at": _display_safe_text(
+            str(health.get("latest_received_at") or "")
+        ),
+        "latest_pass_rate": _safe_float(health.get("latest_pass_rate")),
+        "latest_sample_size": _safe_int(health.get("latest_sample_size")),
+        "intake_state_counts": _safe_count_map(health.get("intake_state_counts")),
+        "source_trust_counts": _safe_count_map(health.get("source_trust_counts")),
+        "accepted_execution_count": _safe_int(health.get("accepted_execution_count")),
+        "scorer_refs": _safe_scorer_refs(health.get("scorer_refs")),
+        "manual_review_required": bool(health.get("manual_review_required")),
+        "recommendation": _display_safe_text(
+            str(health.get("recommendation") or "optional")
+        ),
+        "summary": {
+            "summary_only_intake_health": True,
+            "latest_summary_keys": [
+                _display_safe_text(str(key))
+                for key in summary.get("latest_summary_keys", [])
+            ],
+            "automatic_rollout_enabled": False,
+            "automatic_template_switch": False,
+            "scorer_execution_performed": False,
+            "store_write_performed": False,
+            "notification_sent": False,
+        },
+    }
+
+
+def _console_quality_center_external_intake_panel(panel: Any) -> dict[str, Any]:
+    panel = panel if isinstance(panel, dict) else {}
+    return {
+        "monitored_agent_count": _safe_int(panel.get("monitored_agent_count")),
+        "receiving_count": _safe_int(panel.get("receiving_count")),
+        "no_receipts_count": _safe_int(panel.get("no_receipts_count")),
+        "needs_review_count": _safe_int(panel.get("needs_review_count")),
+        "receipt_count": _safe_int(panel.get("receipt_count")),
+        "accepted_execution_count": _safe_int(panel.get("accepted_execution_count")),
+        "manual_review_queue_size": _safe_int(panel.get("manual_review_queue_size")),
+        "automatic_rollout_enabled": False,
+        "automatic_scorer_invocation": False,
+        "store_write_performed": False,
+    }
+
+
+def _console_quality_center_external_intake_portfolio(portfolio: Any) -> dict[str, Any]:
+    portfolio = portfolio if isinstance(portfolio, dict) else {}
+    coverage = (
+        portfolio.get("scorer_coverage")
+        if isinstance(portfolio.get("scorer_coverage"), dict)
+        else {}
+    )
+    return {
+        "schema_version": "quality_center_external_intake_portfolio.v1",
+        "portfolio_state": str(portfolio.get("portfolio_state") or "empty"),
+        "scope_count": _safe_int(portfolio.get("scope_count")),
+        "version_scope_count": _safe_int(portfolio.get("version_scope_count")),
+        "state_counts": _safe_count_map(portfolio.get("state_counts")),
+        "receipt_count": _safe_int(portfolio.get("receipt_count")),
+        "accepted_execution_count": _safe_int(
+            portfolio.get("accepted_execution_count")
+        ),
+        "manual_review_queue_size": _safe_int(
+            portfolio.get("manual_review_queue_size")
+        ),
+        "required_missing_scope_count": _safe_int(
+            portfolio.get("required_missing_scope_count")
+        ),
+        "required_missing_scopes": [
+            _console_quality_center_external_intake_scope(scope)
+            for scope in portfolio.get("required_missing_scopes", [])
+            if isinstance(scope, dict)
+        ],
+        "latest_receipts": [
+            _console_quality_center_external_intake_receipt(receipt)
+            for receipt in portfolio.get("latest_receipts", [])
+            if isinstance(receipt, dict)
+        ],
+        "scorer_coverage": {
+            "unique_scorer_count": _safe_int(coverage.get("unique_scorer_count")),
+            "scopes_with_scorer_receipts": _safe_int(
+                coverage.get("scopes_with_scorer_receipts")
+            ),
+            "scorer_refs": _safe_scorer_refs(coverage.get("scorer_refs")),
+        },
+        "summary": {
+            "summary_only_intake_portfolio": True,
+            "automatic_rollout_enabled": False,
+            "automatic_template_switch": False,
+            "automatic_scorer_invocation": False,
+            "scorer_execution_performed": False,
+            "store_write_performed": False,
+            "notification_sent": False,
+        },
+    }
+
+
+def _console_quality_center_external_intake_scope(
+    scope: dict[str, Any],
+) -> dict[str, Any]:
+    return {
+        "agent_id": _display_safe_text(str(scope.get("agent_id") or "")),
+        "version": _display_safe_text(str(scope.get("version") or "")),
+        "owner_team": _display_safe_text(str(scope.get("owner_team") or "")),
+        "health_state": str(scope.get("health_state") or "no_receipts"),
+        "recommendation": _display_safe_text(
+            str(scope.get("recommendation") or "connect_external_scorer")
+        ),
+    }
+
+
+def _console_quality_center_external_intake_receipt(
+    receipt: dict[str, Any],
+) -> dict[str, Any]:
+    return {
+        "agent_id": _display_safe_text(str(receipt.get("agent_id") or "")),
+        "version": _display_safe_text(str(receipt.get("version") or "")),
+        "health_state": str(receipt.get("health_state") or "no_receipts"),
+        "latest_intake_id": _display_safe_text(
+            str(receipt.get("latest_intake_id") or "")
+        ),
+        "latest_received_at": _display_safe_text(
+            str(receipt.get("latest_received_at") or "")
+        ),
+        "latest_pass_rate": _safe_float(receipt.get("latest_pass_rate")),
+        "latest_sample_size": _safe_int(receipt.get("latest_sample_size")),
+    }
+
+
+def _quality_center_external_intake_panel(
+    agent_summaries: list[dict[str, Any]], review_queue: list[dict[str, Any]]
+) -> dict[str, Any]:
+    health_items = [
+        item.get("external_intake_health", {})
+        for item in agent_summaries
+        if isinstance(item.get("external_intake_health"), dict)
+    ]
+    states = [str(item.get("health_state") or "") for item in health_items]
+    return _console_quality_center_external_intake_panel(
+        {
+            "monitored_agent_count": len(health_items),
+            "receiving_count": states.count("receiving"),
+            "no_receipts_count": states.count("no_receipts"),
+            "needs_review_count": states.count("needs_review"),
+            "receipt_count": sum(
+                _safe_int(item.get("receipt_count")) for item in health_items
+            ),
+            "accepted_execution_count": sum(
+                _safe_int(item.get("accepted_execution_count")) for item in health_items
+            ),
+            "manual_review_queue_size": sum(
+                1
+                for item in review_queue
+                if item.get("review_type") == "external_intake"
+            ),
+        }
+    )
+
+
+def _quality_center_external_intake_portfolio(
+    agent_summaries: list[dict[str, Any]], review_queue: list[dict[str, Any]]
+) -> dict[str, Any]:
+    state_counts = {"receiving": 0, "no_receipts": 0, "needs_review": 0}
+    latest_receipts: list[dict[str, Any]] = []
+    required_missing_scopes: list[dict[str, Any]] = []
+    scorer_refs: list[dict[str, str]] = []
+    scopes_with_scorer_receipts = 0
+    for summary in agent_summaries:
+        health = (
+            summary.get("external_intake_health")
+            if isinstance(summary.get("external_intake_health"), dict)
+            else {}
+        )
+        health_state = str(health.get("health_state") or "no_receipts")
+        if health_state in state_counts:
+            state_counts[health_state] += 1
+        if _safe_int(health.get("receipt_count")) > 0:
+            latest_receipts.append(
+                {
+                    "agent_id": summary.get("agent_id"),
+                    "version": summary.get("version"),
+                    "health_state": health_state,
+                    "latest_intake_id": health.get("latest_intake_id"),
+                    "latest_received_at": health.get("latest_received_at"),
+                    "latest_pass_rate": health.get("latest_pass_rate"),
+                    "latest_sample_size": health.get("latest_sample_size"),
+                }
+            )
+        if health.get("manual_review_required") and health_state == "no_receipts":
+            required_missing_scopes.append(
+                {
+                    "agent_id": summary.get("agent_id"),
+                    "version": summary.get("version"),
+                    "owner_team": summary.get("owner_team"),
+                    "health_state": health_state,
+                    "recommendation": health.get("recommendation"),
+                }
+            )
+        refs = [ref for ref in health.get("scorer_refs", []) if isinstance(ref, dict)]
+        if refs:
+            scopes_with_scorer_receipts += 1
+            scorer_refs.extend(_safe_scorer_refs(refs))
+    if not agent_summaries:
+        portfolio_state = "empty"
+    elif state_counts["needs_review"]:
+        portfolio_state = "needs_review"
+    elif required_missing_scopes:
+        portfolio_state = "incomplete"
+    elif state_counts["receiving"]:
+        portfolio_state = "receiving"
+    else:
+        portfolio_state = "no_receipts"
+    return _console_quality_center_external_intake_portfolio(
+        {
+            "portfolio_state": portfolio_state,
+            "scope_count": len(agent_summaries),
+            "version_scope_count": len(
+                {
+                    (str(summary.get("agent_id")), str(summary.get("version")))
+                    for summary in agent_summaries
+                }
+            ),
+            "state_counts": state_counts,
+            "receipt_count": sum(
+                _safe_int(
+                    summary.get("external_intake_health", {}).get("receipt_count")
+                )
+                for summary in agent_summaries
+            ),
+            "accepted_execution_count": sum(
+                _safe_int(
+                    summary.get("external_intake_health", {}).get(
+                        "accepted_execution_count"
+                    )
+                )
+                for summary in agent_summaries
+            ),
+            "manual_review_queue_size": sum(
+                1
+                for item in review_queue
+                if item.get("review_type") == "external_intake"
+            ),
+            "required_missing_scope_count": len(required_missing_scopes),
+            "required_missing_scopes": required_missing_scopes,
+            "latest_receipts": latest_receipts,
+            "scorer_coverage": {
+                "unique_scorer_count": len(_safe_scorer_refs(scorer_refs)),
+                "scopes_with_scorer_receipts": scopes_with_scorer_receipts,
+                "scorer_refs": _safe_scorer_refs(scorer_refs),
+            },
+        }
+    )
 
 
 def _quality_center_agent_summary(item: dict[str, Any], index: int) -> dict[str, Any]:
@@ -336,6 +851,7 @@ def _quality_center_agent_summary(item: dict[str, Any], index: int) -> dict[str,
             else "collect_more_samples",
             "manual_approval_required": True,
         },
+        "external_intake_health": _console_quality_center_external_intake_health({}),
     }
 
 
@@ -496,6 +1012,50 @@ def _quality_center_score(value: Any) -> float:
         return min(float(digits), 100.0)
     except ValueError:
         return 0.0
+
+
+def _safe_int(value: Any) -> int:
+    if isinstance(value, bool):
+        return int(value)
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _safe_float(value: Any) -> float:
+    if isinstance(value, bool):
+        return float(value)
+    try:
+        return float(value or 0.0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _safe_count_map(value: Any) -> dict[str, int]:
+    if not isinstance(value, dict):
+        return {}
+    return {
+        _display_safe_text(str(key)): _safe_int(count) for key, count in value.items()
+    }
+
+
+def _safe_scorer_refs(value: Any) -> list[dict[str, str]]:
+    if not isinstance(value, list):
+        return []
+    refs: list[dict[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        scorer_id = _display_safe_text(str(item.get("scorer_id") or ""))
+        scorer_version = _display_safe_text(str(item.get("scorer_version") or ""))
+        key = (scorer_id, scorer_version)
+        if not scorer_id or key in seen:
+            continue
+        seen.add(key)
+        refs.append({"scorer_id": scorer_id, "scorer_version": scorer_version})
+    return refs
 
 
 def _quality_center_missing_evidence(item: dict[str, Any]) -> list[str]:

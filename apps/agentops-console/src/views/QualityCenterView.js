@@ -19,6 +19,8 @@ export const QualityCenterView = {
         { key: "score_label", label: "评分" },
         { key: "confidence_label", label: "置信度" },
         { key: "evidence_level", label: "证据等级" },
+        { key: "external_health", label: "外部输入", type: "status" },
+        { key: "external_receipts", label: "回执" },
         { key: "scorer_state", label: "评分器状态" },
         { key: "lifecycle_action", label: "生命周期建议" }
       ],
@@ -37,6 +39,21 @@ export const QualityCenterView = {
         { key: "evidence_ref", label: "证据" },
         { key: "owner_hint", label: "负责人" },
         { key: "primary_action", label: "动作" }
+      ],
+      receiptColumns: [
+        { key: "agent_id", label: "Agent" },
+        { key: "version", label: "版本" },
+        { key: "health_state", label: "状态", type: "status" },
+        { key: "latest_pass_rate_label", label: "通过率" },
+        { key: "latest_sample_size", label: "样本" },
+        { key: "latest_received_at", label: "最近接收" }
+      ],
+      missingScopeColumns: [
+        { key: "agent_id", label: "Agent" },
+        { key: "version", label: "版本" },
+        { key: "health_state", label: "状态", type: "status" },
+        { key: "recommendation", label: "建议动作" },
+        { key: "owner_team", label: "负责人" }
       ]
     };
   },
@@ -55,7 +72,25 @@ export const QualityCenterView = {
         },
         review_queue: [],
         trend_summary: {},
-        summary: {}
+        summary: {},
+        external_intake_panel: {
+          monitored_agent_count: 0,
+          receiving_count: 0,
+          no_receipts_count: 0,
+          needs_review_count: 0,
+          receipt_count: 0,
+          manual_review_queue_size: 0,
+          automatic_scorer_invocation: false
+        },
+        external_intake_portfolio: {
+          portfolio_state: "empty",
+          scope_count: 0,
+          required_missing_scope_count: 0,
+          required_missing_scopes: [],
+          latest_receipts: [],
+          scorer_coverage: { unique_scorer_count: 0, scopes_with_scorer_receipts: 0, scorer_refs: [] },
+          summary: {}
+        }
       };
     },
     rolloutPanel() {
@@ -63,6 +98,12 @@ export const QualityCenterView = {
     },
     trendSummary() {
       return this.qualityCenterWorkbench.trend_summary || {};
+    },
+    externalPanel() {
+      return this.qualityCenterWorkbench.external_intake_panel || {};
+    },
+    externalPortfolio() {
+      return this.qualityCenterWorkbench.external_intake_portfolio || {};
     },
     guardrailSummary() {
       return this.qualityCenterWorkbench.summary || {};
@@ -78,6 +119,11 @@ export const QualityCenterView = {
           label: "候选评分器",
           value: this.rolloutPanel.candidate_count || 0,
           detail: `人工审批 ${this.rolloutPanel.manual_approval_queue_size || 0}`
+        },
+        {
+          label: "外部评分输入",
+          value: this.externalPanel.receipt_count || 0,
+          detail: `接收中 ${this.externalPanel.receiving_count || 0}`
         },
         {
           label: "复核队列",
@@ -98,7 +144,23 @@ export const QualityCenterView = {
         score_label: `${Math.round(Number(item.score || 0))}`,
         confidence_label: `${Math.round(Number(item.confidence || 0) * 100)}%`,
         scorer_state: item.scorer_comparison?.comparison_state || "insufficient_evidence",
+        external_health: item.external_intake_health?.health_state || "no_receipts",
+        external_receipts: `${item.external_intake_health?.receipt_count || 0}`,
+        external_recommendation: item.external_intake_health?.recommendation || "optional",
         missing_evidence_text: (item.missing_evidence || []).join("、") || "无"
+      }));
+    },
+    latestReceiptRows() {
+      return (this.externalPortfolio.latest_receipts || []).map((item, index) => ({
+        ...item,
+        id: `${item.agent_id}_${item.version}_receipt_${index}`,
+        latest_pass_rate_label: `${Math.round(Number(item.latest_pass_rate || 0) * 100)}%`
+      }));
+    },
+    missingScopeRows() {
+      return (this.externalPortfolio.required_missing_scopes || []).map((item, index) => ({
+        ...item,
+        id: `${item.agent_id}_${item.version}_missing_${index}`
       }));
     },
     qualitySignals() {
@@ -109,6 +171,7 @@ export const QualityCenterView = {
         { label: "原始证据", value: this.guardrailSummary.payload_access || "forbidden" },
         { label: "提示词 / 变更", value: `${this.guardrailSummary.prompt_access || "forbidden"} / ${this.guardrailSummary.change_access || "forbidden"}` },
         { label: "发布执行", value: this.guardrailSummary.automatic_rollout_enabled ? "enabled" : "disabled" },
+        { label: "外部执行", value: this.externalPanel.automatic_scorer_invocation ? "performed" : "not_performed" },
         { label: "Store 写回", value: this.guardrailSummary.store_write_performed ? "performed" : "not_performed" },
         { label: "发布/通知", value: this.guardrailSummary.automatic_publish_performed || this.guardrailSummary.notification_sent ? "performed" : "not_performed" }
       ];
@@ -128,7 +191,16 @@ export const QualityCenterView = {
         .replaceAll("forbidden", "禁止")
         .replaceAll("disabled", "关闭")
         .replaceAll("not_performed", "未执行")
-        .replaceAll("candidate", "候选");
+        .replaceAll("candidate", "候选")
+        .replaceAll("external_intake", "外部评分输入")
+        .replaceAll("no_receipts", "无回执")
+        .replaceAll("receiving", "接收中")
+        .replaceAll("incomplete", "未完成")
+        .replaceAll("monitor", "保持观察")
+        .replaceAll("optional", "可选")
+        .replaceAll("connect_external_scorer", "连接外部评分器")
+        .replaceAll("open_manual_intake_review", "打开人工复核")
+        .replaceAll("scorer_execution_performed", "评分器已执行");
     }
   },
   template: `
@@ -145,6 +217,19 @@ export const QualityCenterView = {
             <small>{{ readableText(item.detail) }}</small>
           </div>
         </article>
+      </section>
+      <section class="summary-band quality-center-band">
+        <div>
+          <p class="eyebrow">外部评分输入</p>
+          <h4>组合覆盖与必需接入</h4>
+          <p class="muted">外部评分输入只展示健康摘要、最近回执和人工复核项；本页不执行评分器、不写回 Store、不发送通知。</p>
+        </div>
+        <dl class="evidence-vault-metrics quality-center-metrics">
+          <div><dt>组合覆盖</dt><dd>{{ readableText(externalPortfolio.portfolio_state || 'empty') }}</dd></div>
+          <div><dt>接收中</dt><dd>{{ externalPanel.receiving_count || 0 }}</dd></div>
+          <div><dt>无回执</dt><dd>{{ externalPanel.no_receipts_count || 0 }}</dd></div>
+          <div><dt>缺失必需接入</dt><dd>{{ externalPortfolio.required_missing_scope_count || 0 }}</dd></div>
+        </dl>
       </section>
       <section class="summary-band quality-center-band">
         <div>
@@ -175,9 +260,35 @@ export const QualityCenterView = {
           <div v-for="item in agentSummaryRows" :key="item.id + '_evidence'" class="boundary-row quality-center-row">
             <strong>{{ item.agent_id }}</strong>
             <span>{{ readableText(item.missing_evidence_text) }}</span>
-            <small>{{ readableText(item.explanation) }}</small>
+            <small>{{ readableText(item.explanation) }} / {{ readableText(item.external_recommendation) }}</small>
           </div>
         </div>
+      </section>
+      <section class="panel-grid two">
+        <article class="ent-card quality-insight-card">
+          <div class="section-title">
+            <h4>最近外部评分输入回执</h4>
+            <span class="muted">{{ externalPanel.receipt_count || 0 }} 条摘要</span>
+          </div>
+          <data-table
+            :columns="receiptColumns"
+            :rows="latestReceiptRows"
+            empty-title="暂无外部评分输入回执"
+            empty-detail="当前快照没有外部评分输入回执；旧后端会保持安全空态。"
+          />
+        </article>
+        <article class="ent-card quality-insight-card">
+          <div class="section-title">
+            <h4>缺失必需接入</h4>
+            <span class="muted">人工处理</span>
+          </div>
+          <data-table
+            :columns="missingScopeColumns"
+            :rows="missingScopeRows"
+            empty-title="暂无缺失必需接入"
+            empty-detail="当前没有必需外部评分输入范围缺失。"
+          />
+        </article>
       </section>
       <section class="panel-grid two">
         <article class="ent-card quality-insight-card">

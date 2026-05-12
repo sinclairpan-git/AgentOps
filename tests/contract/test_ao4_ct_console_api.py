@@ -11,7 +11,7 @@ from agentops import __version__
 from agentops.api.app import create_app
 from agentops.api.console_snapshot import build_console_snapshot
 from agentops.api.server import create_http_handler
-from agentops.storage.repository import InMemoryRepository
+from agentops.storage.repository import InMemoryRepository, _quality_scorer_lookup_hash
 from tests.contract.conftest import base_event
 
 
@@ -150,7 +150,79 @@ def test_ao4_ct_001_console_snapshot_schema():
     assert quality_center["summary"]["automatic_rollout_enabled"] is False
     assert quality_center["summary"]["store_write_performed"] is False
     assert quality_center["scorer_rollout_panel"]["automatic_rollout_enabled"] is False
+    assert (
+        quality_center["external_intake_panel"]["automatic_scorer_invocation"] is False
+    )
+    assert quality_center["external_intake_panel"]["no_receipts_count"] == len(
+        quality_center["agent_summaries"]
+    )
+    assert quality_center["external_intake_portfolio"]["portfolio_state"] == (
+        "no_receipts"
+    )
+    assert (
+        quality_center["agent_summaries"][0]["external_intake_health"]["health_state"]
+        == "no_receipts"
+    )
     assert quality_center["review_queue"]
+
+
+def test_ao4_ct_001_console_snapshot_projects_external_intake_from_repository():
+    repository = InMemoryRepository()
+    repository.write_event(base_event("stage_started"))
+    repository.store_quality_scorer_external_receipt(
+        {
+            "schema_version": "quality_scorer_external_intake.v1",
+            "intake_id": "",
+            "idempotency_key": "console-snapshot-external-intake:run-1",
+            "agent_id": "agent.ai-sdlc",
+            "version": "1.0.0",
+            "lookup_identity": {
+                "agent_id_hash": _quality_scorer_lookup_hash(
+                    "agent_id", "agent.ai-sdlc"
+                ),
+                "version_hash": _quality_scorer_lookup_hash("version", "1.0.0"),
+            },
+            "scorer": {
+                "scorer_id": "external_quality_scorer",
+                "scorer_version": "2026.05",
+            },
+            "source_trust": "signed",
+            "signature_state": "verified",
+            "intake_state": "accepted",
+            "payload_hash": "sha256:console-snapshot-intake",
+            "producer": "external_scorer",
+            "received_at": "2026-05-12T00:00:00+00:00",
+            "sample_size": 4,
+            "pass_rate": 0.75,
+            "accepted_execution_id": "quality_scorer_execution_1",
+            "summary": {
+                "summary_only_intake": True,
+                "agentops_scorer_invoked": False,
+                "automatic_rollout_enabled": False,
+                "store_write_performed": False,
+                "notification_sent": False,
+            },
+            "audit_id": "audit_console_snapshot_external_intake",
+        }
+    )
+
+    snapshot = build_console_snapshot(repository=repository)
+    workbench = snapshot["consoleData"]["qualityCenterWorkbench"]
+
+    assert workbench["external_intake_panel"]["receiving_count"] == 1
+    assert workbench["external_intake_panel"]["receipt_count"] == 1
+    assert workbench["external_intake_portfolio"]["portfolio_state"] == "receiving"
+    assert (
+        workbench["external_intake_portfolio"]["latest_receipts"][0][
+            "latest_sample_size"
+        ]
+        == 4
+    )
+    health = workbench["agent_summaries"][0]["external_intake_health"]
+    assert health["health_state"] == "receiving"
+    assert health["receipt_count"] == 1
+    assert health["summary"]["scorer_execution_performed"] is False
+    assert workbench["summary"]["store_write_performed"] is False
 
 
 def test_ao4_ct_002_health_snapshot_and_not_found_are_json(http_server):
