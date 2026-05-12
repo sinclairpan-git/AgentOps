@@ -1501,6 +1501,9 @@ def build_quality_center_workbench(
         "external_intake_panel": _quality_center_external_intake_panel(
             agent_summaries, review_queue
         ),
+        "external_intake_portfolio": _quality_center_external_intake_portfolio(
+            agent_summaries, review_queue
+        ),
         "review_queue": review_queue,
         "trend_summary": monthly_report["trend_summary"],
         "summary": {
@@ -2439,6 +2442,110 @@ def _quality_center_external_intake_panel(
     }
 
 
+def _quality_center_external_intake_portfolio(
+    agent_summaries: list[dict[str, Any]], review_queue: list[dict[str, Any]]
+) -> dict[str, Any]:
+    health_items = [
+        item.get("external_intake_health", {})
+        for item in agent_summaries
+        if isinstance(item.get("external_intake_health"), dict)
+    ]
+    state_counts = {
+        "receiving": 0,
+        "no_receipts": 0,
+        "needs_review": 0,
+    }
+    latest_receipts: list[dict[str, Any]] = []
+    required_missing_scopes: list[dict[str, Any]] = []
+    scorer_refs: list[dict[str, str]] = []
+    scopes_with_scorer_receipts = 0
+
+    for summary in agent_summaries:
+        health = (
+            summary.get("external_intake_health")
+            if isinstance(summary.get("external_intake_health"), dict)
+            else {}
+        )
+        health_state = str(health.get("health_state") or "")
+        if health_state in state_counts:
+            state_counts[health_state] += 1
+
+        if _safe_int(health.get("receipt_count")) > 0:
+            latest_receipts.append(
+                _quality_center_external_intake_latest_receipt(summary, health)
+            )
+        if (
+            health_state == "no_receipts"
+            and health.get("manual_review_required")
+            and health.get("recommendation") == "connect_external_scorer"
+        ):
+            required_missing_scopes.append(
+                _quality_center_external_intake_scope(summary, health)
+            )
+        refs = [
+            ref
+            for ref in health.get("scorer_refs", [])
+            if isinstance(ref, dict) and ref
+        ]
+        if refs:
+            scopes_with_scorer_receipts += 1
+            scorer_refs.extend(refs)
+
+    required_missing_scope_count = len(required_missing_scopes)
+    if not agent_summaries:
+        portfolio_state = "empty"
+    elif state_counts["needs_review"] > 0:
+        portfolio_state = "needs_review"
+    elif required_missing_scope_count > 0:
+        portfolio_state = "incomplete"
+    elif state_counts["receiving"] > 0:
+        portfolio_state = "receiving"
+    else:
+        portfolio_state = "no_receipts"
+
+    return {
+        "schema_version": "quality_center_external_intake_portfolio.v1",
+        "portfolio_state": portfolio_state,
+        "scope_count": len(agent_summaries),
+        "version_scope_count": len(
+            {
+                (
+                    _stable_hash(summary.get("agent_identity", {})),
+                    _safe_label(summary.get("version") or ""),
+                )
+                for summary in agent_summaries
+            }
+        ),
+        "state_counts": state_counts,
+        "receipt_count": sum(
+            _safe_int(item.get("receipt_count")) for item in health_items
+        ),
+        "accepted_execution_count": sum(
+            _safe_int(item.get("accepted_execution_count")) for item in health_items
+        ),
+        "manual_review_queue_size": sum(
+            1 for item in review_queue if item.get("review_type") == "external_intake"
+        ),
+        "required_missing_scope_count": required_missing_scope_count,
+        "required_missing_scopes": required_missing_scopes,
+        "latest_receipts": latest_receipts,
+        "scorer_coverage": {
+            "unique_scorer_count": len(_quality_center_unique_scorer_refs(scorer_refs)),
+            "scopes_with_scorer_receipts": scopes_with_scorer_receipts,
+            "scorer_refs": _quality_center_unique_scorer_refs(scorer_refs),
+        },
+        "summary": {
+            "summary_only_intake_portfolio": True,
+            "automatic_rollout_enabled": False,
+            "automatic_template_switch": False,
+            "automatic_scorer_invocation": False,
+            "scorer_execution_performed": False,
+            "store_write_performed": False,
+            "notification_sent": False,
+        },
+    }
+
+
 def _quality_center_external_intake_health_state(
     receipts: list[dict[str, Any]],
 ) -> str:
@@ -2498,6 +2605,62 @@ def _quality_center_external_scorer_refs(
             }
         )
     return refs
+
+
+def _quality_center_unique_scorer_refs(
+    scorer_refs: list[dict[str, str]],
+) -> list[dict[str, str]]:
+    unique_refs: list[dict[str, str]] = []
+    seen: set[tuple[str, str, str]] = set()
+    for ref in scorer_refs:
+        scorer_id = _safe_label(ref.get("scorer_id") or "")
+        scorer_version = _safe_label(ref.get("scorer_version") or "")
+        score_template_id = _safe_label(ref.get("score_template_id") or "")
+        key = (scorer_id, scorer_version, score_template_id)
+        if key in seen or key == ("", "", ""):
+            continue
+        seen.add(key)
+        unique_refs.append(
+            {
+                "scorer_id": scorer_id,
+                "scorer_version": scorer_version,
+                "score_template_id": score_template_id,
+            }
+        )
+    return unique_refs
+
+
+def _quality_center_external_intake_scope(
+    summary: dict[str, Any],
+    health: dict[str, Any],
+) -> dict[str, Any]:
+    return {
+        "agent_id": _safe_label(summary.get("agent_id") or ""),
+        "version": _safe_label(summary.get("version") or ""),
+        "agent_identity": _safe_agent_identity(
+            summary.get("agent_identity")
+            if isinstance(summary.get("agent_identity"), dict)
+            else None
+        ),
+        "owner_team": _safe_label(summary.get("owner_team") or ""),
+        "health_state": _safe_label(health.get("health_state") or ""),
+        "recommendation": _safe_label(health.get("recommendation") or ""),
+    }
+
+
+def _quality_center_external_intake_latest_receipt(
+    summary: dict[str, Any],
+    health: dict[str, Any],
+) -> dict[str, Any]:
+    scope = _quality_center_external_intake_scope(summary, health)
+    return {
+        **scope,
+        "latest_intake_id": _safe_label(health.get("latest_intake_id") or ""),
+        "latest_received_at": _safe_label(health.get("latest_received_at") or ""),
+        "latest_sample_size": _safe_int(health.get("latest_sample_size")),
+        "latest_pass_rate": round(_safe_float(health.get("latest_pass_rate")), 4),
+        "accepted_execution_count": _safe_int(health.get("accepted_execution_count")),
+    }
 
 
 def _quality_center_agent_identity(agent_id: str, version: str) -> dict[str, str]:
