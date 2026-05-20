@@ -1,8 +1,87 @@
 import { StatusBadge } from "./StatusBadge.js";
 
+const NAV_ICON_PATHS = {
+  overview: [
+    "M4 11.5 12 5l8 6.5",
+    "M6.5 10.5V19h11v-8.5",
+    "M10 19v-5h4v5"
+  ],
+  runs: [
+    "M5 5.5v13",
+    "M8 7l10 5-10 5V7z"
+  ],
+  evidence: [
+    "M12 3.5 20.5 12 12 20.5 3.5 12 12 3.5z",
+    "M9 12h6"
+  ],
+  approvals: [
+    "M5 12.5l4.2 4.2L19 7",
+    "M4.5 5.5h15v13h-15z"
+  ],
+  policies: [
+    "M12 3.5 19 6v5.2c0 4.2-2.7 7.2-7 9.3-4.3-2.1-7-5.1-7-9.3V6l7-2.5z",
+    "M9 11h6",
+    "M9 14h4"
+  ],
+  quality: [
+    "M5 17h14",
+    "M7 17V9",
+    "M12 17V5",
+    "M17 17v-6",
+    "M8 5h8"
+  ],
+  risks: [
+    "M12 4 21 19H3L12 4z",
+    "M12 9v4",
+    "M12 16h.01"
+  ],
+  "agent-store-audit": [
+    "M6 7c0-1.7 2.7-3 6-3s6 1.3 6 3-2.7 3-6 3-6-1.3-6-3z",
+    "M6 7v5c0 1.7 2.7 3 6 3s6-1.3 6-3V7",
+    "M6 12v5c0 1.7 2.7 3 6 3s6-1.3 6-3v-5"
+  ],
+  "credential-handoff": [
+    "M8.5 13.5a4 4 0 1 1 3-3",
+    "M12 12l7-7",
+    "M16.5 5H19v2.5",
+    "M14.5 7.5 17 10"
+  ],
+  connectors: [
+    "M9.5 7.5h-2a4 4 0 0 0 0 8h2",
+    "M14.5 7.5h2a4 4 0 0 1 0 8h-2",
+    "M8.5 12h7"
+  ],
+  "sdlc-runs": [
+    "M5 6.5h4v4H5z",
+    "M15 13.5h4v4h-4z",
+    "M9 8.5h3.5a3.5 3.5 0 0 1 3.5 3.5v1.5",
+    "M12 12H8a3 3 0 0 0-3 3v1"
+  ]
+};
+
+const NavIcon = {
+  name: "NavIcon",
+  props: {
+    routeId: { type: String, required: true }
+  },
+  computed: {
+    paths() {
+      return NAV_ICON_PATHS[this.routeId] || NAV_ICON_PATHS.overview;
+    }
+  },
+  template: `
+    <span class="nav-icon" aria-hidden="true">
+      <svg class="nav-icon-svg" viewBox="0 0 24 24" focusable="false">
+        <path v-for="path in paths" :key="path" :d="path" />
+      </svg>
+    </span>
+  `
+};
+
 export const AppShell = {
   name: "AppShell",
   components: {
+    NavIcon,
     StatusBadge
   },
   props: {
@@ -158,7 +237,7 @@ export const AppShell = {
             type="button"
             @click="choose(route.id)"
           >
-            <span class="nav-icon" aria-hidden="true">{{ route.icon }}</span>
+            <nav-icon :route-id="route.id" />
             <span>{{ route.label }}</span>
           </button>
         </nav>
@@ -250,9 +329,16 @@ export const AppShell = {
         </section>
         <section v-if="showSourceBanner" class="source-banner" :class="'source-banner--' + sourceState.status">
           <status-badge :status="sourceState.status" />
-          <div>
-            <strong>{{ sourceState.label }}</strong>
-            <p>{{ displayValue(sourceState.copy) }}</p>
+          <div class="source-body">
+            <div class="source-header">
+              <div>
+                <strong>{{ sourceState.label }}</strong>
+                <p>{{ displayValue(sourceState.copy) }}</p>
+              </div>
+              <button class="ent-button ent-button--secondary source-action" type="button" @click="$emit('refresh-snapshot')">
+                {{ sourceState.primary_action }}
+              </button>
+            </div>
             <dl class="source-meta">
               <div>
                 <dt>生成时间</dt>
@@ -267,12 +353,7 @@ export const AppShell = {
                 <dd>{{ sourceState.sourceSummary }}</dd>
               </div>
             </dl>
-            <div class="source-actions">
-              <small>{{ sourceState.request_id }}</small>
-              <button class="ent-button ent-button--secondary source-action" type="button" @click="$emit('refresh-snapshot')">
-                {{ sourceState.primary_action }}
-              </button>
-            </div>
+            <small class="source-request-id">{{ sourceState.request_id }}</small>
           </div>
         </section>
         <section class="content-region">
