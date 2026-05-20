@@ -171,6 +171,17 @@ for (const expectedChineseText of [
   "新鲜度",
   "限流",
   "超过 20 分钟",
+  "生态治理",
+  "Runtime Gateway",
+  "直连禁止",
+  "策略校验必需",
+  "Exporter dry-run",
+  "多 Agent 移交",
+  "复杂风险画像",
+  "配置哈希",
+  "只展示 configuration_hash",
+  "不执行网络写入",
+  "不重跑 handoff",
   "不构成 verified_loaded",
   "Ai_AutoSDLC 运行",
   "生成时间",
@@ -1029,6 +1040,44 @@ assert.equal(
           ...consoleData.connectorWorkbench.syncTrail[0],
           summary: "查看 https://example.invalid/connector"
         }]
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      connectorWorkbench: {
+        ...consoleData.connectorWorkbench,
+        ecosystemGovernance: {
+          ...consoleData.connectorWorkbench.ecosystemGovernance,
+          mcp_a2a: [{
+            ...consoleData.connectorWorkbench.ecosystemGovernance.mcp_a2a[0],
+            endpoint_ref: "mcp://unsafe-direct-endpoint"
+          }]
+        }
+      }
+    }
+  }),
+  false
+);
+assert.equal(
+  validateSnapshot({
+    ...validApiSnapshot,
+    consoleData: {
+      ...consoleData,
+      connectorWorkbench: {
+        ...consoleData.connectorWorkbench,
+        ecosystemGovernance: {
+          ...consoleData.connectorWorkbench.ecosystemGovernance,
+          summary: {
+            ...consoleData.connectorWorkbench.ecosystemGovernance.summary,
+            direct_connection_allowed: true
+          }
+        }
       }
     }
   }),
@@ -2048,7 +2097,10 @@ assert.equal(legacyConnectorApiLoad.source, "api_snapshot");
 assert.equal(legacyConnectorApiLoad.consoleData.connectorWorkbench.health.length, consoleData.connectors.length);
 assert.equal(legacyConnectorApiLoad.consoleData.connectorWorkbench.dlq.length, consoleData.connectors.length);
 assert.equal(legacyConnectorApiLoad.consoleData.connectorWorkbench.syncTrail.length, consoleData.connectors.length);
+assert.equal(legacyConnectorApiLoad.consoleData.connectorWorkbench.ecosystemGovernance.workbench_state, "empty");
+assert.equal(legacyConnectorApiLoad.consoleData.connectorWorkbench.ecosystemGovernance.summary.ecosystem_state, "not_configured");
 assert.match(legacyConnectorApiLoad.consoleData.connectorWorkbench.guardrails.join(" "), /Outbox Replay/);
+assert.match(legacyConnectorApiLoad.consoleData.connectorWorkbench.ecosystemGovernance.guardrails.join(" "), /旧版快照未提供生态治理工作台/);
 
 const legacySdlcRunApiLoad = await loadAgentOpsSnapshot(async () => ({
   ok: true,
@@ -2159,6 +2211,13 @@ const allowedEnglishUiTerms = [
   "Reporter",
   "Outbox",
   "Outbox Replay",
+  "MCP/A2A",
+  "Runtime Gateway",
+  "Policy Check",
+  "Exporter",
+  "TraceSpan",
+  "handoff",
+  "configuration_hash",
   "L5",
   "Evidence Vault",
   "L5 Gate",

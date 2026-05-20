@@ -18,6 +18,10 @@ from agentops.core.agent_store import (
 from agentops.core.errors import AgentOpsError
 from agentops.core.l5_gate import evaluate_l5_gate
 from agentops.core.operations import (
+    build_complex_risk_profile,
+    build_exporter_ecosystem_projection,
+    build_mcp_a2a_governance_projection,
+    build_multi_agent_handoff_evaluation,
     build_quality_center_workbench as build_repository_quality_center_workbench,
 )
 from agentops.storage.repository import InMemoryRepository
@@ -253,7 +257,7 @@ def _with_workbenches(
         ),
         "evidenceVault": _evidence_vault_workbench(console_data),
         "approvalWorkbench": _approval_workbench(console_data),
-        "connectorWorkbench": _connector_workbench(console_data),
+        "connectorWorkbench": _connector_workbench(console_data, repository=repository),
         "sdlcRunWorkbench": _sdlc_run_workbench(console_data),
         "actionWorkbench": _action_workbench(console_data),
     }
@@ -1068,7 +1072,10 @@ def _quality_center_missing_evidence(item: dict[str, Any]) -> list[str]:
 
 def _display_safe_text(value: str) -> str:
     lowered = value.lower()
-    if any(marker in lowered for marker in ("http://", "https://", "secret", "token")):
+    if any(
+        marker in lowered
+        for marker in ("http://", "https://", "://", "secret", "token")
+    ):
         return "[redacted]"
     return value
 
@@ -2533,19 +2540,222 @@ def _repository_connectors(
     ]
 
 
-def _connector_workbench(console_data: dict[str, Any]) -> dict[str, Any]:
+def _connector_workbench(
+    console_data: dict[str, Any], *, repository: InMemoryRepository | None = None
+) -> dict[str, Any]:
     connectors = list(console_data.get("connectors", []))
     return {
         "health": [_connector_health(item) for item in connectors],
         "dlq": [_connector_dlq(item) for item in connectors],
         "syncTrail": [_connector_sync_trail(item) for item in connectors],
+        "ecosystemGovernance": _ecosystem_governance_workbench(
+            console_data, repository=repository
+        ),
         "guardrails": [
             "连接器新鲜度 SLO 为 15 分钟内，超过 20 分钟必须告警并降低证据等级。",
             "DLQ 与 Outbox Replay 只展示只读摘要，本页不执行回放、重试或生产写操作。",
             "Git、PR、CI、测试、IAM 等外部连接器必须展示限流状态、降级动作和负责人。",
+            "MCP/A2A 必须经 Runtime Gateway 和 Policy Check；直连只能作为 suspected 外部线索。",
+            "Exporter 生态只展示 dry-run 摘要和 configuration_hash，本页不执行网络写入。",
             "materialized/unverified 只能说明配置已生成或 CLI 预演成功，不构成 verified_loaded 治理激活证明。",
             "连接器工作台不得展示原始载荷、下载链接、PR 原文或外部 URL。",
         ],
+    }
+
+
+def _ecosystem_governance_workbench(
+    console_data: dict[str, Any], *, repository: InMemoryRepository | None = None
+) -> dict[str, Any]:
+    agent_refs = _quality_center_agent_refs(console_data) or [
+        {
+            "agent_id": "agent.ai-sdlc",
+            "version": "1.0.0",
+            "owner_team": "生态治理负责人",
+        }
+    ]
+    first_ref = agent_refs[0]
+    subject_agent_id = _display_safe_text(str(first_ref.get("agent_id") or "agent"))
+    projection_repo = repository if repository is not None else InMemoryRepository()
+    mcp_a2a = [
+        _console_mcp_a2a_projection(
+            build_mcp_a2a_governance_projection(
+                protocol="mcp",
+                endpoint_ref="gateway_tools_summary_ref",
+                subject_agent_id=subject_agent_id,
+                resource_scope="tools.summary",
+                requested_by="agentops_console",
+                policy_check_state="required",
+            )
+        ),
+        _console_mcp_a2a_projection(
+            build_mcp_a2a_governance_projection(
+                protocol="a2a",
+                endpoint_ref="gateway_agent_handoff_summary_ref",
+                subject_agent_id=subject_agent_id,
+                resource_scope="agent.handoff",
+                requested_by="agentops_console",
+                policy_check_state="required",
+            )
+        ),
+    ]
+    exporter_projection = build_exporter_ecosystem_projection(
+        requested_by="agentops_console",
+        exporters=[
+            {
+                "exporter_id": "otel_summary",
+                "exporter_type": "otlp",
+                "endpoint_ref": "collector_otlp_summary_ref",
+            },
+            {
+                "exporter_id": "openinference_summary",
+                "exporter_type": "openinference",
+                "endpoint_ref": "collector_openinference_summary_ref",
+            },
+        ],
+    )
+    handoffs = [
+        _console_handoff_evaluation(
+            build_multi_agent_handoff_evaluation(
+                projection_repo,
+                str(ref.get("agent_id") or ""),
+                str(ref.get("version") or ""),
+            )
+        )
+        for ref in agent_refs[:5]
+    ]
+    risk_profiles = [
+        _console_complex_risk_profile(
+            build_complex_risk_profile(
+                projection_repo,
+                str(ref.get("agent_id") or ""),
+                str(ref.get("version") or ""),
+            )
+        )
+        for ref in agent_refs[:5]
+    ]
+    return {
+        "schema_version": "ecosystem_governance_workbench.v1",
+        "workbench_state": "ready"
+        if mcp_a2a or exporter_projection["exporters"]
+        else "empty",
+        "mcp_a2a": mcp_a2a,
+        "exporters": [
+            _console_exporter_item(item) for item in exporter_projection["exporters"]
+        ],
+        "handoffs": handoffs,
+        "riskProfiles": risk_profiles,
+        "summary": {
+            "runtime_gateway_required": True,
+            "direct_connection_allowed": False,
+            "external_write_enabled": False,
+            "network_dispatch_performed": False,
+            "runtime_execution_performed": False,
+            "automatic_store_action": False,
+            "notification_sent": False,
+            "monitored_agent_count": len(agent_refs),
+            "ecosystem_state": str(
+                exporter_projection.get("ecosystem_state") or "not_configured"
+            ),
+        },
+        "guardrails": [
+            "MCP/A2A 只展示 Runtime Gateway 和 Policy Check 摘要，不允许直连。",
+            "Exporter 只展示 dry-run configuration_hash，不执行网络写入。",
+            "多 Agent 移交只读取 TraceSpan 摘要字段，不重跑 handoff。",
+            "复杂风险画像只进入人工复核，不自动 disable、不写 Store、不通知。",
+        ],
+        "audit_id": "audit_ecosystem_governance_console",
+    }
+
+
+def _console_mcp_a2a_projection(projection: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": f"ecosystem_{projection.get('protocol')}_{_slug(str(projection.get('subject_agent_id') or 'agent'))}",
+        "protocol": str(projection.get("protocol") or ""),
+        "endpoint_ref": _display_safe_text(str(projection.get("endpoint_ref") or "")),
+        "subject_agent_id": _display_safe_text(
+            str(projection.get("subject_agent_id") or "")
+        ),
+        "resource_scope": _display_safe_text(
+            str(projection.get("resource_scope") or "")
+        ),
+        "gateway_state": str(projection.get("gateway_state") or "required"),
+        "policy_check_state": str(projection.get("policy_check_state") or "required"),
+        "evidence_state": str(projection.get("evidence_state") or "missing"),
+        "runtime_gateway_required": True,
+        "direct_connection_allowed": False,
+        "runtime_execution_performed": False,
+        "external_side_effects_enabled": False,
+        "audit_id": _display_safe_text(str(projection.get("audit_id") or "")),
+    }
+
+
+def _console_exporter_item(exporter: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": f"ecosystem_exporter_{_slug(str(exporter.get('exporter_id') or 'exporter'))}",
+        "exporter_id": _display_safe_text(str(exporter.get("exporter_id") or "")),
+        "exporter_type": str(exporter.get("exporter_type") or ""),
+        "endpoint_ref": _display_safe_text(str(exporter.get("endpoint_ref") or "")),
+        "configuration_state": str(
+            exporter.get("configuration_state") or "not_configured"
+        ),
+        "dispatch_state": str(exporter.get("dispatch_state") or "not_started"),
+        "external_write_enabled": False,
+        "configuration_hash": _display_safe_text(
+            str(exporter.get("configuration_hash") or "")
+        ),
+    }
+
+
+def _console_handoff_evaluation(evaluation: dict[str, Any]) -> dict[str, Any]:
+    summary = (
+        evaluation.get("summary") if isinstance(evaluation.get("summary"), dict) else {}
+    )
+    return {
+        "id": f"ecosystem_handoff_{_slug(str(evaluation.get('agent_id') or 'agent'))}_{_slug(str(evaluation.get('version') or 'version'))}",
+        "agent_id": _display_safe_text(str(evaluation.get("agent_id") or "")),
+        "version": _display_safe_text(str(evaluation.get("version") or "")),
+        "handoff_count": _safe_int(evaluation.get("handoff_count")),
+        "failed_handoff_count": _safe_int(evaluation.get("failed_handoff_count")),
+        "handoff_quality_state": str(
+            evaluation.get("handoff_quality_state") or "insufficient_data"
+        ),
+        "automatic_handoff_action": False,
+        "runtime_execution_performed": False,
+        "derived_from": _display_safe_text(
+            str(summary.get("derived_from") or "trace_span_summary_fields")
+        ),
+        "audit_id": _display_safe_text(str(evaluation.get("audit_id") or "")),
+    }
+
+
+def _console_complex_risk_profile(profile: dict[str, Any]) -> dict[str, Any]:
+    handoff = (
+        profile.get("handoff_evaluation")
+        if isinstance(profile.get("handoff_evaluation"), dict)
+        else {}
+    )
+    dlq = (
+        profile.get("dlq_summary")
+        if isinstance(profile.get("dlq_summary"), dict)
+        else {}
+    )
+    return {
+        "id": f"ecosystem_risk_{_slug(str(profile.get('agent_id') or 'agent'))}_{_slug(str(profile.get('version') or 'version'))}",
+        "agent_id": _display_safe_text(str(profile.get("agent_id") or "")),
+        "version": _display_safe_text(str(profile.get("version") or "")),
+        "risk_profile_state": str(profile.get("risk_profile_state") or "low"),
+        "risk_factor_count": len(profile.get("risk_factors", [])),
+        "recommended_action": _display_safe_text(
+            str(profile.get("recommended_action") or "none")
+        ),
+        "handoff_quality_state": str(
+            handoff.get("handoff_quality_state") or "insufficient_data"
+        ),
+        "failed_handoff_count": _safe_int(handoff.get("failed_handoff_count")),
+        "dlq_backlog_count": _safe_int(dlq.get("backlog_count")),
+        "automatic_runtime_action": False,
+        "automatic_store_action": False,
+        "audit_id": _display_safe_text(str(profile.get("audit_id") or "")),
     }
 
 

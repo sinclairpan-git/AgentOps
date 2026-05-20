@@ -165,6 +165,26 @@ def test_ao4_ct_001_console_snapshot_schema():
     )
     assert quality_center["review_queue"]
 
+    ecosystem = snapshot["consoleData"]["connectorWorkbench"]["ecosystemGovernance"]
+    assert ecosystem["schema_version"] == "ecosystem_governance_workbench.v1"
+    assert ecosystem["summary"]["runtime_gateway_required"] is True
+    assert ecosystem["summary"]["direct_connection_allowed"] is False
+    assert ecosystem["summary"]["external_write_enabled"] is False
+    assert ecosystem["summary"]["network_dispatch_performed"] is False
+    assert ecosystem["summary"]["runtime_execution_performed"] is False
+    assert ecosystem["summary"]["automatic_store_action"] is False
+    assert ecosystem["summary"]["notification_sent"] is False
+    assert {item["protocol"] for item in ecosystem["mcp_a2a"]} == {"mcp", "a2a"}
+    assert all(item["runtime_gateway_required"] for item in ecosystem["mcp_a2a"])
+    assert all(not item["direct_connection_allowed"] for item in ecosystem["mcp_a2a"])
+    assert all("://" not in item["endpoint_ref"] for item in ecosystem["mcp_a2a"])
+    assert all(not item["external_write_enabled"] for item in ecosystem["exporters"])
+    assert all("://" not in item["endpoint_ref"] for item in ecosystem["exporters"])
+    assert all(
+        not item["runtime_execution_performed"] for item in ecosystem["handoffs"]
+    )
+    assert all(not item["automatic_store_action"] for item in ecosystem["riskProfiles"])
+
 
 def test_ao4_ct_001_console_snapshot_projects_external_intake_from_repository():
     repository = InMemoryRepository()
