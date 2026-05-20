@@ -21,7 +21,7 @@ export const OverviewView = {
       return [
         { status: "succeeded", label: "成功", value: counts.succeeded || 0, detail: "完整轨迹摘要" },
         { status: "blocked", label: "阻断", value: counts.blocked || 0, detail: "策略或安全边界阻断" },
-        { status: "approval_paused", label: "审批暂停", value: counts.approval_paused || 0, detail: "等待人工 Grant" },
+        { status: "approval_paused", label: "审批暂停", value: counts.approval_paused || 0, detail: "等待人工授权票" },
         { status: "trace_pending", label: "轨迹待补齐", value: counts.trace_pending || 0, detail: "运行事实早于轨迹片段到达" },
         { status: "degraded", label: "降级", value: counts.degraded || 0, detail: "仅展示安全摘要" }
       ];
@@ -90,7 +90,7 @@ export const OverviewView = {
           </div>
         </ent-card>
 
-        <ent-card>
+        <ent-card class="runtime-summary-panel">
           <div class="section-title">
             <h4>运行时运行态</h4>
             <ent-button tone="ghost" @click="$emit('navigate', 'runs')">查看运行记录</ent-button>

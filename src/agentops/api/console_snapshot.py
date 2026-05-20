@@ -30,16 +30,16 @@ SCHEMA_VERSION = "agentops.console.snapshot.v1"
 CONSOLE_CREDENTIAL_STATUS_SCHEMA_VERSION = "agentops_credential_status.v1"
 
 ROUTES = [
-    {"id": "overview", "label": "总览", "icon": "⌂"},
-    {"id": "runs", "label": "运行记录", "icon": "▶"},
-    {"id": "evidence", "label": "证据检索", "icon": "◇"},
-    {"id": "approvals", "label": "审批中心", "icon": "✓"},
-    {"id": "policies", "label": "策略中心", "icon": "!"},
+    {"id": "overview", "label": "总览", "icon": "仪"},
+    {"id": "runs", "label": "运行记录", "icon": "流"},
+    {"id": "evidence", "label": "证据检索", "icon": "证"},
+    {"id": "approvals", "label": "审批中心", "icon": "审"},
+    {"id": "policies", "label": "策略中心", "icon": "策"},
     {"id": "quality", "label": "质量中心", "icon": "质"},
-    {"id": "risks", "label": "风险处置", "icon": "△"},
+    {"id": "risks", "label": "风险处置", "icon": "险"},
     {"id": "agent-store-audit", "label": "Agent Store 审计", "icon": "AS"},
     {"id": "credential-handoff", "label": "凭证联调", "icon": "凭"},
-    {"id": "connectors", "label": "连接器状态", "icon": "∞"},
+    {"id": "connectors", "label": "连接器状态", "icon": "连"},
     {"id": "sdlc-runs", "label": "Ai_AutoSDLC 运行", "icon": "SD"},
 ]
 
