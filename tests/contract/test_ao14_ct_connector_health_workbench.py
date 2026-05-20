@@ -71,7 +71,13 @@ def test_ao14_ct_001_snapshot_contains_connector_workbench_domain():
     console_data = build_console_snapshot()["consoleData"]
     workbench = console_data["connectorWorkbench"]
 
-    assert set(workbench) == {"health", "dlq", "syncTrail", "guardrails"}
+    assert set(workbench) == {
+        "health",
+        "dlq",
+        "syncTrail",
+        "guardrails",
+        "ecosystemGovernance",
+    }
     assert workbench["health"]
     assert workbench["dlq"]
     assert workbench["syncTrail"]
