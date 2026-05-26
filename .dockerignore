@@ -1,0 +1,12 @@
+.git
+.venv
+.uv-cache
+.pytest_cache
+.ruff_cache
+.playwright-cli
+.tmp
+apps/agentops-console/dist
+apps/agentops-console/node_modules
+build
+dist
+*.tar.gz

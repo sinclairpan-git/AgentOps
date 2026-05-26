@@ -40,12 +40,15 @@ from agentops.storage.audit import AuditRecord, JsonlAuditLog
 from agentops.storage.factory import repository_from_env
 from agentops.storage.repository import InMemoryRepository
 
-ALLOWED_ORIGINS = {
+DEFAULT_ALLOWED_ORIGINS = {
     "http://127.0.0.1:5173",
     "http://127.0.0.1:5174",
+    "http://127.0.0.1:4173",
     "http://localhost:5173",
     "http://localhost:5174",
+    "http://localhost:4173",
 }
+ALLOWED_ORIGINS_ENV = "AGENTOPS_ALLOWED_ORIGINS"
 
 AUDIT_QUERY_DEFAULT_LIMIT = 50
 AUDIT_QUERY_MAX_LIMIT = 200
@@ -1064,7 +1067,7 @@ def create_http_handler(
 
         def _origin_allowed(self) -> bool:
             origin = self.headers.get("Origin")
-            return origin is None or origin in ALLOWED_ORIGINS
+            return origin is None or origin in _allowed_origins()
 
         def _request_path(self) -> str:
             return urlsplit(self.path).path
@@ -2046,7 +2049,7 @@ def create_http_handler(
             origin = self.headers.get("Origin")
             self.send_response(status)
             self.send_header("Content-Type", "application/json; charset=utf-8")
-            if origin in ALLOWED_ORIGINS:
+            if origin in _allowed_origins():
                 self.send_header("Access-Control-Allow-Origin", origin)
             self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
             allowed_headers = (
@@ -2082,6 +2085,18 @@ def _audit_cursor_secret_bytes(
         return env_secret.encode("utf-8")
 
     return None
+
+
+def _allowed_origins() -> set[str]:
+    configured = os.getenv(ALLOWED_ORIGINS_ENV, "")
+    if not configured.strip():
+        return set(DEFAULT_ALLOWED_ORIGINS)
+    origins = {
+        origin.strip()
+        for origin in configured.split(",")
+        if origin.strip()
+    }
+    return origins or set(DEFAULT_ALLOWED_ORIGINS)
 
 
 def run_server(
