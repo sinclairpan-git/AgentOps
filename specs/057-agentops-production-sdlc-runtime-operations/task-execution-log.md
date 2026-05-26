@@ -25,8 +25,32 @@
 
 ## 待执行
 
-- PostgreSQL schema / repository contract。
-- Gateway runtime ingestion auth tests。
+- PostgreSQL runtime repository live DB smoke（需要真实 PostgreSQL 服务）。
 - Deployable AgentOps service config。
 - Console persisted SDLC readback tests。
 - Ai_AutoSDLC -> Gateway -> AgentOps cross-project smoke。
+
+## Batch 2026-05-26-001 | PostgreSQL and Gateway foundation
+
+- **改动范围**：
+  - `src/agentops/storage/migrations/001_runtime_operations.sql`
+  - `src/agentops/storage/postgres_repository.py`
+  - `src/agentops/storage/factory.py`
+  - `src/agentops/api/server.py`
+  - `tests/contract/test_ao57_ct_postgres_runtime_repository.py`
+  - `tests/contract/test_ao57_ct_gateway_runtime_ingestion_auth.py`
+  - `docs/engineering/agentops-api-gateway-runtime-ingestion.md`
+- **改动内容**：
+  1. 新增 PostgreSQL runtime operations schema，覆盖 idempotency、runtime runs、trace spans、guardrail results、DLQ、outbox receipts 和 audit records。
+  2. 新增 `PostgresRepository` runtime adapter，保留 non-runtime domains 的 in-memory fallback，Postgres driver lazy import。
+  3. 新增 `repository_from_env()`，支持 `AGENTOPS_DATABASE_URL` 和 `AGENTOPS_POSTGRES_AUTO_MIGRATE`；生产 auth 模式无 DB 时 fail closed。
+  4. HTTP server 在未显式传入 repository 时从环境构建 repository。
+  5. 新增 Gateway runtime ingestion auth contract tests，固化 Bearer token 不能替代 Gateway upstream headers、`event.ingest` 可写、viewer 不可写。
+  6. 新增 Gateway 接入文档，明确清洗客户端 `X-AgentOps-*` 头并由 Gateway 注入可信 headers。
+- **验证命令**：
+  - `uv run pytest tests/contract/test_ao57_ct_postgres_runtime_repository.py tests/contract/test_ao57_ct_gateway_runtime_ingestion_auth.py -q`
+  - `uv run ruff check src/agentops/storage/postgres_repository.py src/agentops/storage/factory.py src/agentops/api/server.py tests/contract/test_ao57_ct_postgres_runtime_repository.py tests/contract/test_ao57_ct_gateway_runtime_ingestion_auth.py`
+- **结果**：
+  - AO57 新增契约测试通过。
+  - ruff 通过。
+- **当前批次 branch disposition 状态**：`codex/057-db-gateway-foundation` 为当前实现分支，计划提交后创建 PR；GitHub checks、Compatibility Gate、`@codex review` 或云端 fallback review 均通过后合入 `main`，随后归档或删除分支。

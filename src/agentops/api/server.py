@@ -37,6 +37,7 @@ from agentops.api.runtime import (
 from agentops.api.store_summary import get_agent_store_summary_for_run
 from agentops.core.errors import AgentOpsError
 from agentops.storage.audit import AuditRecord, JsonlAuditLog
+from agentops.storage.factory import repository_from_env
 from agentops.storage.repository import InMemoryRepository
 
 ALLOWED_ORIGINS = {
@@ -77,7 +78,7 @@ def create_http_handler(
     audit_log: JsonlAuditLog | None = None,
     audit_cursor_secret: str | bytes | None = None,
 ) -> type[BaseHTTPRequestHandler]:
-    live_repository = repository or InMemoryRepository()
+    live_repository = repository or repository_from_env(require_auth=require_auth)
     audit_cursor_secret_bytes = _audit_cursor_secret_bytes(
         audit_cursor_secret,
     )
@@ -2086,8 +2087,9 @@ def _audit_cursor_secret_bytes(
 def run_server(
     host: str = "127.0.0.1", port: int = 8765, *, require_auth: bool = False
 ) -> None:
+    repository = repository_from_env(require_auth=require_auth)
     httpd = ThreadingHTTPServer(
-        (host, port), create_http_handler(require_auth=require_auth)
+        (host, port), create_http_handler(repository, require_auth=require_auth)
     )
     print(f"AgentOps API listening on http://{host}:{port}")  # noqa: T201
     httpd.serve_forever()
