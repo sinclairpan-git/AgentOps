@@ -1,4 +1,4 @@
-"""Reference API Gateway for AgentOps runtime ingestion smoke deployments."""
+"""Reference API Gateway for AgentOps runtime smoke deployments."""
 
 from __future__ import annotations
 
@@ -47,6 +47,15 @@ def create_gateway_handler(
                     },
                 )
                 return
+            if self.path == "/v1/console/snapshot":
+                self._forward_agentops_request(
+                    method="GET",
+                    upstream_path="v1/console/snapshot",
+                    raw_body=None,
+                    roles="agentops-operator",
+                    scopes="console.snapshot.read,runtime.run.read,runtime.trace.read",
+                )
+                return
             self._send_json(
                 HTTPStatus.NOT_FOUND,
                 {"error_code": "GATEWAY_ROUTE_NOT_FOUND", "message": "Unknown route."},
@@ -81,9 +90,23 @@ def create_gateway_handler(
                 )
                 return
             raw_body = self.rfile.read(_content_length(self.headers))
-            self._forward_runtime_events(raw_body)
+            self._forward_agentops_request(
+                method="POST",
+                upstream_path="v1/runtime/events",
+                raw_body=raw_body,
+                roles=roles,
+                scopes=scopes,
+            )
 
-        def _forward_runtime_events(self, raw_body: bytes) -> None:
+        def _forward_agentops_request(
+            self,
+            *,
+            method: str,
+            upstream_path: str,
+            raw_body: bytes | None,
+            roles: str,
+            scopes: str,
+        ) -> None:
             request_id = self.headers.get("X-Request-Id") or f"req_gateway_{uuid4().hex}"
             audit_id = f"audit_gateway_{uuid4().hex}"
             headers = {
@@ -95,10 +118,10 @@ def create_gateway_handler(
                 "X-AgentOps-Audit-Id": audit_id,
             }
             request = Request(
-                urljoin(normalized_upstream, "v1/runtime/events"),
+                urljoin(normalized_upstream, upstream_path),
                 data=raw_body,
                 headers=headers,
-                method="POST",
+                method=method,
             )
             try:
                 with urlopen(request, timeout=10) as response:
