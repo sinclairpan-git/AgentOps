@@ -217,38 +217,43 @@ specs:
   depends_on:
   - 034-runtime-outbox-sdlc-trace-bridge
   - 015-console-sdlc-run-workbench
+- id: 057-agentops-production-sdlc-runtime-operations
+  path: specs/057-agentops-production-sdlc-runtime-operations
+  depends_on:
+  - 056-sdlc-v0-7-18-executable-task-runtime-bridge
+  - 023-production-runtime-boundary
 truth_snapshot:
-  generated_at: '2026-05-26T00:38:17Z'
+  generated_at: '2026-05-26T13:13:25Z'
   generated_by: ai-sdlc program truth sync
   generator_version: program_truth_snapshot_v1
-  repo_revision: bcb2d25
-  authoring_hash: 21d628f1f294b04f9895371ae55b1272efac3ce6adc4780d6d6eae1598011218
+  repo_revision: dd0b1b2
+  authoring_hash: 9132cdc5d96d45eb88b2cafec21b06d881c26fba0b8506de5d6ff0988fc59154
   source_hashes: {}
-  snapshot_hash: 2be4db6fb27d5072b80d245deb0c224b297cee04bff938298cb53d822dc5e99c
+  snapshot_hash: ea46817bb4ecd0f50314bb002c0e78a145f46e2075aeba829be3dfe1d1084093
   computed_capabilities: []
   source_inventory:
     state: complete
-    total_sources: 276
-    mapped_sources: 276
+    total_sources: 281
+    mapped_sources: 281
     unmapped_sources: 0
     missing_sources: 0
     phase_signal_count: 770
-    deferred_signal_count: 937
-    non_goal_signal_count: 98
+    deferred_signal_count: 938
+    non_goal_signal_count: 99
     layer_totals:
       blueprint: 1
-      spec: 55
-      plan: 55
-      tasks: 55
-      execution: 55
-      close: 55
+      spec: 56
+      plan: 56
+      tasks: 56
+      execution: 56
+      close: 56
     layer_materialized:
       blueprint: 1
-      spec: 55
-      plan: 55
-      tasks: 55
-      execution: 55
-      close: 55
+      spec: 56
+      plan: 56
+      tasks: 56
+      execution: 56
+      close: 56
     entries:
     - path: /Users/sinclairpan/project/AI-Native底座开发文档/AgentOps_项目_PRD.md
       source_type: prd
@@ -2731,6 +2736,51 @@ truth_snapshot:
       mapped: true
       exists: true
       mapping_ref: 056-sdlc-v0-7-18-executable-task-runtime-bridge
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 0
+    - path: specs/057-agentops-production-sdlc-runtime-operations/spec.md
+      source_type: spec_doc
+      truth_layer: spec
+      mapped: true
+      exists: true
+      mapping_ref: 057-agentops-production-sdlc-runtime-operations
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 1
+    - path: specs/057-agentops-production-sdlc-runtime-operations/plan.md
+      source_type: plan_doc
+      truth_layer: plan
+      mapped: true
+      exists: true
+      mapping_ref: 057-agentops-production-sdlc-runtime-operations
+      phase_signal_count: 0
+      deferred_signal_count: 1
+      non_goal_signal_count: 0
+    - path: specs/057-agentops-production-sdlc-runtime-operations/tasks.md
+      source_type: tasks_doc
+      truth_layer: tasks
+      mapped: true
+      exists: true
+      mapping_ref: 057-agentops-production-sdlc-runtime-operations
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 0
+    - path: specs/057-agentops-production-sdlc-runtime-operations/task-execution-log.md
+      source_type: execution_log
+      truth_layer: execution
+      mapped: true
+      exists: true
+      mapping_ref: 057-agentops-production-sdlc-runtime-operations
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 0
+    - path: specs/057-agentops-production-sdlc-runtime-operations/development-summary.md
+      source_type: development_summary
+      truth_layer: close
+      mapped: true
+      exists: true
+      mapping_ref: 057-agentops-production-sdlc-runtime-operations
       phase_signal_count: 0
       deferred_signal_count: 0
       non_goal_signal_count: 0
