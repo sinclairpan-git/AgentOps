@@ -164,6 +164,7 @@ class InMemoryRepository:
     )
     runtime_idempotency_index: dict[str, dict[str, str]] = field(default_factory=dict)
     runtime_dlq: dict[str, dict[str, Any]] = field(default_factory=dict)
+    runtime_outbox_receipts: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     def write_event(self, event: dict[str, Any], evidence_mode: str = "managed") -> str:
         event_id = event["event_id"]
@@ -213,6 +214,21 @@ class InMemoryRepository:
         with self._lock:
             return len(self.runtime_dlq)
 
+    def write_runtime_outbox_receipt(self, receipt: dict[str, Any]) -> None:
+        receipt_id = str(receipt.get("batch_id") or receipt.get("outbox_id"))
+        with self._lock:
+            self.runtime_outbox_receipts[receipt_id] = deepcopy(receipt)
+
+    def runtime_outbox_receipt_records(self) -> tuple[dict[str, Any], ...]:
+        with self._lock:
+            return tuple(
+                deepcopy(receipt)
+                for receipt in sorted(
+                    self.runtime_outbox_receipts.values(),
+                    key=lambda item: str(item.get("batch_id") or item.get("outbox_id")),
+                )
+            )
+
     def get_runtime_run_fact(self, run_id: str) -> dict[str, Any] | None:
         with self._lock:
             candidates = [
@@ -259,6 +275,19 @@ class InMemoryRepository:
                 sorted(
                     spans,
                     key=lambda item: (
+                        _runtime_time_sort_value(item.get("start_time")),
+                        str(item.get("span_id", "")),
+                    ),
+                )
+            )
+
+    def trace_span_records(self) -> tuple[dict[str, Any], ...]:
+        with self._lock:
+            return tuple(
+                sorted(
+                    (deepcopy(record) for record in self.trace_spans.values()),
+                    key=lambda item: (
+                        str(item.get("run_id", "")),
                         _runtime_time_sort_value(item.get("start_time")),
                         str(item.get("span_id", "")),
                     ),

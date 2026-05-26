@@ -77,8 +77,8 @@ def test_ao34_ct_001_contract_registry_has_outbox_and_sdlc_bridge_entries():
     assert sdlc.domain_owner == "Ai_AutoSDLC"
     assert sdlc.producer == "Ai_AutoSDLC"
     assert "AgentOps" in sdlc.consumers
-    assert sdlc.enum_fields["sdlc_event_type"] == frozenset(
-        {"stage", "gate", "verification", "artifact", "violation"}
+    assert {"stage", "gate", "verification", "artifact", "violation"}.issubset(
+        sdlc.enum_fields["sdlc_event_type"]
     )
 
 

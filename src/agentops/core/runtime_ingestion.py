@@ -65,7 +65,7 @@ def ingest_runtime_batch(batch: Any, repository: InMemoryRepository) -> dict[str
         else:
             rejected_count += 1
 
-    return {
+    receipt = {
         "schema_version": "runtime_outbox_receipt.v1",
         "batch_id": batch["batch_id"],
         "outbox_id": str(batch.get("outbox_id") or batch["batch_id"]),
@@ -86,6 +86,8 @@ def ingest_runtime_batch(batch: Any, repository: InMemoryRepository) -> dict[str
         "item_results": item_results,
         "audit_id": f"audit_runtime_ingestion_{batch['batch_id']}",
     }
+    repository.write_runtime_outbox_receipt(receipt)
+    return receipt
 
 
 def _validate_batch(batch: Any) -> None:
@@ -348,8 +350,11 @@ def _sdlc_trace_span_payload(event: dict[str, Any]) -> dict[str, Any]:
     artifact_ref = str(payload.get("artifact_ref") or "")
     evidence_ref = str(payload.get("evidence_ref") or "")
     violation_code = str(payload.get("violation_code") or "")
+    guard_result = str(
+        payload.get("guard_result") or payload.get("task_guard_state") or ""
+    )
     output_ref = artifact_ref or evidence_ref or str(event.get("payload_ref") or "")
-    return {
+    span = {
         "trace_id": str(payload["trace_id"]),
         "span_id": str(payload["span_id"]),
         "parent_span_id": str(payload.get("parent_span_id") or ""),
@@ -365,10 +370,19 @@ def _sdlc_trace_span_payload(event: dict[str, Any]) -> dict[str, Any]:
         "token_usage": {},
         "cost_estimate": {},
         "grant_id": "",
-        "guardrail_result_refs": [],
-        "error_code": violation_code if sdlc_event_type == "violation" else "",
+        "guardrail_result_refs": [f"guard_result:{guard_result}"]
+        if sdlc_event_type == "code_guard" and guard_result
+        else [],
+        "error_code": _sdlc_error_code(
+            sdlc_event_type=sdlc_event_type,
+            status=status,
+            violation_code=violation_code,
+            guard_result=guard_result,
+        ),
         "retryable": status in {"started", "failed"},
     }
+    span.update(_sdlc_summary_fields(payload, event))
+    return span
 
 
 def _validated_payload(
@@ -569,6 +583,8 @@ def _sdlc_span_kind(sdlc_event_type: str) -> str:
         "verification": "tool",
         "artifact": "artifact",
         "violation": "guardrail",
+        "executable_task": "system",
+        "code_guard": "guardrail",
     }[sdlc_event_type]
 
 
@@ -587,3 +603,49 @@ def _sdlc_operation_name(payload: dict[str, Any]) -> str:
     event_type = str(payload.get("sdlc_event_type") or "event")
     stage_name = str(payload.get("stage_name") or "unknown")
     return f"ai_sdlc.{event_type}.{stage_name}"
+
+
+def _sdlc_error_code(
+    *,
+    sdlc_event_type: str,
+    status: str,
+    violation_code: str,
+    guard_result: str,
+) -> str:
+    if sdlc_event_type == "violation":
+        return violation_code
+    if sdlc_event_type == "code_guard" and (
+        status == "blocked" or guard_result == "blocked"
+    ):
+        return violation_code or "TASK_GUARD_BLOCKED"
+    return ""
+
+
+def _sdlc_summary_fields(
+    payload: dict[str, Any], event: dict[str, Any]
+) -> dict[str, Any]:
+    summary: dict[str, Any] = {
+        "sdlc_event_id": str(payload.get("sdlc_event_id") or ""),
+        "sdlc_event_type": str(payload.get("sdlc_event_type") or ""),
+        "stage_name": str(payload.get("stage_name") or ""),
+        "status": str(payload.get("status") or ""),
+        "payload_ref": str(event.get("payload_ref") or ""),
+        "source_trust": str(event.get("source_trust") or ""),
+        "integration_mode": str(event.get("integration_mode") or ""),
+        "enterprise_state": str(event.get("enterprise_state") or ""),
+        "data_classification": str(event.get("data_classification") or "summary"),
+        "redaction_policy": str(event.get("redaction_policy") or "summary_only"),
+    }
+    for field_name in (
+        "workitem",
+        "executable_task_id",
+        "task_title",
+        "task_guard_state",
+        "guard_result",
+        "blocking_reason",
+        "adapter_diagnostic_state",
+        "evidence_ref",
+    ):
+        if field_name in payload:
+            summary[field_name] = payload[field_name]
+    return summary

@@ -32,14 +32,23 @@ def test_ao15_ct_001_snapshot_includes_sdlc_run_workbench_sections():
         "reporter",
         "outbox",
         "eligibility",
+        "taskGuard",
+        "outboxReceipts",
+        "evidenceReadiness",
+        "adapterDiagnostics",
         "guardrails",
     }
     assert workbench["summary"]["proof_state"] == "unverified"
     assert workbench["summary"]["dry_run_state"] == "dry_run_passed"
-    assert "不构成 verified_loaded" in workbench["summary"]["safety_note"]
+    assert workbench["summary"]["verified_loaded_semantics"] == "diagnostic_only"
+    assert "adapter 诊断" in workbench["summary"]["safety_note"]
     assert workbench["reporter"]
     assert workbench["outbox"]
     assert workbench["eligibility"]
+    assert workbench["taskGuard"]
+    assert workbench["outboxReceipts"]
+    assert workbench["evidenceReadiness"]
+    assert workbench["adapterDiagnostics"]
 
 
 def test_ao15_ct_002_reporter_rows_bind_sdlc_runs_and_stay_unverified_without_machine_proof():

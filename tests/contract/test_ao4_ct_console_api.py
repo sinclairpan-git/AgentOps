@@ -318,6 +318,8 @@ def test_ao5_ct_001_repository_snapshot_reflects_ingested_l5_events():
         [
             "stage_started",
             "stage_completed",
+            "executable_task_prepared",
+            "code_change_guard_result",
             "gate_result",
             "verification_result",
             "violation_scan_completed",
@@ -349,7 +351,7 @@ def test_ao5_ct_001_repository_snapshot_reflects_ingested_l5_events():
     ]
     assert (
         snapshot["consoleData"]["evidence"][0]["summary"]
-        == "已接收 8 条签名事件，核心证据链完整。"
+        == "已接收 10 条签名事件，核心证据链完整。"
     )
     assert not _contains_key(snapshot, "raw_payload")
 
@@ -464,7 +466,7 @@ def test_ao5_ct_005_event_post_mixed_batch_only_snapshots_accepted_events():
     assert snapshot["consoleData"]["summary"]["metrics"][0]["value"] == 1
     assert (
         snapshot["consoleData"]["evidence"][0]["summary"]
-        == "已接收 1 条事件，但仍缺少：产物生成事件、门禁结果事件、生成快照事件、L5 判定输入、阶段完成事件、验证结果事件、违规扫描事件。"
+        == "已接收 1 条事件，但仍缺少：产物生成事件、代码守卫结果事件、可执行任务事件、门禁结果事件、生成快照事件、L5 判定输入、阶段完成事件、验证结果事件、违规扫描事件。"
     )
 
 
@@ -587,6 +589,8 @@ def test_ao5_ct_010_repository_snapshot_parses_policy_state_known_string_false_s
         [
             "stage_started",
             "stage_completed",
+            "executable_task_prepared",
+            "code_change_guard_result",
             "gate_result",
             "verification_result",
             "violation_scan_completed",
