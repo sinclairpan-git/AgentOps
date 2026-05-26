@@ -1022,7 +1022,7 @@ function legacySdlcRunWorkbench(consoleData) {
     evidenceReadiness: runs.map((item) => legacySdlcEvidenceReadinessItem(item)),
     adapterDiagnostics: runs.map((item) => legacySdlcAdapterDiagnosticItem(item)),
     guardrails: [
-      "Reporter active 必须有签名运行事实与回执证明，不得由 dry-run、AGENTS.md 或 verified_loaded 诊断推导。",
+      "Reporter active 必须有 machine-verifiable proof、签名运行事实与回执证明，不得由 dry-run、AGENTS.md 或 verified_loaded 诊断推导。",
       "Outbox delivered 只表示投递状态，不在 Console 执行 Outbox Replay 或事件重放。",
       "verified_loaded 只展示 adapter 诊断，不作为 L5 主路径或接入准入硬门槛。",
       "可执行任务与代码守卫缺失或 blocked 时，必须阻断 L5 提升并展示下一步动作。",
@@ -2950,7 +2950,7 @@ function sdlcRunWorkbenchWithVNextDefaults(consoleData) {
   const summary = isRecord(workbench.summary) ? workbench.summary : {};
   const guardrails = Array.isArray(workbench.guardrails) ? workbench.guardrails : [];
   const vNextGuardrails = [
-    "Reporter active 必须有签名运行事实与回执证明，不得由 dry-run、AGENTS.md 或 verified_loaded 诊断推导。",
+    "Reporter active 必须有 machine-verifiable proof、签名运行事实与回执证明，不得由 dry-run、AGENTS.md 或 verified_loaded 诊断推导。",
     "Outbox delivered 只表示投递状态，不在 Console 执行 Outbox Replay 或事件重放。",
     "verified_loaded 只展示 adapter 诊断，不作为 L5 主路径或接入准入硬门槛。",
     "可执行任务与代码守卫缺失或 blocked 时，必须阻断 L5 提升并展示下一步动作。",
