@@ -1,5 +1,20 @@
 # 任务清单：AgentOps Production SDLC Runtime Operations
 
+## 当前落地状态
+
+| Task | 状态 | 说明 |
+|---|---|---|
+| 1.1 | Done | 057 formal docs / SDLC handoff 已归档 |
+| 1.2 | Done | PostgreSQL runtime schema、repository contract、package data 已落地 |
+| 2.1 | Done | `AGENTOPS_DATABASE_URL` factory、local fallback、production fail-closed 已落地 |
+| 2.2 | Done | runtime ingestion 已包裹 repository transaction，新增 restart readback / replay regression |
+| 3.1 | Done | Gateway upstream auth、scope denied、reference Gateway header cleansing 已测试 |
+| 3.2 | Done | Gateway 接入说明已补充 reference Gateway 启动方式 |
+| 4.1 | Done | `Dockerfile` / `docker-compose.yml` / production deployment doc 已补齐；compose config 已验证 |
+| 4.2 | Done | Console persisted readback contract 覆盖重启后 task guard、receipt、evidence readiness |
+| 5.1 | Done | E2E smoke 指南已归档；本地 reference Gateway/API fixture smoke 由 AO57 contract tests 覆盖 |
+| 5.2 | In progress | 本批 PR 创建、checks、Compatibility Gate、review、合入按 AGENTS.md 收口 |
+
 ## Batch 1：Formal baseline and DB design
 
 ### Task 1.1 归档 Ops 侧生产接入需求
@@ -133,4 +148,3 @@
   - `uv run pytest ...`
   - `npm test --prefix apps/agentops-console`
   - `npm run build --prefix apps/agentops-console`
-

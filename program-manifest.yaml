@@ -223,13 +223,13 @@ specs:
   - 056-sdlc-v0-7-18-executable-task-runtime-bridge
   - 023-production-runtime-boundary
 truth_snapshot:
-  generated_at: '2026-05-26T13:13:25Z'
+  generated_at: '2026-05-26T13:57:34Z'
   generated_by: ai-sdlc program truth sync
   generator_version: program_truth_snapshot_v1
-  repo_revision: dd0b1b2
+  repo_revision: 759276a
   authoring_hash: 9132cdc5d96d45eb88b2cafec21b06d881c26fba0b8506de5d6ff0988fc59154
   source_hashes: {}
-  snapshot_hash: ea46817bb4ecd0f50314bb002c0e78a145f46e2075aeba829be3dfe1d1084093
+  snapshot_hash: 26199eb283b7e32924cfc31717232974af47735aaeeac2570e7ede2b3ecb2467
   computed_capabilities: []
   source_inventory:
     state: complete

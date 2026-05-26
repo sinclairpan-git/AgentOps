@@ -314,6 +314,11 @@ class InMemoryRepository:
                 "payload_hash": payload_hash,
             }
 
+    @contextmanager
+    def runtime_ingestion_transaction(self) -> Iterator[None]:
+        with self._lock:
+            yield
+
     def write_runtime_run_fact(
         self, event: dict[str, Any], payload: dict[str, Any]
     ) -> str:

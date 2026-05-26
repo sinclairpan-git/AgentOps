@@ -23,12 +23,10 @@
   - 处置：提交后创建 PR；GitHub checks、Compatibility Gate、`@codex review` 或云端 fallback review 均通过后合入 `main`，随后删除或归档该 docs 分支。
 - 当前批次 branch disposition 状态：`feature/057-agentops-production-sdlc-runtime-operations-docs` 为当前 docs/planning 交付分支，计划提交后创建 PR；GitHub checks、Compatibility Gate、`@codex review` 或云端 fallback review 均通过后合入 `main`，随后归档或删除分支。
 
-## 待执行
+## 剩余环境前提
 
-- PostgreSQL runtime repository live DB smoke（需要真实 PostgreSQL 服务）。
-- Deployable AgentOps service config。
-- Console persisted SDLC readback tests。
-- Ai_AutoSDLC -> Gateway -> AgentOps cross-project smoke。
+- 真实 compose live DB smoke 需要 Docker daemon 运行。
+- 真实 Ai_AutoSDLC run 联调需要 SDLC 项目配置 Gateway endpoint/token 后执行。
 
 ## Batch 2026-05-26-001 | PostgreSQL and Gateway foundation
 
@@ -54,3 +52,46 @@
   - AO57 新增契约测试通过。
   - ruff 通过。
 - **当前批次 branch disposition 状态**：`codex/057-db-gateway-foundation` 为当前实现分支，计划提交后创建 PR；GitHub checks、Compatibility Gate、`@codex review` 或云端 fallback review 均通过后合入 `main`，随后归档或删除分支。
+
+## Batch 2026-05-26-002 | Production runtime closeout
+
+- **改动范围**：
+  - `src/agentops/core/runtime_ingestion.py`
+  - `src/agentops/storage/repository.py`
+  - `src/agentops/storage/postgres_repository.py`
+  - `src/agentops/api/gateway.py`
+  - `src/agentops/api/server.py`
+  - `tests/contract/test_ao57_ct_postgres_runtime_ingestion.py`
+  - `tests/contract/test_ao57_ct_gateway_runtime_ingestion_auth.py`
+  - `Dockerfile`
+  - `docker-compose.yml`
+  - `.dockerignore`
+  - `docs/engineering/agentops-production-deployment.md`
+  - `docs/engineering/ai-sdlc-agentops-e2e-smoke.md`
+  - `docs/engineering/agentops-api-gateway-runtime-ingestion.md`
+  - `pyproject.toml`
+- **改动内容**：
+  1. 为 runtime ingestion 增加 repository transaction 边界，PostgreSQL adapter 在同一连接中写入 facts、DLQ、idempotency 和 receipt；commit 失败时不返回 receipt。
+  2. 为 `InMemoryRepository` 增加同名 transaction context，保持 local/tests 兼容。
+  3. 增加 reference Gateway，校验 Bearer token、清洗客户端 `X-AgentOps-*` headers，并向 AgentOps 注入 trusted upstream identity。
+  4. 增加 Gateway header cleansing / bad token 契约测试。
+  5. 增加 restart-style persisted readback 契约测试，覆盖 replay dedup、Trace、Evidence summary 和 Console SDLC workbench。
+  6. 增加 deployable Dockerfile / compose：PostgreSQL、AgentOps API、Gateway、Console。
+  7. Console/API deployment path 支持 `VITE_AGENTOPS_API_BASE` 指向 Gateway，并允许 compose preview origin。
+  8. 增加生产部署指南和 Ai_AutoSDLC -> AgentOps E2E smoke 指南。
+  9. 声明 migration SQL 为 Python package data，避免镜像安装后 migration 文件缺失。
+- **验证命令**：
+  - `python -m ai_sdlc run --dry-run`
+  - `uv run pytest tests/contract/test_ao57_ct_postgres_runtime_ingestion.py tests/contract/test_ao57_ct_gateway_runtime_ingestion_auth.py tests/contract/test_ao57_ct_postgres_runtime_repository.py -q`
+  - `uv run ruff check src/agentops/core/runtime_ingestion.py src/agentops/storage/repository.py src/agentops/storage/postgres_repository.py src/agentops/api/gateway.py src/agentops/api/server.py tests/contract/test_ao57_ct_postgres_runtime_ingestion.py tests/contract/test_ao57_ct_gateway_runtime_ingestion_auth.py`
+  - `uv run pytest tests/contract/test_ao57_ct_postgres_runtime_ingestion.py tests/contract/test_ao57_ct_gateway_runtime_ingestion_auth.py tests/contract/test_ao57_ct_postgres_runtime_repository.py tests/contract/test_ao56_ct_sdlc_executable_task_runtime_bridge.py tests/contract/test_ao23_ct_production_runtime_boundary.py tests/contract/test_ao15_ct_console_sdlc_run_workbench.py -q`
+  - `npm test --prefix apps/agentops-console`
+  - `npm run build --prefix apps/agentops-console`
+  - `docker compose config`
+- **结果**：
+  - AO57 新增契约测试通过。
+  - AO56 / AO23 / AO15 相关回归通过。
+  - Console contract tests 和 production build 通过。
+  - compose 配置解析通过。
+  - `docker compose build api gateway console` 未执行成功：Docker daemon 未运行，错误为无法连接 `/Users/sinclairpan/.docker/run/docker.sock`。
+- **当前批次 branch disposition 状态**：`codex/057-production-runtime-closeout` 为当前实现分支，计划提交后创建 PR；GitHub checks、Compatibility Gate、`@codex review` 或云端 fallback review 均通过后合入 `main`。

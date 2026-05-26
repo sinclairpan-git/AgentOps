@@ -2,7 +2,7 @@
 
 **功能编号**：`057-agentops-production-sdlc-runtime-operations`  
 **创建日期**：2026-05-26  
-**状态**：待实现  
+**状态**：已实现，等待 PR checks / review 收口
 **输入**：`docs/engineering/ai-sdlc-agentops-production-integration-coding-brief.md`、`specs/056-sdlc-v0-7-18-executable-task-runtime-bridge`、`specs/023-production-runtime-boundary`、Ai_AutoSDLC PR #66 合入状态。
 
 ## 背景
@@ -100,4 +100,3 @@ AO56 和 PR #58 已完成 AgentOps 对 Ai_AutoSDLC v0.7.18 runtime bridge 的 co
 - **SC-004**：Console snapshot 从 persisted data 构建 SDLC workbench。
 - **SC-005**：跨项目 smoke 证明真实 Ai_AutoSDLC run 被 AgentOps 接收并展示。
 - **SC-006**：`python -m ai_sdlc run --dry-run`、相关 `uv run pytest`、Console `npm test` 和 `npm run build` 通过。
-

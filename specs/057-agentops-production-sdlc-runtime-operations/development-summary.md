@@ -1,35 +1,38 @@
 # 开发摘要：AgentOps Production SDLC Runtime Operations
 
 **工作项**：`057-agentops-production-sdlc-runtime-operations`  
-**状态**：PostgreSQL / Gateway foundation 已开始实现  
+**状态**：production runtime closeout 已完成实现，等待 PR checks / review 收口
 
-## 本次归档内容
+## 已落地能力
 
-- 新增 AgentOps 侧生产化 SDLC runtime operations 规格。
-- 明确 PostgreSQL 是 canonical facts 主库，Redis 仅作为可选实时加速层。
-- 明确 API Gateway 是生产认证边界：AI-SDLC 发送 Bearer token，Gateway 注入 upstream identity headers，AgentOps 只信 `X-AgentOps-*`。
-- 明确 Agent Store 不是 runtime outbox 必经中转。
-- 明确下一阶段工程范围：PostgreSQL repository、Gateway auth tests、deployable service、Console persisted readback、cross-project smoke。
+- PostgreSQL 是 AgentOps runtime facts、TraceSpan、GuardrailResult、outbox receipt、DLQ、audit schema 的生产 canonical store。
+- `AGENTOPS_DATABASE_URL` 驱动 repository factory；未配置 DB 时 local 使用 `InMemoryRepository`；production auth mode 未配置 DB 时 fail closed。
+- Runtime ingestion 已进入 repository transaction：facts / DLQ / idempotency / receipt 在同一事务边界内完成，commit 失败时不返回 delivered/accepted receipt。
+- API Gateway 生产认证路径已固化：
+  - Producer 只向 Gateway 发送 Bearer token。
+  - Gateway 清洗客户端 `X-AgentOps-*` headers。
+  - Gateway 注入 `X-AgentOps-Principal`、roles、scopes、request id、audit id。
+  - AgentOps API 只信 upstream identity headers。
+- 新增 reference Gateway：`python -m agentops.api.gateway`，用于本地和小型服务器 smoke；生产可替换为正式 API Gateway。
+- 新增 deployable stack：
+  - `Dockerfile`
+  - `docker-compose.yml`
+  - `docs/engineering/agentops-production-deployment.md`
+- Console persisted SDLC readback 已用 restart-style contract 覆盖：重启后仍可读取 task guard、outbox receipt、Trace、Evidence readiness。
+- Cross-project E2E smoke 指南已归档：`docs/engineering/ai-sdlc-agentops-e2e-smoke.md`。
 
-## 当前未完成
+## 验证状态
 
-- 尚未执行真实 PostgreSQL 服务上的 live smoke。
-- 尚未实现 DB migration / deployment compose。
-- 尚未执行真实 Ai_AutoSDLC run 的跨项目 smoke。
+- `python -m ai_sdlc run --dry-run`：当前仍会在 close 阶段提示 Final tests open，原因是本批 PR 尚未完成远端 checks / review / 合入收口。
+- `uv run pytest tests/contract/test_ao57_ct_postgres_runtime_ingestion.py tests/contract/test_ao57_ct_gateway_runtime_ingestion_auth.py tests/contract/test_ao57_ct_postgres_runtime_repository.py -q`：通过。
+- `uv run pytest tests/contract/test_ao57_ct_postgres_runtime_ingestion.py tests/contract/test_ao57_ct_gateway_runtime_ingestion_auth.py tests/contract/test_ao57_ct_postgres_runtime_repository.py tests/contract/test_ao56_ct_sdlc_executable_task_runtime_bridge.py tests/contract/test_ao23_ct_production_runtime_boundary.py tests/contract/test_ao15_ct_console_sdlc_run_workbench.py -q`：通过。
+- `uv run ruff check ...`：通过。
+- `npm test --prefix apps/agentops-console`：通过。
+- `npm run build --prefix apps/agentops-console`：通过。
+- `docker compose config`：通过。
 
-## 已实现增量
+## 环境限制
 
-- 新增 PostgreSQL runtime operations schema，覆盖 runtime facts、TraceSpan、GuardrailResult、DLQ、outbox receipt 和 audit records。
-- 新增 `PostgresRepository` runtime adapter，保留 local in-memory fallback。
-- 新增 repository factory：
-  - 未配置 `AGENTOPS_DATABASE_URL` 时使用 local `InMemoryRepository`。
-  - 配置 `AGENTOPS_DATABASE_URL` 时使用 `PostgresRepository`。
-  - production auth mode 未显式传入 repository 且未配置 DB 时 fail closed。
-- 新增 API Gateway runtime ingestion 文档。
-- 新增 AO57 Gateway auth tests，固化 Bearer token 不能绕过 Gateway upstream identity headers。
-
-## 验证
-
-- `python -m ai_sdlc run --dry-run`：通过。
-- `uv run pytest tests/contract/test_ao57_ct_postgres_runtime_repository.py tests/contract/test_ao57_ct_gateway_runtime_ingestion_auth.py -q`：通过。
-- `uv run ruff check src/agentops/storage/postgres_repository.py src/agentops/storage/factory.py src/agentops/api/server.py tests/contract/test_ao57_ct_postgres_runtime_repository.py tests/contract/test_ao57_ct_gateway_runtime_ingestion_auth.py`：通过。
+- 本机 Docker daemon 未运行，`docker compose build api gateway console` 无法连接 `/Users/sinclairpan/.docker/run/docker.sock`，因此本轮未执行真实 compose live DB smoke。
+- 本机未安装 `postgres` binary，未用裸本地 PostgreSQL 替代 compose。
+- 可重复 live smoke 已通过 `docker-compose.yml` 和 `docs/engineering/ai-sdlc-agentops-e2e-smoke.md` 固化；有 Docker daemon 的环境可直接执行。

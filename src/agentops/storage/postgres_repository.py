@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from pathlib import Path
 from typing import Any
 
@@ -16,6 +19,10 @@ from agentops.storage.repository import (
 
 MIGRATION_DIR = Path(__file__).resolve().parent / "migrations"
 RUNTIME_OPERATIONS_MIGRATION = MIGRATION_DIR / "001_runtime_operations.sql"
+_RUNTIME_CONNECTION: ContextVar[Any | None] = ContextVar(
+    "agentops_runtime_connection",
+    default=None,
+)
 
 
 def runtime_operations_schema_sql() -> str:
@@ -50,15 +57,28 @@ class PostgresRepository(InMemoryRepository):
             for statement in runtime_operations_schema_sql().split(";")
             if statement.strip()
         ]
-        with self._connect() as connection:
+        with self._new_connection() as connection:
             with connection.cursor() as cursor:
                 for statement in statements:
                     cursor.execute(statement)
 
+    @contextmanager
+    def runtime_ingestion_transaction(self) -> Iterator[None]:
+        existing = _RUNTIME_CONNECTION.get()
+        if existing is not None:
+            yield
+            return
+        with self._new_connection() as connection:
+            token = _RUNTIME_CONNECTION.set(connection)
+            try:
+                yield
+            finally:
+                _RUNTIME_CONNECTION.reset(token)
+
     def runtime_idempotency_outcome(
         self, idempotency_key: str, payload_hash: str
     ) -> str:
-        with self._connect() as connection:
+        with self._connection() as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
                     """
@@ -77,7 +97,7 @@ class PostgresRepository(InMemoryRepository):
     def remember_runtime_idempotency(
         self, idempotency_key: str, event_id: str, payload_hash: str
     ) -> None:
-        with self._connect() as connection:
+        with self._connection() as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
                     """
@@ -92,7 +112,7 @@ class PostgresRepository(InMemoryRepository):
 
     def write_runtime_outbox_receipt(self, receipt: dict[str, Any]) -> None:
         receipt_id = str(receipt.get("batch_id") or receipt.get("outbox_id"))
-        with self._connect() as connection:
+        with self._connection() as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
                     """
@@ -137,7 +157,7 @@ class PostgresRepository(InMemoryRepository):
                 )
 
     def runtime_outbox_receipt_records(self) -> tuple[dict[str, Any], ...]:
-        with self._connect() as connection:
+        with self._connection() as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
                     """
@@ -166,7 +186,7 @@ class PostgresRepository(InMemoryRepository):
             _runtime_number_sort_value(existing.get("sequence_no", 0))
         ):
             return "stale_ignored"
-        with self._connect() as connection:
+        with self._connection() as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
                     """
@@ -198,7 +218,7 @@ class PostgresRepository(InMemoryRepository):
         return "stored"
 
     def get_runtime_run_fact(self, run_id: str) -> dict[str, Any] | None:
-        with self._connect() as connection:
+        with self._connection() as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
                     """
@@ -226,7 +246,7 @@ class PostgresRepository(InMemoryRepository):
         if limit is not None and limit > 0:
             sql += " LIMIT %s"
             params = (*params, limit)
-        with self._connect() as connection:
+        with self._connection() as connection:
             with connection.cursor() as cursor:
                 cursor.execute(sql, params)
                 return tuple(_json_object(row[0]) for row in cursor.fetchall())
@@ -251,7 +271,7 @@ class PostgresRepository(InMemoryRepository):
             record.get("sequence_no", 0)
         ) <= _runtime_number_sort_value(existing.get("sequence_no", 0)):
             return "stale_ignored"
-        with self._connect() as connection:
+        with self._connection() as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
                     """
@@ -287,13 +307,13 @@ class PostgresRepository(InMemoryRepository):
             sql += " AND attempt_no_identity = %s"
             params = (*params, _runtime_attempt_identity(attempt_no))
         sql += " ORDER BY start_time, span_id"
-        with self._connect() as connection:
+        with self._connection() as connection:
             with connection.cursor() as cursor:
                 cursor.execute(sql, params)
                 return tuple(_json_object(row[0]) for row in cursor.fetchall())
 
     def trace_span_records(self) -> tuple[dict[str, Any], ...]:
-        with self._connect() as connection:
+        with self._connection() as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
                     """
@@ -317,7 +337,7 @@ class PostgresRepository(InMemoryRepository):
             sql += " AND attempt_no_identity = %s"
             params = (*params, _runtime_attempt_identity(attempt_no))
         sql += " LIMIT 1"
-        with self._connect() as connection:
+        with self._connection() as connection:
             with connection.cursor() as cursor:
                 cursor.execute(sql, params)
                 return cursor.fetchone() is not None
@@ -336,7 +356,7 @@ class PostgresRepository(InMemoryRepository):
             _runtime_attempt_identity(payload.get("attempt_no", 1)),
             str(payload["guardrail_result_id"]),
         )
-        with self._connect() as connection:
+        with self._connection() as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
                     """
@@ -370,7 +390,7 @@ class PostgresRepository(InMemoryRepository):
             sql += " AND attempt_no_identity = %s"
             params = (*params, _runtime_attempt_identity(attempt_no))
         sql += " ORDER BY received_at, sequence_no, guardrail_result_id"
-        with self._connect() as connection:
+        with self._connection() as connection:
             with connection.cursor() as cursor:
                 cursor.execute(sql, params)
                 return tuple(_json_object(row[0]) for row in cursor.fetchall())
@@ -386,7 +406,7 @@ class PostgresRepository(InMemoryRepository):
         retryable: bool = True,
     ) -> None:
         record = self._runtime_dlq_record(event, error_code, message, state, status, retryable)
-        with self._connect() as connection:
+        with self._connection() as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
                     """
@@ -446,7 +466,7 @@ class PostgresRepository(InMemoryRepository):
                 )
 
     def runtime_dlq_count(self) -> int:
-        with self._connect() as connection:
+        with self._connection() as connection:
             with connection.cursor() as cursor:
                 cursor.execute("SELECT count(*) FROM agentops_runtime_dlq")
                 return int(cursor.fetchone()[0])
@@ -463,7 +483,7 @@ class PostgresRepository(InMemoryRepository):
             sql += " AND version = %s"
             params = (*params, version)
         sql += " ORDER BY received_at, event_id"
-        with self._connect() as connection:
+        with self._connection() as connection:
             with connection.cursor() as cursor:
                 cursor.execute(sql, params)
                 return tuple(_json_object(row[0]) for row in cursor.fetchall())
@@ -475,7 +495,7 @@ class PostgresRepository(InMemoryRepository):
         attempt_no_identity: str,
         span_id: str,
     ) -> dict[str, Any] | None:
-        with self._connect() as connection:
+        with self._connection() as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
                     """
@@ -530,7 +550,16 @@ class PostgresRepository(InMemoryRepository):
             "received_at": utc_now(),
         }
 
-    def _connect(self) -> Any:
+    @contextmanager
+    def _connection(self) -> Iterator[Any]:
+        existing = _RUNTIME_CONNECTION.get()
+        if existing is not None:
+            yield existing
+            return
+        with self._new_connection() as connection:
+            yield connection
+
+    def _new_connection(self) -> Any:
         try:
             import psycopg
         except ImportError as exc:  # pragma: no cover - exercised without driver.

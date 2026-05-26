@@ -43,50 +43,51 @@ LEGACY_EVENT_REQUIRED_FIELDS = {
 
 def ingest_runtime_batch(batch: Any, repository: InMemoryRepository) -> dict[str, Any]:
     _validate_batch(batch)
-    incoming_span_ids = _incoming_valid_span_ids(batch["events"], repository)
-    item_results: list[dict[str, Any]] = []
-    accepted_count = 0
-    deduplicated_count = 0
-    stale_count = 0
-    rejected_count = 0
-    dlq_count = 0
+    with repository.runtime_ingestion_transaction():
+        incoming_span_ids = _incoming_valid_span_ids(batch["events"], repository)
+        item_results: list[dict[str, Any]] = []
+        accepted_count = 0
+        deduplicated_count = 0
+        stale_count = 0
+        rejected_count = 0
+        dlq_count = 0
 
-    for event in sorted(batch["events"], key=_event_sort_key):
-        result = _ingest_runtime_event(event, repository, incoming_span_ids)
-        item_results.append(result)
-        if result["status"] == "accepted":
-            accepted_count += 1
-        elif result["status"] == "deduplicated":
-            deduplicated_count += 1
-        elif result["status"] == "stale_ignored":
-            stale_count += 1
-        elif result["status"] == "dlq":
-            dlq_count += 1
-        else:
-            rejected_count += 1
+        for event in sorted(batch["events"], key=_event_sort_key):
+            result = _ingest_runtime_event(event, repository, incoming_span_ids)
+            item_results.append(result)
+            if result["status"] == "accepted":
+                accepted_count += 1
+            elif result["status"] == "deduplicated":
+                deduplicated_count += 1
+            elif result["status"] == "stale_ignored":
+                stale_count += 1
+            elif result["status"] == "dlq":
+                dlq_count += 1
+            else:
+                rejected_count += 1
 
-    receipt = {
-        "schema_version": "runtime_outbox_receipt.v1",
-        "batch_id": batch["batch_id"],
-        "outbox_id": str(batch.get("outbox_id") or batch["batch_id"]),
-        "producer": str(batch.get("producer") or "Runtime"),
-        "replay_reason": str(batch.get("replay_reason") or "not_declared"),
-        "outbox_state": _outbox_state(
-            accepted_count=accepted_count,
-            deduplicated_count=deduplicated_count,
-            stale_count=stale_count,
-            rejected_count=rejected_count,
-            dlq_count=dlq_count,
-        ),
-        "accepted_count": accepted_count,
-        "deduplicated_count": deduplicated_count,
-        "stale_count": stale_count,
-        "rejected_count": rejected_count,
-        "dlq_count": dlq_count,
-        "item_results": item_results,
-        "audit_id": f"audit_runtime_ingestion_{batch['batch_id']}",
-    }
-    repository.write_runtime_outbox_receipt(receipt)
+        receipt = {
+            "schema_version": "runtime_outbox_receipt.v1",
+            "batch_id": batch["batch_id"],
+            "outbox_id": str(batch.get("outbox_id") or batch["batch_id"]),
+            "producer": str(batch.get("producer") or "Runtime"),
+            "replay_reason": str(batch.get("replay_reason") or "not_declared"),
+            "outbox_state": _outbox_state(
+                accepted_count=accepted_count,
+                deduplicated_count=deduplicated_count,
+                stale_count=stale_count,
+                rejected_count=rejected_count,
+                dlq_count=dlq_count,
+            ),
+            "accepted_count": accepted_count,
+            "deduplicated_count": deduplicated_count,
+            "stale_count": stale_count,
+            "rejected_count": rejected_count,
+            "dlq_count": dlq_count,
+            "item_results": item_results,
+            "audit_id": f"audit_runtime_ingestion_{batch['batch_id']}",
+        }
+        repository.write_runtime_outbox_receipt(receipt)
     return receipt
 
 

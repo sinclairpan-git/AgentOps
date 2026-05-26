@@ -77,13 +77,29 @@ secrets, raw payloads, diffs, or file contents.
 For local development only, AgentOps may run without `--require-auth` and
 Ai_AutoSDLC may point directly at `http://127.0.0.1:8765`.
 
-For production:
+For production AgentOps API:
 
 ```bash
 AGENTOPS_DATABASE_URL=postgresql://agentops:...@postgres:5432/agentops
 AGENTOPS_POSTGRES_AUTO_MIGRATE=true
 python -m agentops.api.server --host 0.0.0.0 --port 8765 --require-auth
 ```
+
+For the included reference Gateway:
+
+```bash
+AGENTOPS_GATEWAY_TOKEN=<producer-token>
+AGENTOPS_UPSTREAM_BASE=http://127.0.0.1:8765
+AGENTOPS_GATEWAY_PRINCIPAL=producer.ai-sdlc.local
+AGENTOPS_GATEWAY_ROLES=agentops-ingestor
+AGENTOPS_GATEWAY_SCOPES=event.ingest
+python -m agentops.api.gateway --host 0.0.0.0 --port 8766
+```
+
+The reference Gateway is intended for local and small-server smoke deployments.
+Managed production environments may replace it with Nginx, Envoy, Cloudflare
+Workers, or another API Gateway as long as the required behavior above remains
+identical.
 
 The public ingress should be the Gateway URL, not the raw AgentOps API URL.
 
@@ -103,4 +119,3 @@ on request:
   set X-AgentOps-Audit-Id = generated audit id
   proxy to AgentOps internal API
 ```
-
