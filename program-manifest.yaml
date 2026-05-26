@@ -212,38 +212,43 @@ specs:
   depends_on:
   - 039-p2-ecosystem-governance
   - 014-console-connector-health-workbench
+- id: 056-sdlc-v0-7-18-executable-task-runtime-bridge
+  path: specs/056-sdlc-v0-7-18-executable-task-runtime-bridge
+  depends_on:
+  - 034-runtime-outbox-sdlc-trace-bridge
+  - 015-console-sdlc-run-workbench
 truth_snapshot:
-  generated_at: '2026-05-12T15:43:52Z'
+  generated_at: '2026-05-26T00:38:17Z'
   generated_by: ai-sdlc program truth sync
   generator_version: program_truth_snapshot_v1
-  repo_revision: 96afb64
-  authoring_hash: d5841fbe5607a2768a31afca6a64e62488153428449c198032cec2a036def9ef
+  repo_revision: bcb2d25
+  authoring_hash: 21d628f1f294b04f9895371ae55b1272efac3ce6adc4780d6d6eae1598011218
   source_hashes: {}
-  snapshot_hash: 8fd390765ac0c11eb937691f7a794da9e2c13be52195cddadd73a7d9a48121df
+  snapshot_hash: 2be4db6fb27d5072b80d245deb0c224b297cee04bff938298cb53d822dc5e99c
   computed_capabilities: []
   source_inventory:
     state: complete
-    total_sources: 271
-    mapped_sources: 271
+    total_sources: 276
+    mapped_sources: 276
     unmapped_sources: 0
     missing_sources: 0
-    phase_signal_count: 769
-    deferred_signal_count: 935
-    non_goal_signal_count: 96
+    phase_signal_count: 770
+    deferred_signal_count: 937
+    non_goal_signal_count: 98
     layer_totals:
       blueprint: 1
-      spec: 54
-      plan: 54
-      tasks: 54
-      execution: 54
-      close: 54
+      spec: 55
+      plan: 55
+      tasks: 55
+      execution: 55
+      close: 55
     layer_materialized:
       blueprint: 1
-      spec: 54
-      plan: 54
-      tasks: 54
-      execution: 54
-      close: 54
+      spec: 55
+      plan: 55
+      tasks: 55
+      execution: 55
+      close: 55
     entries:
     - path: /Users/sinclairpan/project/AI-Native底座开发文档/AgentOps_项目_PRD.md
       source_type: prd
@@ -2683,6 +2688,51 @@ truth_snapshot:
       mapping_ref: 054-p2-ecosystem-governance-console
       phase_signal_count: 4
       deferred_signal_count: 4
+      non_goal_signal_count: 0
+    - path: specs/056-sdlc-v0-7-18-executable-task-runtime-bridge/spec.md
+      source_type: spec_doc
+      truth_layer: spec
+      mapped: true
+      exists: true
+      mapping_ref: 056-sdlc-v0-7-18-executable-task-runtime-bridge
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 1
+    - path: specs/056-sdlc-v0-7-18-executable-task-runtime-bridge/plan.md
+      source_type: plan_doc
+      truth_layer: plan
+      mapped: true
+      exists: true
+      mapping_ref: 056-sdlc-v0-7-18-executable-task-runtime-bridge
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 0
+    - path: specs/056-sdlc-v0-7-18-executable-task-runtime-bridge/tasks.md
+      source_type: tasks_doc
+      truth_layer: tasks
+      mapped: true
+      exists: true
+      mapping_ref: 056-sdlc-v0-7-18-executable-task-runtime-bridge
+      phase_signal_count: 0
+      deferred_signal_count: 0
+      non_goal_signal_count: 0
+    - path: specs/056-sdlc-v0-7-18-executable-task-runtime-bridge/task-execution-log.md
+      source_type: execution_log
+      truth_layer: execution
+      mapped: true
+      exists: true
+      mapping_ref: 056-sdlc-v0-7-18-executable-task-runtime-bridge
+      phase_signal_count: 1
+      deferred_signal_count: 2
+      non_goal_signal_count: 1
+    - path: specs/056-sdlc-v0-7-18-executable-task-runtime-bridge/development-summary.md
+      source_type: development_summary
+      truth_layer: close
+      mapped: true
+      exists: true
+      mapping_ref: 056-sdlc-v0-7-18-executable-task-runtime-bridge
+      phase_signal_count: 0
+      deferred_signal_count: 0
       non_goal_signal_count: 0
     unmapped_paths: []
   state: ready

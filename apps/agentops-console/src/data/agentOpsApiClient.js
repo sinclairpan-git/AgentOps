@@ -1007,16 +1007,25 @@ function legacySdlcRunWorkbench(consoleData) {
       dry_run_state: sdlcDryRunState(runs),
       reporter_ready: verifiedCount,
       pending_proofs: Math.max(runs.length - verifiedCount, 0),
-      primary_action: verifiedCount === runs.length && runs.length ? "保持治理加载证明" : "补齐 verified_loaded 机器证明",
-      safety_note: "CLI dry-run、AGENTS.md 或本地仓库事实不构成 verified_loaded 治理激活证明。"
+      verified_loaded_semantics: "diagnostic_only",
+      executable_task_ready: "0",
+      task_guard_allowed: "0",
+      outbox_receipts: "0",
+      primary_action: "等待可执行任务、任务守卫与回执证据",
+      safety_note: "verified_loaded 仅为 adapter 诊断口径；CLI dry-run、AGENTS.md 或本地仓库事实不构成 verified_loaded 治理激活证明。"
     },
     reporter: runs.map((item) => legacySdlcReporterItem(item)),
     outbox: runs.map((item) => legacySdlcOutboxItem(item)),
     eligibility: runs.map((item) => legacySdlcEligibilityItem(item)),
+    taskGuard: runs.map((item) => legacySdlcTaskGuardItem(item)),
+    outboxReceipts: runs.map((item) => legacySdlcReceiptItem(item)),
+    evidenceReadiness: runs.map((item) => legacySdlcEvidenceReadinessItem(item)),
+    adapterDiagnostics: runs.map((item) => legacySdlcAdapterDiagnosticItem(item)),
     guardrails: [
-      "Reporter active 必须有 machine-verifiable proof，不得由 dry-run 或 AGENTS.md 推导。",
+      "Reporter active 必须有签名运行事实与回执证明，不得由 dry-run、AGENTS.md 或 verified_loaded 诊断推导。",
       "Outbox delivered 只表示投递状态，不在 Console 执行 Outbox Replay 或事件重放。",
-      "materialized/unverified 只能说明配置已生成或 CLI 预演成功，不构成 verified_loaded 治理激活证明。",
+      "verified_loaded 只展示 adapter 诊断，不作为 L5 主路径或接入准入硬门槛。",
+      "可执行任务与代码守卫缺失或 blocked 时，必须阻断 L5 提升并展示下一步动作。",
       "L5 条件缺失必须展示 failed_conditions 和下一步动作，不得显示为 healthy。",
       "Ai_AutoSDLC 运行工作台不得展示原始载荷、下载链接、PR 原文、diff、patch 或外部 URL。"
     ]
@@ -1094,6 +1103,67 @@ function legacySdlcEligibilityItem(item) {
     outbox_delivered: verified ? "healthy" : "pending",
     next_action: verified ? "保持证据链" : "补齐 verified_loaded、签名来源和 Outbox delivered 证明",
     safety_note: "Eligibility 仅解释 L5 条件，不覆盖 AgentOps 后端最终等级判定。"
+  };
+}
+
+function legacySdlcTaskGuardItem(item) {
+  const runId = sdlcRunRef(item);
+  return {
+    id: `legacy_sdlc_task_guard_${runId}`,
+    run_id: runId,
+    workitem: item.workitem || "待接收",
+    executable_task_id: item.executable_task_id || "待接收",
+    task_title: item.task_title || "待接收",
+    task_guard_state: item.task_guard_state || "pending",
+    guard_result: item.guard_result || "pending",
+    evidence_ref: item.evidence_ref || "待接收",
+    raw_payload_state: "summary_only",
+    next_action: "等待 Ai_AutoSDLC 可执行任务与代码守卫事件",
+    safety_note: "只展示任务守卫摘要，不展示 allowed_paths、diff、patch 或原始载荷。"
+  };
+}
+
+function legacySdlcReceiptItem(item) {
+  const runId = sdlcRunRef(item);
+  return {
+    id: `legacy_sdlc_receipt_${runId}`,
+    batch_id: "待接收",
+    outbox_id: "待接收",
+    producer: "Ai_AutoSDLC",
+    outbox_state: item.outbox_status || "pending",
+    accepted_count: "0",
+    deduplicated_count: "0",
+    rejected_count: "0",
+    dlq_count: "0",
+    audit_id: `audit_sdlc_${runId}`,
+    replay_boundary: "只读回执摘要，不在 Console 执行 Outbox Replay。"
+  };
+}
+
+function legacySdlcEvidenceReadinessItem(item) {
+  const runId = sdlcRunRef(item);
+  return {
+    id: `legacy_sdlc_evidence_${runId}`,
+    run_id: runId,
+    executable_task_id: item.executable_task_id || "待接收",
+    evidence_ref: item.evidence_ref || "待接收",
+    raw_payload_state: "summary_only",
+    freshness_state: "pending",
+    policy_state: "pending",
+    l5_path: "blocked_or_pending",
+    safety_note: "证据就绪状态只展示摘要、引用和新鲜度，不展示原文。"
+  };
+}
+
+function legacySdlcAdapterDiagnosticItem(item) {
+  const runId = sdlcRunRef(item);
+  return {
+    id: `legacy_sdlc_adapter_diag_${runId}`,
+    run_id: runId,
+    adapter_diagnostic_state: item.adapter_status || item.verified_loaded || "materialized",
+    verified_loaded_semantics: "diagnostic_only",
+    hard_gate: "false",
+    next_action: "接入签名运行事实与回执"
   };
 }
 
@@ -2609,11 +2679,21 @@ function connectorSyncMatchesConnector(item, connector) {
 }
 
 export function sdlcRunWorkbenchIsComplete(consoleData) {
-  const workbench = consoleData.sdlcRunWorkbench;
+  const workbench = sdlcRunWorkbenchWithVNextDefaults(consoleData);
   if (!isRecord(workbench) || containsUnsafeAuditReference(workbench)) {
     return false;
   }
-  if (!keysAreExactly(workbench, ["summary", "reporter", "outbox", "eligibility", "guardrails"])) {
+  if (!keysAreExactly(workbench, [
+    "summary",
+    "reporter",
+    "outbox",
+    "eligibility",
+    "taskGuard",
+    "outboxReceipts",
+    "evidenceReadiness",
+    "adapterDiagnostics",
+    "guardrails"
+  ])) {
     return false;
   }
   if (!keysAreExactly(workbench.summary, [
@@ -2623,6 +2703,10 @@ export function sdlcRunWorkbenchIsComplete(consoleData) {
     "dry_run_state",
     "reporter_ready",
     "pending_proofs",
+    "verified_loaded_semantics",
+    "executable_task_ready",
+    "task_guard_allowed",
+    "outbox_receipts",
     "primary_action",
     "safety_note"
   ])) {
@@ -2655,12 +2739,13 @@ export function sdlcRunWorkbenchIsComplete(consoleData) {
     Number.isInteger(workbench.summary.pending_proofs) &&
     workbench.summary.reporter_ready === verifiedProofCount &&
     workbench.summary.pending_proofs === sdlcRuns.length - verifiedProofCount &&
-    (
-      expectedProofState === "verified_loaded"
-        ? workbench.summary.primary_action === "保持治理加载证明"
-        : /verified_loaded/.test(workbench.summary.primary_action || "")
-    ) &&
-    /不构成 verified_loaded/.test(workbench.summary.safety_note || "");
+    workbench.summary.verified_loaded_semantics === "diagnostic_only" &&
+    String(workbench.summary.executable_task_ready || "").length > 0 &&
+    String(workbench.summary.task_guard_allowed || "").length > 0 &&
+    String(workbench.summary.outbox_receipts || "").length > 0 &&
+    /可执行任务|任务守卫|证据链|治理加载证明/.test(workbench.summary.primary_action || "") &&
+    /verified_loaded/.test(workbench.summary.safety_note || "") &&
+    /诊断/.test(workbench.summary.safety_note || "");
 
   const reporterOk = workbench.reporter.every((item) =>
     keysAreExactly(item, [
@@ -2748,20 +2833,147 @@ export function sdlcRunWorkbenchIsComplete(consoleData) {
     !containsUnsafeLifecycleText(`${item.next_action || ""} ${item.safety_note || ""}`)
   );
 
+  const taskGuardOk = Array.isArray(workbench.taskGuard) &&
+    workbench.taskGuard.every((item) =>
+      keysAreExactly(item, [
+        "id",
+        "run_id",
+        "workitem",
+        "executable_task_id",
+        "task_title",
+        "task_guard_state",
+        "guard_result",
+        "evidence_ref",
+        "raw_payload_state",
+        "next_action",
+        "safety_note"
+      ]) &&
+      item.id &&
+      item.run_id &&
+      item.executable_task_id &&
+      item.task_guard_state &&
+      item.guard_result &&
+      item.raw_payload_state === "summary_only" &&
+      /不展示.*原始载荷/.test(item.safety_note || "") &&
+      !containsUnsafeAuditReference(item)
+    );
+
+  const receiptsOk = Array.isArray(workbench.outboxReceipts) &&
+    workbench.outboxReceipts.every((item) =>
+      keysAreExactly(item, [
+        "id",
+        "batch_id",
+        "outbox_id",
+        "producer",
+        "outbox_state",
+        "accepted_count",
+        "deduplicated_count",
+        "rejected_count",
+        "dlq_count",
+        "audit_id",
+        "replay_boundary"
+      ]) &&
+      item.id &&
+      item.producer === "Ai_AutoSDLC" &&
+      String(item.accepted_count || "").length > 0 &&
+      /不在 Console 执行 Outbox Replay/.test(item.replay_boundary || "") &&
+      !containsUnsafeAuditReference(item)
+    );
+
+  const readinessOk = Array.isArray(workbench.evidenceReadiness) &&
+    workbench.evidenceReadiness.every((item) =>
+      keysAreExactly(item, [
+        "id",
+        "run_id",
+        "executable_task_id",
+        "evidence_ref",
+        "raw_payload_state",
+        "freshness_state",
+        "policy_state",
+        "l5_path",
+        "safety_note"
+      ]) &&
+      item.id &&
+      item.run_id &&
+      item.raw_payload_state === "summary_only" &&
+      item.freshness_state &&
+      item.policy_state &&
+      /不展示原文/.test(item.safety_note || "") &&
+      !containsUnsafeAuditReference(item)
+    );
+
+  const adapterDiagnosticsOk = Array.isArray(workbench.adapterDiagnostics) &&
+    workbench.adapterDiagnostics.every((item) =>
+      keysAreExactly(item, [
+        "id",
+        "run_id",
+        "adapter_diagnostic_state",
+        "verified_loaded_semantics",
+        "hard_gate",
+        "next_action"
+      ]) &&
+      item.id &&
+      item.run_id &&
+      item.verified_loaded_semantics === "diagnostic_only" &&
+      item.hard_gate === "false" &&
+      !containsUnsafeAuditReference(item)
+    );
+
   const guardrailsText = workbench.guardrails.join(" ");
   return summaryOk &&
     reporterOk &&
     outboxOk &&
     eligibilityOk &&
+    taskGuardOk &&
+    receiptsOk &&
+    readinessOk &&
+    adapterDiagnosticsOk &&
     workbench.guardrails.every((item) => typeof item === "string" && item) &&
     /Reporter active/.test(guardrailsText) &&
     /Outbox delivered/.test(guardrailsText) &&
     /Outbox Replay/.test(guardrailsText) &&
-    /materialized\/unverified/.test(guardrailsText) &&
-    /不构成 verified_loaded/.test(guardrailsText) &&
+    /verified_loaded/.test(guardrailsText) &&
+    /诊断/.test(guardrailsText) &&
+    /可执行任务/.test(guardrailsText) &&
+    /代码守卫/.test(guardrailsText) &&
     /failed_conditions/.test(guardrailsText) &&
     /原始载荷/.test(guardrailsText) &&
     !containsUnsafeLifecycleText(guardrailsText);
+}
+
+function sdlcRunWorkbenchWithVNextDefaults(consoleData) {
+  const workbench = consoleData.sdlcRunWorkbench;
+  if (!isRecord(workbench)) {
+    return workbench;
+  }
+  const runs = Array.isArray(consoleData.sdlcRuns) ? consoleData.sdlcRuns : [];
+  const summary = isRecord(workbench.summary) ? workbench.summary : {};
+  const guardrails = Array.isArray(workbench.guardrails) ? workbench.guardrails : [];
+  const vNextGuardrails = [
+    "Reporter active 必须有签名运行事实与回执证明，不得由 dry-run、AGENTS.md 或 verified_loaded 诊断推导。",
+    "Outbox delivered 只表示投递状态，不在 Console 执行 Outbox Replay 或事件重放。",
+    "verified_loaded 只展示 adapter 诊断，不作为 L5 主路径或接入准入硬门槛。",
+    "可执行任务与代码守卫缺失或 blocked 时，必须阻断 L5 提升并展示下一步动作。",
+    "L5 条件缺失必须展示 failed_conditions 和下一步动作，不得显示为 healthy。",
+    "Ai_AutoSDLC 运行工作台不得展示原始载荷、下载链接、PR 原文、diff、patch 或外部 URL。"
+  ];
+  return {
+    ...workbench,
+    summary: {
+      ...summary,
+      verified_loaded_semantics: summary.verified_loaded_semantics || "diagnostic_only",
+      executable_task_ready: summary.executable_task_ready || "0",
+      task_guard_allowed: summary.task_guard_allowed || "0",
+      outbox_receipts: summary.outbox_receipts || "0"
+    },
+    taskGuard: Array.isArray(workbench.taskGuard) ? workbench.taskGuard : runs.map((item) => legacySdlcTaskGuardItem(item)),
+    outboxReceipts: Array.isArray(workbench.outboxReceipts) ? workbench.outboxReceipts : runs.map((item) => legacySdlcReceiptItem(item)),
+    evidenceReadiness: Array.isArray(workbench.evidenceReadiness) ? workbench.evidenceReadiness : runs.map((item) => legacySdlcEvidenceReadinessItem(item)),
+    adapterDiagnostics: Array.isArray(workbench.adapterDiagnostics) ? workbench.adapterDiagnostics : runs.map((item) => legacySdlcAdapterDiagnosticItem(item)),
+    guardrails: vNextGuardrails.every((item) => guardrails.includes(item))
+      ? guardrails
+      : [...guardrails, ...vNextGuardrails.filter((item) => !guardrails.includes(item))]
+  };
 }
 
 export function qualityCenterWorkbenchIsComplete(consoleData) {

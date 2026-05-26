@@ -14,6 +14,8 @@ from tests.contract.conftest import base_event
 L5_EVENT_TYPES = [
     "stage_started",
     "stage_completed",
+    "executable_task_prepared",
+    "code_change_guard_result",
     "gate_result",
     "verification_result",
     "violation_scan_completed",
@@ -125,7 +127,7 @@ def test_ao22_ct_002_http_store_summary_does_not_claim_l5_for_incomplete_run():
     assert "verification_result" in summary["missing_evidence"]
 
 
-def test_ao22_ct_002a_http_store_summary_does_not_infer_verified_loaded_when_adapter_state_missing():
+def test_ao22_ct_002a_http_store_summary_does_not_require_adapter_state_for_l5():
     repository = InMemoryRepository()
     write_l5_run(repository, include_adapter_state=False)
     server = start_server(repository)
@@ -137,10 +139,10 @@ def test_ao22_ct_002a_http_store_summary_does_not_infer_verified_loaded_when_ada
         server.shutdown()
 
     assert response.status == 200
-    assert summary["evidence_level"] == "L4"
-    assert summary["confidence"] < 1.0
-    assert summary["risk_state"] == "warning"
-    assert summary["quality_state"]["source_trust"] == "declared"
+    assert summary["evidence_level"] == "L5"
+    assert summary["confidence"] == 1.0
+    assert summary["risk_state"] == "normal"
+    assert summary["quality_state"]["source_trust"] == "verified"
 
 
 def test_ao22_ct_003_http_store_summary_requires_version_and_run_id():

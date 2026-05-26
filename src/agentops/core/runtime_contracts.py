@@ -208,6 +208,8 @@ CONTRACT_REGISTRY: dict[str, ContractRegistryEntry] = {
                 "verification",
                 "artifact",
                 "violation",
+                "executable_task",
+                "code_guard",
             ),
             "status": (
                 "started",
@@ -218,9 +220,23 @@ CONTRACT_REGISTRY: dict[str, ContractRegistryEntry] = {
                 "emitted",
             ),
         },
+        optional_fields=(
+            "workitem",
+            "executable_task_id",
+            "task_title",
+            "task_guard_state",
+            "guard_result",
+            "blocking_reason",
+            "adapter_diagnostic_state",
+        ),
         state_registry_refs=("degraded", "schema_rejected"),
         error_codes=("SDLC_TRACE_EVENT_INVALID", "TRACE_PARENT_MISSING"),
-        contract_tests=("AO34-CT-001", "AO34-CT-004", "AO34-CT-005"),
+        contract_tests=(
+            "AO34-CT-001",
+            "AO34-CT-004",
+            "AO34-CT-005",
+            "AO56-CT-001",
+        ),
     ),
     "event_envelope.v1": _entry(
         "event_envelope.v1",
@@ -246,7 +262,14 @@ CONTRACT_REGISTRY: dict[str, ContractRegistryEntry] = {
             "payload_ref",
         ),
         enum_fields={
-            "source_trust": ("verified", "signed", "unsigned", "suspected"),
+            "source_trust": (
+                "verified",
+                "signed",
+                "unsigned",
+                "suspected",
+                "signed_producer",
+                "verified_runtime",
+            ),
             "integration_mode": (
                 "standalone",
                 "enterprise_managed",

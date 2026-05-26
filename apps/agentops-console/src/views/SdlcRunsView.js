@@ -46,9 +46,41 @@ export const SdlcRunsView = {
         { key: "outbox_delivered", label: "事件投递", type: "status" },
         { key: "next_action", label: "下一步" }
       ],
+      taskGuardColumns: [
+        { key: "run_id", label: "运行" },
+        { key: "workitem", label: "工作项" },
+        { key: "executable_task_id", label: "任务" },
+        { key: "task_guard_state", label: "任务守卫", type: "status" },
+        { key: "guard_result", label: "变更守卫", type: "status" },
+        { key: "next_action", label: "下一步" }
+      ],
+      receiptColumns: [
+        { key: "outbox_id", label: "Outbox" },
+        { key: "producer", label: "生产者" },
+        { key: "outbox_state", label: "状态", type: "status" },
+        { key: "accepted_count", label: "接收" },
+        { key: "rejected_count", label: "拒绝" },
+        { key: "dlq_count", label: "DLQ" }
+      ],
+      readinessColumns: [
+        { key: "run_id", label: "运行" },
+        { key: "executable_task_id", label: "任务" },
+        { key: "freshness_state", label: "新鲜度", type: "status" },
+        { key: "policy_state", label: "策略", type: "status" },
+        { key: "raw_payload_state", label: "原文" },
+        { key: "l5_path", label: "L5 路径", type: "status" }
+      ],
+      adapterDiagnosticColumns: [
+        { key: "run_id", label: "运行" },
+        { key: "adapter_diagnostic_state", label: "Adapter 诊断", type: "status" },
+        { key: "verified_loaded_semantics", label: "verified_loaded" },
+        { key: "hard_gate", label: "硬门槛" },
+        { key: "next_action", label: "下一步" }
+      ],
       glossaryTerms: [
-        { label: "已验证加载", copy: "后端拿到机器可验证证据，才算治理真的生效。" },
-        { label: "已生成配置/未验证", copy: "只说明配置或预演存在，还不能当作生效证明。" },
+        { label: "可执行任务", copy: "Ai_AutoSDLC 输出的明确任务、工作项和允许变更范围。" },
+        { label: "任务守卫", copy: "代码变更是否仍在可执行任务范围内的后端判定。" },
+        { label: "verified_loaded", copy: "只作为 adapter 诊断展示，不再作为主路径硬门槛。" },
         { label: "上报器", copy: "把运行事实送回治理系统的只读通道。" },
         { label: "事件投递箱", copy: "等待后端投递或重放的事件队列，本页不执行重放。" }
       ]
@@ -69,6 +101,10 @@ export const SdlcRunsView = {
         reporter: [],
         outbox: [],
         eligibility: [],
+        taskGuard: [],
+        outboxReceipts: [],
+        evidenceReadiness: [],
+        adapterDiagnostics: [],
         guardrails: []
       };
     },
@@ -82,6 +118,9 @@ export const SdlcRunsView = {
     readableText(value) {
       return String(value || "")
         .replaceAll("verified_loaded", "已验证加载")
+        .replaceAll("diagnostic_only", "仅诊断")
+        .replaceAll("hard_gate", "硬门槛")
+        .replaceAll("false", "否")
         .replaceAll("materialized/unverified", "已生成配置/未验证")
         .replaceAll("materialized", "已生成配置")
         .replaceAll("unverified", "未验证")
@@ -92,7 +131,9 @@ export const SdlcRunsView = {
     },
     readableConditions(value) {
       const labels = {
-        governance_loaded: "治理加载证明",
+        executable_task_linked: "可执行任务",
+        task_guard_allowed: "任务守卫通过",
+        governance_loaded: "治理加载诊断",
         source_signed: "来源签名",
         outbox_delivered: "事件投递证明"
       };
@@ -107,7 +148,7 @@ export const SdlcRunsView = {
     <div class="view-stack">
       <section class="page-heading">
         <div><p class="eyebrow">Ai_AutoSDLC 证明</p><h3>Ai_AutoSDLC 运行</h3></div>
-        <p class="heading-copy">CLI 预演通过不代表治理已经激活；只有拿到机器可验证的加载证据，页面才会显示“已验证加载”。</p>
+        <p class="heading-copy">接入主路径以可执行任务、任务守卫、签名事实、回执与证据就绪状态为准；verified_loaded 只作为 adapter 诊断展示。</p>
       </section>
       <term-glossary :terms="glossaryTerms" />
       <section class="summary-band evidence-vault-band">
@@ -120,7 +161,7 @@ export const SdlcRunsView = {
           <div><dt>Adapter</dt><dd><status-badge :status="workbench.summary.adapter_status" /></dd></div>
           <div><dt>证明</dt><dd><status-badge :status="workbench.summary.proof_state" /></dd></div>
           <div><dt>上报器就绪</dt><dd>{{ workbench.summary.reporter_ready }}</dd></div>
-          <div><dt>待补证明</dt><dd>{{ workbench.summary.pending_proofs }}</dd></div>
+          <div><dt>任务守卫通过</dt><dd>{{ workbench.summary.task_guard_allowed || 0 }}</dd></div>
         </dl>
       </section>
       <section class="ent-card">
@@ -131,6 +172,54 @@ export const SdlcRunsView = {
         <ul class="guardrail-list">
           <li v-for="item in workbench.guardrails" :key="item">{{ readableText(item) }}</li>
         </ul>
+      </section>
+      <section class="ent-card">
+        <div class="section-title">
+          <h4>可执行任务与任务守卫</h4>
+          <span class="muted">L5 主路径</span>
+        </div>
+        <data-table
+          :columns="taskGuardColumns"
+          :rows="workbench.taskGuard"
+          empty-title="暂无任务守卫记录"
+          empty-detail="等待 Ai_AutoSDLC 发送 executable_task 与 code_guard 运行事实。"
+        />
+      </section>
+      <section class="ent-card">
+        <div class="section-title">
+          <h4>事件回执</h4>
+          <span class="muted">只读接收回执</span>
+        </div>
+        <data-table
+          :columns="receiptColumns"
+          :rows="workbench.outboxReceipts"
+          empty-title="暂无回执"
+          empty-detail="收到 Ai_AutoSDLC outbox 后会展示接收、拒绝与 DLQ 摘要。"
+        />
+      </section>
+      <section class="ent-card">
+        <div class="section-title">
+          <h4>证据就绪状态</h4>
+          <span class="muted">摘要、策略与新鲜度</span>
+        </div>
+        <data-table
+          :columns="readinessColumns"
+          :rows="workbench.evidenceReadiness"
+          empty-title="暂无证据就绪状态"
+          empty-detail="任务守卫通过后会展示可进入 L5 复核的证据状态。"
+        />
+      </section>
+      <section class="ent-card">
+        <div class="section-title">
+          <h4>Adapter 诊断</h4>
+          <span class="muted">不作为硬门槛</span>
+        </div>
+        <data-table
+          :columns="adapterDiagnosticColumns"
+          :rows="workbench.adapterDiagnostics"
+          empty-title="暂无 adapter 诊断"
+          empty-detail="verified_loaded 只作为诊断字段，不替代任务与回执证据。"
+        />
       </section>
       <section class="ent-card">
         <div class="section-title">

@@ -327,16 +327,66 @@ consoleData.sdlcRunWorkbench = {
     dry_run_state: sdlcDryRunState(consoleData.sdlcRuns),
     reporter_ready: 0,
     pending_proofs: consoleData.sdlcRuns.length,
-    primary_action: "补齐 verified_loaded 机器证明",
-    safety_note: "CLI dry-run、AGENTS.md 或本地仓库事实不构成 verified_loaded 治理激活证明。"
+    verified_loaded_semantics: "diagnostic_only",
+    executable_task_ready: "0",
+    task_guard_allowed: "0",
+    outbox_receipts: "0",
+    primary_action: "等待可执行任务、任务守卫与回执证据",
+    safety_note: "verified_loaded 仅为 adapter 诊断口径；CLI dry-run、AGENTS.md 或本地仓库事实不构成 verified_loaded 治理激活证明。"
   },
   reporter: consoleData.sdlcRuns.map((item) => sdlcReporterItem(item)),
   outbox: consoleData.sdlcRuns.map((item) => sdlcOutboxItem(item)),
   eligibility: consoleData.sdlcRuns.map((item) => sdlcEligibilityItem(item)),
+  taskGuard: consoleData.sdlcRuns.map((item) => ({
+    id: `sdlc_task_guard_${slug(sdlcRunRef(item))}`,
+    run_id: sdlcRunRef(item),
+    workitem: item.workitem || "待接收",
+    executable_task_id: item.executable_task_id || "待接收",
+    task_title: item.task_title || "待接收",
+    task_guard_state: item.task_guard_state || "pending",
+    guard_result: item.guard_result || "pending",
+    evidence_ref: item.evidence_ref || "待接收",
+    raw_payload_state: "summary_only",
+    next_action: "等待 Ai_AutoSDLC 可执行任务与代码守卫事件",
+    safety_note: "只展示任务守卫摘要，不展示 allowed_paths、diff、patch 或原始载荷。"
+  })),
+  outboxReceipts: consoleData.sdlcRuns.map((item) => ({
+    id: `sdlc_receipt_${slug(sdlcRunRef(item))}`,
+    batch_id: "待接收",
+    outbox_id: "待接收",
+    producer: "Ai_AutoSDLC",
+    outbox_state: item.outbox_status || "pending",
+    accepted_count: "0",
+    deduplicated_count: "0",
+    rejected_count: "0",
+    dlq_count: "0",
+    audit_id: `audit_sdlc_${slug(sdlcRunRef(item))}`,
+    replay_boundary: "只读回执摘要，不在 Console 执行 Outbox Replay。"
+  })),
+  evidenceReadiness: consoleData.sdlcRuns.map((item) => ({
+    id: `sdlc_evidence_${slug(sdlcRunRef(item))}`,
+    run_id: sdlcRunRef(item),
+    executable_task_id: item.executable_task_id || "待接收",
+    evidence_ref: item.evidence_ref || "待接收",
+    raw_payload_state: "summary_only",
+    freshness_state: "pending",
+    policy_state: "pending",
+    l5_path: "blocked_or_pending",
+    safety_note: "证据就绪状态只展示摘要、引用和新鲜度，不展示原文。"
+  })),
+  adapterDiagnostics: consoleData.sdlcRuns.map((item) => ({
+    id: `sdlc_adapter_diag_${slug(sdlcRunRef(item))}`,
+    run_id: sdlcRunRef(item),
+    adapter_diagnostic_state: item.adapter_status || item.verified_loaded || "materialized",
+    verified_loaded_semantics: "diagnostic_only",
+    hard_gate: "false",
+    next_action: "接入签名运行事实与回执"
+  })),
   guardrails: [
-    "Reporter active 必须有 machine-verifiable proof，不得由 dry-run 或 AGENTS.md 推导。",
+    "Reporter active 必须有签名运行事实与回执证明，不得由 dry-run、AGENTS.md 或 verified_loaded 诊断推导。",
     "Outbox delivered 只表示投递状态，不在 Console 执行 Outbox Replay 或事件重放。",
-    "materialized/unverified 只能说明配置已生成或 CLI 预演成功，不构成 verified_loaded 治理激活证明。",
+    "verified_loaded 只展示 adapter 诊断，不作为 L5 主路径或接入准入硬门槛。",
+    "可执行任务与代码守卫缺失或 blocked 时，必须阻断 L5 提升并展示下一步动作。",
     "L5 条件缺失必须展示 failed_conditions 和下一步动作，不得显示为 healthy。",
     "Ai_AutoSDLC 运行工作台不得展示原始载荷、下载链接、PR 原文、diff、patch 或外部 URL。"
   ]

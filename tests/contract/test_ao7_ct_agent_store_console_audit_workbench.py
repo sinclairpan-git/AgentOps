@@ -154,6 +154,8 @@ def test_ao7_ct_004a_store_summary_reuses_l5_gate_event_contract():
         [
             "stage_started",
             "stage_completed",
+            "executable_task_prepared",
+            "code_change_guard_result",
             "gate_result",
             "verification_result",
             "violation_scan_completed",
@@ -192,7 +194,7 @@ def test_ao7_ct_004b_store_summary_sorts_events_before_l5_evaluation():
             "l5_eligibility_input",
             event_id="evt_l5_eligibility_input_late",
             idempotency_key="l5_eligibility_input:run_1:late",
-            sequence_no=9,
+            sequence_no=11,
             payload=stale_payload,
         )
     )
@@ -200,6 +202,8 @@ def test_ao7_ct_004b_store_summary_sorts_events_before_l5_evaluation():
         [
             "stage_started",
             "stage_completed",
+            "executable_task_prepared",
+            "code_change_guard_result",
             "gate_result",
             "verification_result",
             "violation_scan_completed",

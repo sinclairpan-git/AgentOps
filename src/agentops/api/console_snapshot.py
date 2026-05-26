@@ -258,7 +258,7 @@ def _with_workbenches(
         "evidenceVault": _evidence_vault_workbench(console_data),
         "approvalWorkbench": _approval_workbench(console_data),
         "connectorWorkbench": _connector_workbench(console_data, repository=repository),
-        "sdlcRunWorkbench": _sdlc_run_workbench(console_data),
+        "sdlcRunWorkbench": _sdlc_run_workbench(console_data, repository=repository),
         "actionWorkbench": _action_workbench(console_data),
     }
     return {
@@ -1095,10 +1095,19 @@ def _evidence_vault_workbench(console_data: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _sdlc_run_workbench(console_data: dict[str, Any]) -> dict[str, Any]:
+def _sdlc_run_workbench(
+    console_data: dict[str, Any], *, repository: InMemoryRepository | None = None
+) -> dict[str, Any]:
     sdlc_runs = list(console_data.get("sdlcRuns", []))
     verified_count = sum(1 for item in sdlc_runs if _sdlc_proof_verified(item))
     pending_count = len(sdlc_runs) - verified_count
+    task_guard = _sdlc_task_guard_rows(repository, sdlc_runs)
+    outbox_receipts = _sdlc_outbox_receipt_rows(repository, sdlc_runs)
+    evidence_readiness = _sdlc_evidence_readiness_rows(repository, sdlc_runs)
+    adapter_diagnostics = _sdlc_adapter_diagnostic_rows(repository, sdlc_runs)
+    allowed_guard_count = sum(
+        1 for item in task_guard if item["task_guard_state"] == "allowed"
+    )
     status = (
         "verified_loaded"
         if sdlc_runs and verified_count == len(sdlc_runs)
@@ -1118,18 +1127,27 @@ def _sdlc_run_workbench(console_data: dict[str, Any]) -> dict[str, Any]:
             "dry_run_state": _sdlc_dry_run_state(sdlc_runs),
             "reporter_ready": verified_count,
             "pending_proofs": pending_count,
-            "primary_action": "保持治理加载证明"
-            if status == "verified_loaded"
-            else "补齐 verified_loaded 机器证明",
-            "safety_note": "CLI dry-run、AGENTS.md 或本地仓库事实不构成 verified_loaded 治理激活证明。",
+            "verified_loaded_semantics": "diagnostic_only",
+            "executable_task_ready": str(len(task_guard)),
+            "task_guard_allowed": str(allowed_guard_count),
+            "outbox_receipts": str(len(outbox_receipts)),
+            "primary_action": "保持可执行任务与任务守卫证据链"
+            if task_guard and allowed_guard_count == len(task_guard)
+            else "等待可执行任务、任务守卫与回执证据",
+            "safety_note": "verified_loaded 仅为 adapter 诊断口径；L5 主路径以可执行任务、任务守卫、签名运行事实、回执、证据、策略和新鲜度为准。",
         },
         "reporter": [_sdlc_reporter_item(item) for item in sdlc_runs],
         "outbox": [_sdlc_outbox_item(item) for item in sdlc_runs],
         "eligibility": [_sdlc_eligibility_item(item) for item in sdlc_runs],
+        "taskGuard": task_guard,
+        "outboxReceipts": outbox_receipts,
+        "evidenceReadiness": evidence_readiness,
+        "adapterDiagnostics": adapter_diagnostics,
         "guardrails": [
-            "Reporter active 必须有 machine-verifiable proof，不得由 dry-run 或 AGENTS.md 推导。",
+            "Reporter active 必须有签名运行事实与回执证明，不得由 dry-run、AGENTS.md 或 verified_loaded 诊断推导。",
             "Outbox delivered 只表示投递状态，不在 Console 执行 Outbox Replay 或事件重放。",
-            "materialized/unverified 只能说明配置已生成或 CLI 预演成功，不构成 verified_loaded 治理激活证明。",
+            "verified_loaded 只展示 adapter 诊断，不作为 L5 主路径或接入准入硬门槛。",
+            "可执行任务与代码守卫缺失或 blocked 时，必须阻断 L5 提升并展示下一步动作。",
             "L5 条件缺失必须展示 failed_conditions 和下一步动作，不得显示为 healthy。",
             "Ai_AutoSDLC 运行工作台不得展示原始载荷、下载链接、PR 原文、diff、patch 或外部 URL。",
         ],
@@ -1223,6 +1241,178 @@ def _sdlc_eligibility_item(item: dict[str, Any]) -> dict[str, Any]:
         else "补齐 verified_loaded、签名来源和 Outbox delivered 证明",
         "safety_note": "Eligibility 仅解释 L5 条件，不覆盖 AgentOps 后端最终等级判定。",
     }
+
+
+def _sdlc_task_guard_rows(
+    repository: InMemoryRepository | None, sdlc_runs: list[dict[str, Any]]
+) -> list[dict[str, str]]:
+    if repository is None:
+        return [_sdlc_task_guard_row_from_run(item) for item in sdlc_runs]
+
+    rows_by_key: dict[str, dict[str, str]] = {}
+    for span in repository.trace_span_records():
+        if span.get("sdlc_event_type") not in {"executable_task", "code_guard"}:
+            continue
+        run_id = str(span.get("run_id") or "unknown_sdlc_run")
+        task_id = str(span.get("executable_task_id") or "unlinked_task")
+        key = f"{run_id}:{task_id}"
+        row = rows_by_key.setdefault(
+            key,
+            {
+                "id": f"sdlc_task_guard_{_slug(key)}",
+                "run_id": run_id,
+                "workitem": str(span.get("workitem") or "未声明"),
+                "executable_task_id": task_id,
+                "task_title": str(span.get("task_title") or "未声明"),
+                "task_guard_state": str(span.get("task_guard_state") or "pending"),
+                "guard_result": str(span.get("guard_result") or "pending"),
+                "evidence_ref": str(
+                    span.get("evidence_ref") or span.get("payload_ref") or ""
+                ),
+                "raw_payload_state": "summary_only",
+                "next_action": "等待代码守卫结果",
+                "safety_note": "只展示任务守卫摘要，不展示 allowed_paths、diff、patch 或原始载荷。",
+            },
+        )
+        if span.get("sdlc_event_type") == "code_guard":
+            guard_result = str(span.get("guard_result") or "pending")
+            task_guard_state = str(span.get("task_guard_state") or guard_result)
+            row["task_guard_state"] = task_guard_state
+            row["guard_result"] = guard_result
+            row["next_action"] = (
+                "可进入 Evidence/L5 复核"
+                if task_guard_state == "allowed"
+                and guard_result in {"allowed", "passed"}
+                else "处理任务守卫阻断"
+                if task_guard_state == "blocked" or guard_result == "blocked"
+                else "等待代码守卫结果"
+            )
+    return list(rows_by_key.values())
+
+
+def _sdlc_task_guard_row_from_run(item: dict[str, Any]) -> dict[str, str]:
+    run_ref = _sdlc_run_ref(item)
+    return {
+        "id": f"sdlc_task_guard_{_slug(run_ref)}",
+        "run_id": run_ref,
+        "workitem": str(item.get("workitem") or "待接收"),
+        "executable_task_id": str(item.get("executable_task_id") or "待接收"),
+        "task_title": str(item.get("task_title") or "待接收"),
+        "task_guard_state": str(item.get("task_guard_state") or "pending"),
+        "guard_result": str(item.get("guard_result") or "pending"),
+        "evidence_ref": str(item.get("evidence_ref") or "待接收"),
+        "raw_payload_state": "summary_only",
+        "next_action": "等待 Ai_AutoSDLC 可执行任务与代码守卫事件",
+        "safety_note": "只展示任务守卫摘要，不展示 allowed_paths、diff、patch 或原始载荷。",
+    }
+
+
+def _sdlc_outbox_receipt_rows(
+    repository: InMemoryRepository | None, sdlc_runs: list[dict[str, Any]]
+) -> list[dict[str, str]]:
+    if repository is None:
+        return [_sdlc_receipt_row_from_run(item) for item in sdlc_runs]
+    return [
+        {
+            "id": f"sdlc_receipt_{_slug(str(receipt.get('batch_id') or receipt.get('outbox_id')))}",
+            "batch_id": str(receipt.get("batch_id") or ""),
+            "outbox_id": str(receipt.get("outbox_id") or ""),
+            "producer": str(receipt.get("producer") or ""),
+            "outbox_state": str(receipt.get("outbox_state") or ""),
+            "accepted_count": str(receipt.get("accepted_count") or 0),
+            "deduplicated_count": str(receipt.get("deduplicated_count") or 0),
+            "rejected_count": str(receipt.get("rejected_count") or 0),
+            "dlq_count": str(receipt.get("dlq_count") or 0),
+            "audit_id": str(receipt.get("audit_id") or ""),
+            "replay_boundary": "只读回执摘要，不在 Console 执行 Outbox Replay。",
+        }
+        for receipt in repository.runtime_outbox_receipt_records()
+        if str(receipt.get("producer") or "") == "Ai_AutoSDLC"
+    ]
+
+
+def _sdlc_receipt_row_from_run(item: dict[str, Any]) -> dict[str, str]:
+    run_ref = _sdlc_run_ref(item)
+    return {
+        "id": f"sdlc_receipt_{_slug(run_ref)}",
+        "batch_id": "待接收",
+        "outbox_id": "待接收",
+        "producer": "Ai_AutoSDLC",
+        "outbox_state": str(item.get("outbox_status") or "pending"),
+        "accepted_count": "0",
+        "deduplicated_count": "0",
+        "rejected_count": "0",
+        "dlq_count": "0",
+        "audit_id": f"audit_sdlc_{_slug(run_ref)}",
+        "replay_boundary": "只读回执摘要，不在 Console 执行 Outbox Replay。",
+    }
+
+
+def _sdlc_evidence_readiness_rows(
+    repository: InMemoryRepository | None, sdlc_runs: list[dict[str, Any]]
+) -> list[dict[str, str]]:
+    task_rows = _sdlc_task_guard_rows(repository, sdlc_runs)
+    return [
+        {
+            "id": f"sdlc_evidence_{_slug(item['run_id'])}_{_slug(item['executable_task_id'])}",
+            "run_id": item["run_id"],
+            "executable_task_id": item["executable_task_id"],
+            "evidence_ref": item["evidence_ref"],
+            "raw_payload_state": "summary_only",
+            "freshness_state": "fresh"
+            if item["task_guard_state"] == "allowed"
+            else "pending",
+            "policy_state": "known"
+            if item["task_guard_state"] == "allowed"
+            else "pending",
+            "l5_path": "eligible_for_review"
+            if item["task_guard_state"] == "allowed"
+            else "blocked_or_pending",
+            "safety_note": "证据就绪状态只展示摘要、引用和新鲜度，不展示原文。",
+        }
+        for item in task_rows
+    ]
+
+
+def _sdlc_adapter_diagnostic_rows(
+    repository: InMemoryRepository | None, sdlc_runs: list[dict[str, Any]]
+) -> list[dict[str, str]]:
+    if repository is None:
+        return [
+            {
+                "id": f"sdlc_adapter_diag_{_slug(_sdlc_run_ref(item))}",
+                "run_id": _sdlc_run_ref(item),
+                "adapter_diagnostic_state": str(
+                    item.get("adapter_status")
+                    or item.get("verified_loaded")
+                    or "materialized"
+                ),
+                "verified_loaded_semantics": "diagnostic_only",
+                "hard_gate": "false",
+                "next_action": "接入签名运行事实与回执",
+            }
+            for item in sdlc_runs
+        ]
+
+    rows: dict[str, dict[str, str]] = {}
+    for span in repository.trace_span_records():
+        if not span.get("sdlc_event_type"):
+            continue
+        run_id = str(span.get("run_id") or "unknown_sdlc_run")
+        rows.setdefault(
+            run_id,
+            {
+                "id": f"sdlc_adapter_diag_{_slug(run_id)}",
+                "run_id": run_id,
+                "adapter_diagnostic_state": str(
+                    span.get("adapter_diagnostic_state") or "not_asserted"
+                ),
+                "verified_loaded_semantics": "diagnostic_only",
+                "hard_gate": "false",
+                "next_action": "以可执行任务、任务守卫、回执与证据就绪状态继续联调",
+            },
+        )
+    return list(rows.values())
 
 
 def _approval_workbench(console_data: dict[str, Any]) -> dict[str, Any]:
@@ -2391,6 +2581,10 @@ def _localized_evidence_gap(gap: str) -> str:
     labels = {
         "stage_started": "阶段开始事件",
         "stage_completed": "阶段完成事件",
+        "executable_task_prepared": "可执行任务事件",
+        "code_change_guard_result": "代码守卫结果事件",
+        "executable_task_linked": "可执行任务证明",
+        "task_guard_allowed": "任务守卫通过证明",
         "gate_result": "门禁结果事件",
         "verification_result": "验证结果事件",
         "violation_scan_completed": "违规扫描事件",
