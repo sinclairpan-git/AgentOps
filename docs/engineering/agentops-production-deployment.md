@@ -24,7 +24,7 @@ Services:
 |---|---|---|
 | PostgreSQL | `localhost:5432` | Canonical runtime facts, receipts, DLQ, audit records |
 | AgentOps API | `http://127.0.0.1:8765` | Internal API, production auth enabled |
-| Runtime Gateway | `http://127.0.0.1:8766` | Public ingestion endpoint for Ai_AutoSDLC |
+| Runtime Gateway | `http://127.0.0.1:8766` | Public ingestion endpoint for Ai_AutoSDLC and local Console snapshot proxy |
 | Console | `http://127.0.0.1:4173` | Operator UI, compiled with `VITE_AGENTOPS_API_BASE=http://127.0.0.1:8766` |
 
 The API container runs with:
@@ -45,6 +45,12 @@ AGENTOPS_GATEWAY_ROLES=agentops-ingestor
 AGENTOPS_GATEWAY_SCOPES=event.ingest
 python -m agentops.api.gateway --host 0.0.0.0 --port 8766
 ```
+
+For local smoke deployments, the reference Gateway also proxies
+`GET /v1/console/snapshot` to the internal AgentOps API with operator read
+scopes so the Console can read real snapshots from the compose stack. Managed
+production deployments should protect the Console path with their normal user
+auth layer.
 
 ## Smoke Check
 

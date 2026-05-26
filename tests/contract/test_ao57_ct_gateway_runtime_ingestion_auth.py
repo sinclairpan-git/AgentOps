@@ -54,6 +54,8 @@ def _start_gateway(
 def _json_request(
     server: ThreadingHTTPServer,
     *,
+    method: str = "POST",
+    path: str = "/v1/runtime/events",
     headers: dict[str, str] | None = None,
     payload: dict | None = None,
 ) -> tuple[int, dict]:
@@ -64,9 +66,7 @@ def _json_request(
         body = json.dumps(payload).encode("utf-8") if payload is not None else None
         request_headers = {"Content-Type": "application/json"}
         request_headers.update(headers or {})
-        connection.request(
-            "POST", "/v1/runtime/events", body=body, headers=request_headers
-        )
+        connection.request(method, path, body=body, headers=request_headers)
         response = connection.getresponse()
         raw_body = response.read().decode("utf-8")
         return response.status, json.loads(raw_body) if raw_body else {}
@@ -210,3 +210,33 @@ def test_ao57_ct_010_reference_gateway_rejects_bad_token_without_leaking_it():
     assert payload["error_code"] == "GATEWAY_TOKEN_INVALID"
     assert "token_secret_bad" not in json.dumps(payload)
     assert repository.trace_span_count() == 0
+
+
+def test_ao57_ct_011_reference_gateway_forwards_console_snapshot_for_compose_ui():
+    repository = InMemoryRepository()
+    upstream = _start_server(repository)
+    gateway = _start_gateway(upstream)
+    try:
+        ingest_status, receipt = _json_request(
+            gateway,
+            headers={"Authorization": "Bearer gateway-token"},
+            payload=_fixture_batch(),
+        )
+        snapshot_status, snapshot = _json_request(
+            gateway,
+            method="GET",
+            path="/v1/console/snapshot",
+        )
+    finally:
+        gateway.shutdown()
+        gateway.server_close()
+        upstream.shutdown()
+        upstream.server_close()
+
+    workbench = snapshot["consoleData"]["sdlcRunWorkbench"]
+    assert ingest_status == 202
+    assert receipt["accepted_count"] == 2
+    assert snapshot_status == 200
+    assert workbench["taskGuard"][0]["run_id"] == "run_sdlc_001"
+    assert workbench["outboxReceipts"][0]["outbox_state"] == "delivered"
+    assert workbench["evidenceReadiness"][0]["raw_payload_state"] == "summary_only"

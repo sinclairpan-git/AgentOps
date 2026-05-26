@@ -95,3 +95,29 @@
   - compose 配置解析通过。
   - `docker compose build api gateway console` 未执行成功：Docker daemon 未运行，错误为无法连接 `/Users/sinclairpan/.docker/run/docker.sock`。
 - **当前批次 branch disposition 状态**：`codex/057-production-runtime-closeout` 为当前实现分支，计划提交后创建 PR；GitHub checks、Compatibility Gate、`@codex review` 或云端 fallback review 均通过后合入 `main`。
+
+## Batch 2026-05-26-003 | Reference Gateway Console snapshot proxy
+
+- **触发原因**：
+  - 端到端验收时发现 compose Console 配置为 `VITE_AGENTOPS_API_BASE=http://127.0.0.1:8766`，但 reference Gateway 只代理 runtime ingestion，无法服务 Console snapshot。
+- **改动范围**：
+  - `src/agentops/api/gateway.py`
+  - `tests/contract/test_ao57_ct_gateway_runtime_ingestion_auth.py`
+  - `docs/engineering/agentops-api-gateway-runtime-ingestion.md`
+  - `docs/engineering/agentops-production-deployment.md`
+- **改动内容**：
+  1. reference Gateway 增加 `GET /v1/console/snapshot` 代理，向内部 AgentOps API 注入 operator read scopes。
+  2. 保留 `POST /v1/runtime/events` 的 Bearer token 校验和 producer identity 注入。
+  3. 增加 compose UI contract test，验证 Gateway 代理 snapshot 后 Console workbench 可读真实 task guard、receipt 和 evidence readiness。
+  4. 文档说明该 Console snapshot proxy 用于 local compose smoke；生产应放在正式用户认证层之后。
+- **验证命令**：
+  - `uv run pytest tests/contract/test_ao57_ct_gateway_runtime_ingestion_auth.py -q`
+  - `uv run ruff check src/agentops/api/gateway.py tests/contract/test_ao57_ct_gateway_runtime_ingestion_auth.py`
+  - `uv run pytest tests/contract/test_ao57_ct_gateway_runtime_ingestion_auth.py tests/contract/test_ao57_ct_postgres_runtime_ingestion.py tests/contract/test_ao57_ct_postgres_runtime_repository.py -q`
+  - `docker compose config`
+  - live local Gateway check: `GET http://127.0.0.1:8766/v1/console/snapshot`
+- **结果**：
+  - Gateway auth / snapshot proxy tests 通过。
+  - AO57 相关回归通过。
+  - compose config 通过。
+  - 本地 reference Gateway 已可代理 Console snapshot。

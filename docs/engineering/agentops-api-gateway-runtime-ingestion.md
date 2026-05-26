@@ -101,6 +101,12 @@ Managed production environments may replace it with Nginx, Envoy, Cloudflare
 Workers, or another API Gateway as long as the required behavior above remains
 identical.
 
+For local compose smoke, the reference Gateway also proxies
+`GET /v1/console/snapshot` with operator read scopes. This lets the Console use
+`VITE_AGENTOPS_API_BASE=http://127.0.0.1:8766` and still read real AgentOps API
+snapshots. Production deployments should put that Console read path behind their
+normal user-facing auth layer.
+
 The public ingress should be the Gateway URL, not the raw AgentOps API URL.
 
 ## Pseudo Gateway Flow
