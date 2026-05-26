@@ -34,12 +34,15 @@ def build_runtime_evidence_summary(
 
     run = repository.get_runtime_run_fact(run_id)
     if run is None:
-        raise AgentOpsError(
-            "RUNTIME_RUN_NOT_FOUND",
-            "Runtime run fact was not found.",
-            audit_id=f"audit_runtime_evidence_{run_id}",
-            request_id=f"req_runtime_evidence_{run_id}",
-        )
+        spans = list(repository.trace_span_records_for_run(run_id))
+        if not spans:
+            raise AgentOpsError(
+                "RUNTIME_RUN_NOT_FOUND",
+                "Runtime run fact was not found.",
+                audit_id=f"audit_runtime_evidence_{run_id}",
+                request_id=f"req_runtime_evidence_{run_id}",
+            )
+        run = _span_only_runtime_run(run_id, spans)
 
     return _build_runtime_evidence_summary_for_run(
         repository,
@@ -105,6 +108,41 @@ def _build_runtime_evidence_summary_for_run(
         "degraded_reason": degraded_reason,
         "request_access_url": "/v1/evidence/raw-access-requests",
     }
+
+
+def _span_only_runtime_run(run_id: str, spans: list[dict[str, Any]]) -> dict[str, Any]:
+    attempt_no = _latest_span_attempt_no(spans)
+    selected_spans = [
+        span
+        for span in spans
+        if _safe_float(span.get("attempt_no")) == _safe_float(attempt_no)
+    ]
+    return {
+        "run_id": run_id,
+        "attempt_no": attempt_no,
+        "status": _span_only_runtime_status(selected_spans),
+        "event_id": "",
+    }
+
+
+def _latest_span_attempt_no(spans: list[dict[str, Any]]) -> Any:
+    return sorted(spans, key=lambda span: _safe_float(span.get("attempt_no")))[-1].get(
+        "attempt_no", 1
+    )
+
+
+def _span_only_runtime_status(spans: list[dict[str, Any]]) -> str:
+    statuses = {str(span.get("status") or "") for span in spans}
+    status_codes = {str(span.get("status_code") or "") for span in spans}
+    if "blocked" in statuses or "blocked" in status_codes:
+        return "blocked"
+    if "failed" in statuses or "error" in status_codes:
+        return "failed"
+    if "waiting" in status_codes or "started" in statuses:
+        return "running"
+    if spans and status_codes.issubset({"ok", "unset", ""}):
+        return "succeeded"
+    return "unknown"
 
 
 def build_runtime_health_summary(
