@@ -1,8 +1,12 @@
 import json
+from http.client import HTTPConnection
+from http.server import ThreadingHTTPServer
 from pathlib import Path
+from threading import Thread
 
 from agentops.api.console_snapshot import build_console_snapshot
 from agentops.api.runtime import ingest_runtime_events
+from agentops.api.server import create_http_handler
 from agentops.core.l5_gate import evaluate_l5_gate
 from agentops.core.runtime_contracts import get_contract
 from agentops.storage.repository import InMemoryRepository
@@ -20,6 +24,23 @@ FIXTURE_PATH = (
 
 def _fixture_batch() -> dict:
     return json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
+
+
+def _json_request(
+    server: ThreadingHTTPServer, method: str, path: str, payload: dict | None = None
+) -> tuple[int, dict]:
+    connection = HTTPConnection(
+        server.server_address[0], server.server_address[1], timeout=5
+    )
+    try:
+        body = json.dumps(payload).encode("utf-8") if payload is not None else None
+        headers = {"Content-Type": "application/json"} if payload is not None else {}
+        connection.request(method, path, body=body, headers=headers)
+        response = connection.getresponse()
+        raw_body = response.read().decode("utf-8")
+        return response.status, json.loads(raw_body) if raw_body else {}
+    finally:
+        connection.close()
 
 
 def test_ao56_ct_001_contract_registry_accepts_executable_task_runtime_events():
@@ -116,3 +137,44 @@ def test_ao56_ct_004_console_workbench_exposes_task_guard_receipt_and_diagnostic
     assert workbench["outboxReceipts"][0]["accepted_count"] == "2"
     assert workbench["evidenceReadiness"][0]["raw_payload_state"] == "summary_only"
     assert workbench["adapterDiagnostics"][0]["hard_gate"] == "false"
+
+
+def test_ao56_ct_005_http_sink_exposes_span_only_sdlc_trace_and_evidence_readback():
+    repository = InMemoryRepository()
+    server = ThreadingHTTPServer(("127.0.0.1", 0), create_http_handler(repository))
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        post_status, receipt = _json_request(
+            server, "POST", "/v1/runtime/events", _fixture_batch()
+        )
+        trace_status, trace = _json_request(
+            server, "GET", "/v1/runtime/runs/run_sdlc_001/trace"
+        )
+        evidence_status, evidence = _json_request(
+            server, "GET", "/v1/runtime/runs/run_sdlc_001/evidence-summary"
+        )
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+    assert post_status == 202
+    assert receipt["schema_version"] == "runtime_outbox_receipt.v1"
+    assert receipt["accepted_count"] == 2
+    assert receipt["rejected_count"] == 0
+    assert trace_status == 200
+    assert [span["operation_name"] for span in trace["spans"]] == [
+        "ai_sdlc.executable_task.execute",
+        "ai_sdlc.code_guard.execute",
+    ]
+    assert trace["redaction_state"] == "summary_only"
+    assert trace["aggregate"]["span_count"] == 2
+    assert evidence_status == 200
+    assert evidence["schema_version"] == "evidence_summary.v1"
+    assert evidence["trace_id"] == "trace_sdlc_001"
+    assert evidence["raw_access_state"] == "summary_only"
+    assert {
+        "evt_sdlc_task_prepared_001",
+        "evt_sdlc_guard_allowed_001",
+    }.issubset(evidence["source_event_ids"])

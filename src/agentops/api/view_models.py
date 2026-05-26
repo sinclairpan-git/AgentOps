@@ -347,7 +347,9 @@ def build_trace_timeline_projection(
         )
 
     run = repository.get_runtime_run_fact(run_id)
-    if run is None:
+    attempt_no = run.get("attempt_no") if run is not None else None
+    spans = list(repository.trace_span_records_for_run(run_id, attempt_no=attempt_no))
+    if run is None and not spans:
         raise AgentOpsError(
             "RUNTIME_RUN_NOT_FOUND",
             "Runtime run fact was not found.",
@@ -355,13 +357,8 @@ def build_trace_timeline_projection(
             request_id=f"req_runtime_trace_{run_id}",
         )
 
-    spans = list(
-        repository.trace_span_records_for_run(run_id, attempt_no=run.get("attempt_no"))
-    )
     guardrail_results = list(
-        repository.guardrail_result_records_for_run(
-            run_id, attempt_no=run.get("attempt_no")
-        )
+        repository.guardrail_result_records_for_run(run_id, attempt_no=attempt_no)
     )
     trace_id = str(spans[0].get("trace_id")) if spans else ""
     degraded_reason = _timeline_degraded_reason(spans)
