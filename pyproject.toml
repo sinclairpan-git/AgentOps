@@ -13,6 +13,9 @@ postgres = [
     "psycopg[binary]>=3.2",
 ]
 
+[project.scripts]
+agentops-access-readiness = "agentops.ops.access_readiness:main"
+
 [tool.setuptools.packages.find]
 where = ["src"]
 

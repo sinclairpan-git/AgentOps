@@ -84,13 +84,17 @@ Ai_AutoSDLC must support these configuration inputs.
 |---|---|---|---|
 | `integration.mode` | `AI_SDLC_INTEGRATION_MODE` | enterprise reporting | `standalone`, `enterprise_managed`, or `custom_sink` |
 | `reporter.sink` | `AI_SDLC_REPORTER_SINK` | enterprise reporting | `none`, `local_file`, `agentops`, or `custom` |
-| `agentops.endpoint` | `AGENTOPS_ENDPOINT` | `reporter.sink=agentops` | API Gateway base URL, not raw AgentOps internal URL in production |
+| `agentops.endpoint` | `AGENTOPS_INGESTION_ENDPOINT` | `reporter.sink=agentops` | API Gateway base URL, not raw AgentOps internal URL in production |
 | `agentops.token` | `AGENTOPS_INGESTION_TOKEN` | production Gateway | Bearer token issued for this producer |
 | `agentops.identity_mode` | `AGENTOPS_IDENTITY_MODE` | enterprise reporting | `ops_direct` or `store_mediated` |
 | `agentops.producer_id` | `AGENTOPS_PRODUCER_ID` | ops-direct | Stable producer principal |
 | `agentops.runtime_id` | `AGENTOPS_RUNTIME_ID` | ops-direct | Runtime instance identity |
 | `agentops.credential_id` | `AGENTOPS_CREDENTIAL_ID` | enterprise reporting | Reporter credential id |
 | `agentops.key_id` | `AGENTOPS_KEY_ID` | enterprise reporting | Signing key id |
+
+`AGENTOPS_ENDPOINT` may be accepted as a backward-compatible local alias, but
+new integrations should use `AGENTOPS_INGESTION_ENDPOINT` so runtime reporting
+does not collide with unrelated AgentOps API configuration.
 
 Behavior:
 
@@ -272,13 +276,16 @@ Ai_AutoSDLC local development should allow:
 ```bash
 export AI_SDLC_INTEGRATION_MODE=enterprise_managed
 export AI_SDLC_REPORTER_SINK=agentops
-export AGENTOPS_ENDPOINT=http://127.0.0.1:8765
+export AGENTOPS_INGESTION_ENDPOINT=http://127.0.0.1:8766
+export AGENTOPS_INGESTION_TOKEN=local-agentops-gateway-token
 export AGENTOPS_IDENTITY_MODE=ops_direct
 export AGENTOPS_PRODUCER_ID=producer.ai-sdlc.local
 export AGENTOPS_RUNTIME_ID=runtime.ai-sdlc.local
 export AGENTOPS_CREDENTIAL_ID=cred.ai-sdlc.local
 export AGENTOPS_KEY_ID=key.ai-sdlc.local
-ai-sdlc run --dry-run
+ai-sdlc agentops doctor --json
+ai-sdlc run
+ai-sdlc agentops status --json
 ```
 
 Production must use the Gateway endpoint and Bearer token.
@@ -341,7 +348,7 @@ The final joint smoke test should prove this full path:
 1. Start AgentOps API.
 2. Start API Gateway.
 3. Configure Ai_AutoSDLC with Gateway endpoint and token.
-4. Run `ai-sdlc run --dry-run` or a controlled test run.
+4. Run `ai-sdlc run` or intentionally retry a reviewed local outbox.
 5. Confirm Ai_AutoSDLC persisted outbox and receipt summary.
 6. Confirm AgentOps returns `accepted_count > 0`.
 7. Confirm AgentOps `GET /v1/runtime/runs/{run_id}/trace` returns spans.

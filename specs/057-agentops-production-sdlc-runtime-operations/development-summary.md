@@ -1,7 +1,7 @@
 # 开发摘要：AgentOps Production SDLC Runtime Operations
 
 **工作项**：`057-agentops-production-sdlc-runtime-operations`  
-**状态**：production runtime closeout 已完成实现，等待 PR checks / review 收口
+**状态**：production runtime closeout 和 access readiness gate 已完成实现，等待 PR checks / review 收口
 
 ## 已落地能力
 
@@ -20,6 +20,11 @@
   - `docs/engineering/agentops-production-deployment.md`
 - Console persisted SDLC readback 已用 restart-style contract 覆盖：重启后仍可读取 task guard、outbox receipt、Trace、Evidence readiness。
 - Cross-project E2E smoke 指南已归档：`docs/engineering/ai-sdlc-agentops-e2e-smoke.md`。
+- Access readiness gate 已落地：
+  - `uv run agentops-access-readiness --json`
+  - `python scripts/agentops-access-readiness.py --token <redacted> --json`
+  - 覆盖 Gateway/API health、正向 runtime ingestion、Trace/Evidence readback、bad token、raw API bypass、closed route allowlist。
+- SDLC smoke 文档已升级为最新语义：`ai-sdlc run --dry-run` 不作为 live delivery 证明；真实上报使用 `ai-sdlc run` 或显式 retry 已审阅 outbox。
 
 ## 验证状态
 
@@ -30,9 +35,12 @@
 - `npm test --prefix apps/agentops-console`：通过。
 - `npm run build --prefix apps/agentops-console`：通过。
 - `docker compose config`：通过。
+- `uv run pytest tests/contract/test_ao64_ct_access_readiness.py -q`：通过。
+- `uv run ruff check src/agentops/ops/access_readiness.py scripts/agentops-access-readiness.py tests/contract/test_ao64_ct_access_readiness.py`：通过。
+- `uv run agentops-access-readiness --token local-agentops-gateway-token --json`：通过，`overall=pass`。
 
 ## 环境限制
 
-- 本机 Docker daemon 未运行，`docker compose build api gateway console` 无法连接 `/Users/sinclairpan/.docker/run/docker.sock`，因此本轮未执行真实 compose live DB smoke。
-- 本机未安装 `postgres` binary，未用裸本地 PostgreSQL 替代 compose。
-- 可重复 live smoke 已通过 `docker-compose.yml` 和 `docs/engineering/ai-sdlc-agentops-e2e-smoke.md` 固化；有 Docker daemon 的环境可直接执行。
+- 默认 sandbox 网络无法访问 compose 暴露端口，`python scripts/agentops-access-readiness.py --token local-agentops-gateway-token --json` 在 sandbox 内返回 fail-closed `TRANSPORT_ERROR` JSON。
+- 提升到本机网络后 live access readiness 已通过，确认本地 compose 服务稳定；该限制属于执行环境网络隔离，不属于 AgentOps 服务异常。
+- 可重复 live smoke 已通过 `docker-compose.yml`、`docs/engineering/ai-sdlc-agentops-e2e-smoke.md` 和 `docs/engineering/agentops-access-readiness.md` 固化。

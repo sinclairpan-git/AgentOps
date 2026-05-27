@@ -58,6 +58,30 @@ auth layer.
 
 ## Smoke Check
 
+Before handing the endpoint to Ai_AutoSDLC, run the access readiness gate from
+the AgentOps checkout:
+
+```bash
+AGENTOPS_INGESTION_TOKEN=local-agentops-gateway-token \
+  uv run agentops-access-readiness --json
+```
+
+For staging or server deployments, pass the public Gateway base URL and an API
+base reachable from the operator shell:
+
+```bash
+AGENTOPS_INGESTION_TOKEN=<producer-token> \
+  uv run agentops-access-readiness \
+    --gateway-base https://ops-gateway.example.com \
+    --api-base http://127.0.0.1:8765 \
+    --json
+```
+
+If the raw AgentOps API is private and not reachable from the machine running
+the check, run the command from a server shell or VPN path that can reach it.
+Skipping API readback is only acceptable for preliminary Gateway checks, not
+release readiness.
+
 Post a canonical AO56 runtime batch through the Gateway:
 
 ```bash

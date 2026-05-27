@@ -13,7 +13,8 @@
 | 4.1 | Done | `Dockerfile` / `docker-compose.yml` / production deployment doc 已补齐；compose config 已验证 |
 | 4.2 | Done | Console persisted readback contract 覆盖重启后 task guard、receipt、evidence readiness |
 | 5.1 | Done | E2E smoke 指南已归档；本地 reference Gateway/API fixture smoke 由 AO57 contract tests 覆盖 |
-| 5.2 | In progress | 本批 PR 创建、checks、Compatibility Gate、review、合入按 AGENTS.md 收口 |
+| 5.2 | Done | Access readiness runner 已落地，覆盖 Gateway/API health、正向 ingestion、readback 和负例 |
+| 5.3 | In progress | 本批 PR 创建、checks、Compatibility Gate、review、合入按 AGENTS.md 收口 |
 
 ## Batch 1：Formal baseline and DB design
 
@@ -133,7 +134,24 @@
   5. 覆盖 bad token、missing scope、network replay、schema invalid。
 - **验证**：smoke 结果归档。
 
-### Task 5.2 收口验证
+### Task 5.2 Access readiness gate
+
+- **文件**：
+  - `src/agentops/ops/access_readiness.py`
+  - `scripts/agentops-access-readiness.py`
+  - `tests/contract/test_ao64_ct_access_readiness.py`
+  - `docs/engineering/agentops-access-readiness.md`
+- **目标**：
+  1. 为本地 compose、staging 和 server 部署提供同一个可重复 readiness gate。
+  2. 验证 Gateway/API health、canonical runtime ingestion、Trace/Evidence readback。
+  3. 验证 bad token、raw API bypass、closed route allowlist 负例。
+  4. 输出 `agentops_access_readiness.v1` JSON，不泄露 token 或 raw payload。
+- **验证**：
+  - `uv run pytest tests/contract/test_ao64_ct_access_readiness.py -q`
+  - `uv run ruff check src/agentops/ops/access_readiness.py scripts/agentops-access-readiness.py tests/contract/test_ao64_ct_access_readiness.py`
+  - `uv run agentops-access-readiness --json`
+
+### Task 5.3 收口验证
 
 - **文件**：
   - `specs/057-agentops-production-sdlc-runtime-operations/development-summary.md`

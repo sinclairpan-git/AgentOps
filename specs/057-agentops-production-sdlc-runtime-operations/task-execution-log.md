@@ -158,3 +158,38 @@
   - Live Gateway smoke：canonical fixture replay/dedup readback 成功；bad token 返回 `GATEWAY_TOKEN_INVALID`；closed route 返回 `GATEWAY_ROUTE_NOT_FOUND`；oversized request 返回 `GATEWAY_REQUEST_TOO_LARGE`；Gateway audit confirmed no token/body leak。
   - Live Ai_AutoSDLC smoke：producer bridge receipt `delivered`、`accepted_count=2`、`rejected_count=0`、`dlq_count=0`；AgentOps trace readback 2 spans；evidence summary readback `evidence_level=L4`；Console snapshot 包含 live run 的 task guard、receipt 和 evidence readiness。
 - **当前批次 branch disposition 状态**：`codex/063-gateway-production-boundary` 为当前实现分支，计划提交后创建 PR；GitHub checks、Compatibility Gate、`@codex review` 或云端 fallback review 均通过后合入 `main`。
+
+## Batch 2026-05-27-002 | Access readiness gate
+
+- **触发原因**：
+  - 本地 SDLC -> Gateway -> AgentOps live smoke 已证明链路可用，但 Ops 仓库缺少可重复执行、可归档 JSON 结果的接入就绪命令。
+  - SDLC 最新语义已明确 `ai-sdlc run --dry-run` 不执行外部 POST，既有 smoke 文档需改为 `ai-sdlc run` 或显式 retry outbox。
+- **改动范围**：
+  - `src/agentops/ops/access_readiness.py`
+  - `scripts/agentops-access-readiness.py`
+  - `tests/contract/test_ao64_ct_access_readiness.py`
+  - `pyproject.toml`
+  - `docs/engineering/agentops-access-readiness.md`
+  - `docs/engineering/ai-sdlc-agentops-e2e-smoke.md`
+  - `docs/engineering/agentops-production-deployment.md`
+  - `docs/engineering/ai-sdlc-agentops-production-integration-coding-brief.md`
+  - `specs/057-agentops-production-sdlc-runtime-operations/spec.md`
+  - `specs/057-agentops-production-sdlc-runtime-operations/tasks.md`
+- **改动内容**：
+  1. 新增 `agentops-access-readiness` CLI，输出 `agentops_access_readiness.v1` JSON。
+  2. Readiness gate 覆盖 Gateway/API health、canonical AO56 fixture ingestion、Trace/Evidence readback。
+  3. Readiness gate 覆盖 bad token、raw API bypass、Gateway route allowlist closed 负例。
+  4. 输出结果只包含摘要、状态码和错误码，不输出 Bearer token、raw payload 或事件 id。
+  5. 更新 E2E/SDLC handoff 文档：真实上报证明使用 `ai-sdlc run` 或显式 `ai-sdlc agentops retry --json`，不再把 `run --dry-run` 写作 live delivery 证明。
+- **验证命令**：
+  - `uv run pytest tests/contract/test_ao64_ct_access_readiness.py -q`
+  - `uv run ruff check src/agentops/ops/access_readiness.py scripts/agentops-access-readiness.py tests/contract/test_ao64_ct_access_readiness.py`
+  - `python scripts/agentops-access-readiness.py --token local-agentops-gateway-token --json`
+  - `uv run agentops-access-readiness --token local-agentops-gateway-token --json`
+- **结果**：
+  - 新增 AO64 access readiness contract tests 通过。
+  - ruff 通过。
+  - 当前默认 sandbox 网络无法访问 compose 端口，readiness CLI 返回 fail-closed `TRANSPORT_ERROR` JSON；提升到本机网络后确认是 sandbox 网络隔离，不是服务异常。
+  - Compose stack 已在本机运行且健康：PostgreSQL、AgentOps API、Gateway、Console。
+  - Live access readiness 通过：`overall=pass`；valid Gateway ingestion 返回 `runtime_outbox_receipt.v1`，`deduplicated_count=2`，`rejected_count=0`，`dlq_count=0`；Trace readback `span_count=2`；Evidence `evidence_level=L4`、`raw_access_state=summary_only`；bad token / raw API bypass / route allowlist 负例均通过。
+- **当前批次 branch disposition 状态**：`codex/064-agentops-access-readiness` 为当前实现分支，计划提交后创建 PR；GitHub checks、Compatibility Gate、`@codex review` 或云端 fallback review 均通过后合入 `main`。
