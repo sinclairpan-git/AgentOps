@@ -93,6 +93,11 @@ AGENTOPS_UPSTREAM_BASE=http://127.0.0.1:8765
 AGENTOPS_GATEWAY_PRINCIPAL=producer.ai-sdlc.local
 AGENTOPS_GATEWAY_ROLES=agentops-ingestor
 AGENTOPS_GATEWAY_SCOPES=event.ingest
+AGENTOPS_GATEWAY_REVOKED_TOKENS=
+AGENTOPS_GATEWAY_MAX_BODY_BYTES=1048576
+AGENTOPS_GATEWAY_UPSTREAM_TIMEOUT_SECONDS=10
+AGENTOPS_GATEWAY_RATE_LIMIT_PER_MINUTE=600
+AGENTOPS_GATEWAY_AUDIT_LOG=/var/log/agentops/gateway-audit.jsonl
 python -m agentops.api.gateway --host 0.0.0.0 --port 8766
 ```
 
@@ -109,6 +114,13 @@ normal user-facing auth layer.
 
 The public ingress should be the Gateway URL, not the raw AgentOps API URL.
 
+`AGENTOPS_GATEWAY_REVOKED_TOKENS` is a comma-separated emergency blocklist for
+local deployments. Managed gateways should replace this with their native token
+introspection or revocation source. The JSONL Gateway audit log records route,
+principal, request id, audit id, outcome, status, request size, and whether
+client-supplied `X-AgentOps-*` headers were stripped; it must not contain token
+material or runtime payload bodies.
+
 ## Pseudo Gateway Flow
 
 ```text
@@ -117,11 +129,14 @@ on request:
   require method == POST
   token = parse Authorization Bearer
   producer = validate token
+  reject revoked token
+  enforce request body size and producer rate limit
   strip inbound X-AgentOps-* headers
   set X-AgentOps-Principal = producer.principal
   set X-AgentOps-Roles = agentops-ingestor
   set X-AgentOps-Scopes = event.ingest
   set X-AgentOps-Request-Id = generated request id
   set X-AgentOps-Audit-Id = generated audit id
-  proxy to AgentOps internal API
+  proxy to AgentOps internal API with bounded upstream timeout
+  write redacted gateway audit record
 ```

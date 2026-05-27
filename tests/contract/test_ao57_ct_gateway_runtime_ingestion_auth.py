@@ -33,7 +33,7 @@ def _start_server(repository: InMemoryRepository) -> ThreadingHTTPServer:
 
 
 def _start_gateway(
-    upstream: ThreadingHTTPServer, *, token: str = "gateway-token"
+    upstream: ThreadingHTTPServer, *, token: str = "gateway-token", **gateway_options
 ) -> ThreadingHTTPServer:
     upstream_base = f"http://{upstream.server_address[0]}:{upstream.server_address[1]}"
     server = ThreadingHTTPServer(
@@ -44,6 +44,7 @@ def _start_gateway(
             principal="producer.ai-sdlc.local",
             roles="",
             scopes="event.ingest",
+            **gateway_options,
         ),
     )
     thread = Thread(target=server.serve_forever, daemon=True)
@@ -240,3 +241,175 @@ def test_ao57_ct_011_reference_gateway_forwards_console_snapshot_for_compose_ui(
     assert workbench["taskGuard"][0]["run_id"] == "run_sdlc_001"
     assert workbench["outboxReceipts"][0]["outbox_state"] == "delivered"
     assert workbench["evidenceReadiness"][0]["raw_payload_state"] == "summary_only"
+
+
+def test_ao57_ct_012_reference_gateway_rejects_revoked_token_without_leaking_it():
+    repository = InMemoryRepository()
+    upstream = _start_server(repository)
+    gateway = _start_gateway(upstream, revoked_tokens={"gateway-token"})
+    try:
+        status, payload = _json_request(
+            gateway,
+            headers={"Authorization": "Bearer gateway-token"},
+            payload=_fixture_batch(),
+        )
+    finally:
+        gateway.shutdown()
+        gateway.server_close()
+        upstream.shutdown()
+        upstream.server_close()
+
+    assert status == 401
+    assert payload["error_code"] == "GATEWAY_TOKEN_REVOKED"
+    assert "gateway-token" not in json.dumps(payload)
+    assert repository.trace_span_count() == 0
+
+
+def test_ao57_ct_013_reference_gateway_rejects_oversized_runtime_batch():
+    repository = InMemoryRepository()
+    upstream = _start_server(repository)
+    gateway = _start_gateway(upstream, max_body_bytes=32)
+    try:
+        status, payload = _json_request(
+            gateway,
+            headers={"Authorization": "Bearer gateway-token"},
+            payload=_fixture_batch(),
+        )
+    finally:
+        gateway.shutdown()
+        gateway.server_close()
+        upstream.shutdown()
+        upstream.server_close()
+
+    assert status == 413
+    assert payload["error_code"] == "GATEWAY_REQUEST_TOO_LARGE"
+    assert payload["max_body_bytes"] == 32
+    assert repository.trace_span_count() == 0
+
+
+def test_ao57_ct_014_reference_gateway_rate_limits_producer_token():
+    repository = InMemoryRepository()
+    upstream = _start_server(repository)
+    gateway = _start_gateway(upstream, rate_limit_per_minute=1)
+    try:
+        first_status, first_receipt = _json_request(
+            gateway,
+            headers={"Authorization": "Bearer gateway-token"},
+            payload=_fixture_batch(),
+        )
+        second_status, second_payload = _json_request(
+            gateway,
+            headers={"Authorization": "Bearer gateway-token"},
+            payload=_fixture_batch(),
+        )
+    finally:
+        gateway.shutdown()
+        gateway.server_close()
+        upstream.shutdown()
+        upstream.server_close()
+
+    assert first_status == 202
+    assert first_receipt["accepted_count"] == 2
+    assert second_status == 429
+    assert second_payload["error_code"] == "GATEWAY_RATE_LIMITED"
+    assert second_payload["retry_after_seconds"] > 0
+    assert repository.trace_span_count() == 2
+
+
+def test_ao57_ct_015_reference_gateway_writes_redacted_gateway_audit(tmp_path):
+    audit_log = tmp_path / "gateway-audit.jsonl"
+    repository = InMemoryRepository()
+    upstream = _start_server(repository)
+    gateway = _start_gateway(upstream, audit_log_path=str(audit_log))
+    try:
+        status, receipt = _json_request(
+            gateway,
+            headers={
+                "Authorization": "Bearer gateway-token",
+                "X-AgentOps-Principal": "forged.client",
+                "X-AgentOps-Roles": "agentops-viewer",
+                "X-AgentOps-Scopes": "console.snapshot.read",
+            },
+            payload=_fixture_batch(),
+        )
+    finally:
+        gateway.shutdown()
+        gateway.server_close()
+        upstream.shutdown()
+        upstream.server_close()
+
+    assert status == 202
+    assert receipt["accepted_count"] == 2
+    records = [
+        json.loads(line)
+        for line in audit_log.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    assert records
+    assert records[-1]["schema_version"] == "agentops_gateway_audit.v1"
+    assert records[-1]["producer_principal"] == "producer.ai-sdlc.local"
+    assert records[-1]["outcome"] == "accepted"
+    assert records[-1]["inbound_identity_stripped"] is True
+    serialized = json.dumps(records, ensure_ascii=False)
+    assert "gateway-token" not in serialized
+    assert "forged.client" not in serialized
+    assert "evt_sdlc_task_prepared_001" not in serialized
+
+
+def test_ao57_ct_016_reference_gateway_keeps_route_allowlist_closed():
+    repository = InMemoryRepository()
+    upstream = _start_server(repository)
+    gateway = _start_gateway(upstream)
+    try:
+        status, payload = _json_request(
+            gateway,
+            path="/v1/events",
+            headers={"Authorization": "Bearer gateway-token"},
+            payload=_fixture_batch(),
+        )
+    finally:
+        gateway.shutdown()
+        gateway.server_close()
+        upstream.shutdown()
+        upstream.server_close()
+
+    assert status == 404
+    assert payload["error_code"] == "GATEWAY_ROUTE_NOT_FOUND"
+    assert repository.trace_span_count() == 0
+
+
+def test_ao57_ct_017_operator_role_can_read_trace_and_evidence_summary():
+    repository = InMemoryRepository()
+    server = _start_server(repository)
+    try:
+        ingest_status, receipt = _json_request(
+            server,
+            headers=_gateway_headers(scopes="event.ingest"),
+            payload=_fixture_batch(),
+        )
+        read_headers = {
+            "X-AgentOps-Principal": "ops.local",
+            "X-AgentOps-Roles": "agentops-operator",
+        }
+        trace_status, trace = _json_request(
+            server,
+            method="GET",
+            path="/v1/runtime/runs/run_sdlc_001/trace",
+            headers=read_headers,
+        )
+        evidence_status, evidence = _json_request(
+            server,
+            method="GET",
+            path="/v1/runtime/runs/run_sdlc_001/evidence-summary",
+            headers=read_headers,
+        )
+    finally:
+        server.shutdown()
+        server.server_close()
+
+    assert ingest_status == 202
+    assert receipt["accepted_count"] == 2
+    assert trace_status == 200
+    assert trace["aggregate"]["span_count"] == 2
+    assert evidence_status == 200
+    assert evidence["raw_access_state"] == "summary_only"

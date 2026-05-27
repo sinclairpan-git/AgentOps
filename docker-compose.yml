@@ -50,6 +50,10 @@ services:
       AGENTOPS_GATEWAY_PRINCIPAL: producer.ai-sdlc.local
       AGENTOPS_GATEWAY_ROLES: agentops-ingestor
       AGENTOPS_GATEWAY_SCOPES: event.ingest
+      AGENTOPS_GATEWAY_MAX_BODY_BYTES: "1048576"
+      AGENTOPS_GATEWAY_UPSTREAM_TIMEOUT_SECONDS: "10"
+      AGENTOPS_GATEWAY_RATE_LIMIT_PER_MINUTE: "600"
+      AGENTOPS_GATEWAY_AUDIT_LOG: /tmp/agentops-gateway-audit.jsonl
     depends_on:
       api:
         condition: service_healthy
