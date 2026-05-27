@@ -125,3 +125,34 @@ def test_ao64_ct_002_access_readiness_fails_closed_when_token_missing():
     assert repository.trace_span_count() == 0
     assert result["checks"][-1]["name"] == "configuration.token"
     assert result["checks"][-1]["error_code"] == "AGENTOPS_INGESTION_TOKEN_REQUIRED"
+
+
+def test_ao64_ct_003_skip_api_readback_keeps_raw_api_negative_check():
+    repository = InMemoryRepository()
+    upstream = _start_server(repository)
+    gateway = _start_gateway(upstream)
+    try:
+        result = run_access_readiness(
+            AccessReadinessConfig(
+                gateway_base=(
+                    f"http://{gateway.server_address[0]}:{gateway.server_address[1]}"
+                ),
+                api_base=(
+                    f"http://{upstream.server_address[0]}:{upstream.server_address[1]}"
+                ),
+                token="gateway-token",
+                fixture_path=FIXTURE_PATH,
+                skip_api_readback=True,
+            )
+        )
+    finally:
+        gateway.shutdown()
+        gateway.server_close()
+        upstream.shutdown()
+        upstream.server_close()
+
+    check_names = {check["name"] for check in result["checks"]}
+    assert result["overall"] == "pass"
+    assert "api.trace_readback" not in check_names
+    assert "api.evidence_readback" not in check_names
+    assert "api.raw_ingestion_rejected" in check_names

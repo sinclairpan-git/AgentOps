@@ -206,11 +206,7 @@ def run_access_readiness(config: AccessReadinessConfig) -> dict[str, Any]:
         error_code=bad_token.payload.get("error_code", ""),
     )
 
-    if (
-        config.api_base
-        and not config.skip_negative_raw_api
-        and not config.skip_api_readback
-    ):
+    if config.api_base and not config.skip_negative_raw_api:
         raw_api = _request_json(
             "POST",
             config.api_base,
@@ -452,4 +448,3 @@ def _print_text_summary(result: dict[str, Any]) -> None:
 
 if __name__ == "__main__":
     sys.exit(main())
-
