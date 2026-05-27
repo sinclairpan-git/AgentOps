@@ -75,7 +75,7 @@ AO56 和 PR #58 已完成 AgentOps 对 Ai_AutoSDLC v0.7.18 runtime bridge 的 co
 
 **验收场景**：
 
-1. Given Ai_AutoSDLC 配置 Gateway endpoint 和 token，When 执行 `ai-sdlc run --dry-run` 或受控 test run，Then AI-SDLC 本地 receipt summary 显示 `accepted_count > 0`。
+1. Given Ai_AutoSDLC 配置 Gateway endpoint 和 token，When 执行 `ai-sdlc run` 或显式 retry 已审阅 outbox，Then AI-SDLC 本地 receipt summary 显示 `accepted_count > 0` 或 `deduplicated_count > 0`。
 2. Given AgentOps PostgreSQL 持久化成功，When 查询 Console snapshot，Then `sdlcRunWorkbench.taskGuard`、`outboxReceipts`、`evidenceReadiness`、`adapterDiagnostics` 包含该 run。
 3. Given AgentOps temporarily unavailable，When AI-SDLC retry 后恢复，Then AgentOps receipt 体现 `network_replay` 并保持 idempotency。
 

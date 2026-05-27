@@ -32,9 +32,13 @@ Both should return `status=healthy`.
 Use the Gateway as the sink endpoint:
 
 ```bash
-export AGENTOPS_ENDPOINT=http://127.0.0.1:8766
+export AGENTOPS_INGESTION_ENDPOINT=http://127.0.0.1:8766
 export AGENTOPS_INGESTION_TOKEN=local-agentops-gateway-token
 ```
+
+For older local SDLC checkouts that still read `AGENTOPS_ENDPOINT`, set it to
+the same Gateway base URL. Newer SDLC runs should prefer
+`AGENTOPS_INGESTION_ENDPOINT`.
 
 Ai_AutoSDLC should send:
 
@@ -52,7 +56,19 @@ headers and rebuilds them after token validation.
 Preferred real run:
 
 ```bash
-ai-sdlc run --dry-run
+ai-sdlc agentops doctor --json
+ai-sdlc run
+ai-sdlc agentops status --json
+```
+
+`ai-sdlc run --dry-run` is safe for local planning and outbox generation, but it
+must not be used as proof of live AgentOps delivery. The current SDLC runtime
+bridge intentionally avoids external POST side effects during dry-run. To send
+dry-run generated outbox data intentionally, use the SDLC retry command after
+reviewing the generated outbox:
+
+```bash
+ai-sdlc agentops retry --json
 ```
 
 If the project needs a controlled fixture before a full run, post the AO56
@@ -63,7 +79,7 @@ curl -sS \
   -H "Authorization: Bearer ${AGENTOPS_INGESTION_TOKEN}" \
   -H 'Content-Type: application/json' \
   --data @contracts/cross-project/fixtures/ai_sdlc_executable_task_runtime_batch.v1.json \
-  "${AGENTOPS_ENDPOINT}/v1/runtime/events"
+  "${AGENTOPS_INGESTION_ENDPOINT}/v1/runtime/events"
 ```
 
 Expected receipt:
@@ -73,6 +89,33 @@ Expected receipt:
 - `rejected_count=0`
 - `dlq_count=0`
 - `audit_id` present
+
+## 3a. Run Ops Access Readiness
+
+From the AgentOps repository, use the machine-readable readiness gate before or
+after the SDLC producer smoke:
+
+```bash
+AGENTOPS_INGESTION_TOKEN=local-agentops-gateway-token \
+  uv run agentops-access-readiness --json
+```
+
+Equivalent source checkout command:
+
+```bash
+python scripts/agentops-access-readiness.py \
+  --token local-agentops-gateway-token \
+  --json
+```
+
+Expected result:
+
+- `schema_version=agentops_access_readiness.v1`
+- `overall=pass`
+- Gateway health and API health pass
+- valid Gateway ingestion returns `runtime_outbox_receipt.v1`
+- Trace and Evidence readback pass
+- bad token, raw API bypass, and closed route allowlist negative checks pass
 
 ## 4. Verify AgentOps Readback
 
@@ -140,7 +183,7 @@ curl -sS \
   -H "Authorization: Bearer ${AGENTOPS_INGESTION_TOKEN}" \
   -H 'Content-Type: application/json' \
   --data @contracts/cross-project/fixtures/ai_sdlc_executable_task_runtime_batch.v1.json \
-  "${AGENTOPS_ENDPOINT}/v1/runtime/events"
+  "${AGENTOPS_INGESTION_ENDPOINT}/v1/runtime/events"
 ```
 
 Expected: `deduplicated_count > 0`, no duplicate TraceSpan records.
@@ -153,7 +196,7 @@ printf '{"schema_version":"runtime.ingestion.v1","batch_id":"bad","events":[{}]}
       -H "Authorization: Bearer ${AGENTOPS_INGESTION_TOKEN}" \
       -H 'Content-Type: application/json' \
       --data-binary @- \
-      "${AGENTOPS_ENDPOINT}/v1/runtime/events"
+      "${AGENTOPS_INGESTION_ENDPOINT}/v1/runtime/events"
 ```
 
 Expected: receipt contains rejected item results and summary-only DLQ diagnostics.
@@ -169,3 +212,4 @@ Record the following in the AgentOps task execution log when the smoke is run:
 - evidence summary raw access state
 - Console SDLC workbench readback result
 - negative case results
+- `agentops_access_readiness.v1` JSON result
