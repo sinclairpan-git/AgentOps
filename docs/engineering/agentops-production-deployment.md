@@ -43,6 +43,10 @@ AGENTOPS_GATEWAY_TOKEN=local-agentops-gateway-token
 AGENTOPS_UPSTREAM_BASE=http://api:8765
 AGENTOPS_GATEWAY_ROLES=agentops-ingestor
 AGENTOPS_GATEWAY_SCOPES=event.ingest
+AGENTOPS_GATEWAY_MAX_BODY_BYTES=1048576
+AGENTOPS_GATEWAY_UPSTREAM_TIMEOUT_SECONDS=10
+AGENTOPS_GATEWAY_RATE_LIMIT_PER_MINUTE=600
+AGENTOPS_GATEWAY_AUDIT_LOG=/var/log/agentops/gateway-audit.jsonl
 python -m agentops.api.gateway --host 0.0.0.0 --port 8766
 ```
 
@@ -97,6 +101,9 @@ Use the same service split on a server:
 - The public ingress should be the API Gateway, not the raw AgentOps API.
 - Gateway must validate producer Bearer tokens and strip inbound `X-AgentOps-*`
   headers before injecting trusted upstream identity headers.
+- Gateway must keep a closed route allowlist for producer tokens, reject revoked
+  tokens, enforce bounded request size/upstream timeout/rate limit, and write a
+  redacted audit record without token or raw payload material.
 - `AGENTOPS_POSTGRES_AUTO_MIGRATE=true` is acceptable for controlled single-node
   deploys. For multi-node deploys, run migrations once during release and start
   API nodes with auto migration disabled.

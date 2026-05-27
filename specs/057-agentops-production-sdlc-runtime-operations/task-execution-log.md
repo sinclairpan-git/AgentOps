@@ -121,3 +121,40 @@
   - AO57 相关回归通过。
   - compose config 通过。
   - 本地 reference Gateway 已可代理 Console snapshot。
+
+## Batch 2026-05-27-001 | Gateway production boundary closeout
+
+- **触发原因**：
+  - Ai_AutoSDLC PR #68 已完成 producer 侧 Gateway Bearer delivery，但端到端生产闭环仍要求 Ops/Gateway 侧证明 token revocation、route allowlist、request size、timeout、rate limit、redacted audit 和 live smoke。
+- **改动范围**：
+  - `src/agentops/api/gateway.py`
+  - `src/agentops/api/auth.py`
+  - `tests/contract/test_ao57_ct_gateway_runtime_ingestion_auth.py`
+  - `docker-compose.yml`
+  - `docs/engineering/agentops-api-gateway-runtime-ingestion.md`
+  - `docs/engineering/agentops-production-deployment.md`
+- **改动内容**：
+  1. Reference Gateway 增加 revoked token blocklist、request body size limit、upstream timeout、producer rate limit 和 redacted JSONL audit。
+  2. Gateway audit 记录 route、principal、request/audit id、outcome、status、content length 和 inbound identity stripping，不记录 Bearer token 或 runtime payload body。
+  3. 新增 Gateway contract tests：revoked token、oversized batch、rate limit、redacted audit、closed route allowlist。
+  4. 修正生产读权限口径：`agentops-admin`、`agentops-operator`、`agentops-viewer` 具备 summary-only `runtime.evidence.read`，与 trace/evidence readback 文档和 Console 验收一致。
+  5. Compose 增加 Gateway 生产边界 env：max body、upstream timeout、rate limit、audit log path。
+  6. 更新 Gateway / deployment 文档，明确 revoked token、size/timeout/rate limit 和 redacted audit 要求。
+- **验证命令**：
+  - `python -m ai_sdlc run --dry-run`
+  - `uv run pytest tests/contract/test_ao57_ct_gateway_runtime_ingestion_auth.py tests/contract/test_ao23_ct_production_runtime_boundary.py -q`
+  - `uv run ruff check src/agentops/api/auth.py src/agentops/api/gateway.py tests/contract/test_ao57_ct_gateway_runtime_ingestion_auth.py`
+  - `uv run pytest tests/contract/test_ao57_ct_gateway_runtime_ingestion_auth.py tests/contract/test_ao57_ct_postgres_runtime_ingestion.py tests/contract/test_ao57_ct_postgres_runtime_repository.py tests/contract/test_ao56_ct_sdlc_executable_task_runtime_bridge.py tests/contract/test_ao23_ct_production_runtime_boundary.py tests/contract/test_ao15_ct_console_sdlc_run_workbench.py -q`
+  - `npm test --prefix apps/agentops-console`
+  - `npm run build --prefix apps/agentops-console`
+  - `uv run ai-sdlc verify constraints`
+  - `docker compose config`
+  - `docker compose up --build -d`
+  - live Gateway checks: valid AO56 fixture, invalid token, closed route allowlist, oversized request, redacted Gateway audit.
+  - live cross-project smoke: Ai_AutoSDLC producer bridge sent `run_ai_sdlc_ops_live_1779845978` to AgentOps Gateway and AgentOps read back trace/evidence/Console workbench.
+- **结果**：
+  - Contract tests、ruff、Console tests/build、constraints 和 compose config 均通过。
+  - Compose stack healthy：PostgreSQL、AgentOps API、Gateway、Console。
+  - Live Gateway smoke：canonical fixture replay/dedup readback 成功；bad token 返回 `GATEWAY_TOKEN_INVALID`；closed route 返回 `GATEWAY_ROUTE_NOT_FOUND`；oversized request 返回 `GATEWAY_REQUEST_TOO_LARGE`；Gateway audit confirmed no token/body leak。
+  - Live Ai_AutoSDLC smoke：producer bridge receipt `delivered`、`accepted_count=2`、`rejected_count=0`、`dlq_count=0`；AgentOps trace readback 2 spans；evidence summary readback `evidence_level=L4`；Console snapshot 包含 live run 的 task guard、receipt 和 evidence readiness。
+- **当前批次 branch disposition 状态**：`codex/063-gateway-production-boundary` 为当前实现分支，计划提交后创建 PR；GitHub checks、Compatibility Gate、`@codex review` 或云端 fallback review 均通过后合入 `main`。
