@@ -179,7 +179,10 @@ export function validateSnapshot(snapshot) {
     "qualityCenterWorkbench",
     "actionWorkbench",
     "connectors",
-    "sdlcRuns"
+    "sdlcRuns",
+    "sdlcFindings",
+    "sdlcTrends",
+    "sdlcRecommendations"
   ];
   if (!requiredKeys.every((key) => Object.prototype.hasOwnProperty.call(consoleData, key))) {
     return false;
@@ -203,6 +206,9 @@ export function validateSnapshot(snapshot) {
     return false;
   }
   if (!sdlcRunWorkbenchIsComplete(consoleData)) {
+    return false;
+  }
+  if (!sdlcAnalysisIsComplete(consoleData)) {
     return false;
   }
   if (!qualityCenterWorkbenchIsComplete(consoleData)) {
@@ -269,7 +275,47 @@ function consoleDataWithWorkbenchDefaults(consoleData) {
       ...withSdlcRunWorkbench,
       qualityCenterWorkbench: legacyQualityCenterWorkbench(withSdlcRunWorkbench)
     };
-  return credentialHandoffDefaulted(withQualityCenterWorkbench);
+  const withCredentialHandoff = credentialHandoffDefaulted(withQualityCenterWorkbench);
+  return sdlcAnalysisDefaulted(withCredentialHandoff);
+}
+
+function sdlcAnalysisDefaulted(consoleData) {
+  return {
+    ...consoleData,
+    sdlcFindings: Array.isArray(consoleData.sdlcFindings) ? consoleData.sdlcFindings : [],
+    sdlcTrends: isRecord(consoleData.sdlcTrends) ? consoleData.sdlcTrends : emptySdlcTrends(),
+    sdlcRecommendations: Array.isArray(consoleData.sdlcRecommendations)
+      ? consoleData.sdlcRecommendations
+      : ["等待 Ai_AutoSDLC summary-only 上报后再输出自迭代质量建议；Console 不执行修复或回放。"]
+  };
+}
+
+function emptySdlcTrends() {
+  const summary = {
+    scope: "all",
+    run_count: 0,
+    success_count: 0,
+    failed_count: 0,
+    close_failure_rate: 0,
+    execute_failure_rate: 0,
+    task_guard_blocked_count: 0,
+    missing_executable_task_count: 0,
+    rejected_count: 0,
+    dlq_count: 0,
+    average_span_count: 0,
+    average_retry_count: 0,
+    latest_failure_at: ""
+  };
+  return {
+    schema_version: "agentops_sdlc_trends.v1",
+    summary,
+    by_workitem: [],
+    by_stage: [],
+    by_run_type: [],
+    raw_access_state: "summary_only",
+    automatic_fix_performed: false,
+    outbox_replay_performed: false
+  };
 }
 
 function credentialHandoffDefaulted(consoleData) {
@@ -2692,6 +2738,12 @@ export function sdlcRunWorkbenchIsComplete(consoleData) {
     "outboxReceipts",
     "evidenceReadiness",
     "adapterDiagnostics",
+    "latestRealReport",
+    "runTypeTags",
+    "roundConclusion",
+    "historicalTrends",
+    "topFindings",
+    "sdlcRecommendations",
     "guardrails"
   ])) {
     return false;
@@ -2919,6 +2971,34 @@ export function sdlcRunWorkbenchIsComplete(consoleData) {
       !containsUnsafeAuditReference(item)
     );
 
+  const conclusionOk = sdlcHealthSummaryIsSafe(workbench.latestRealReport) &&
+    Array.isArray(workbench.runTypeTags) &&
+    workbench.runTypeTags.every((item) =>
+      keysAreExactly(item, [
+        "run_id",
+        "workitem",
+        "run_type",
+        "overall_status",
+        "classification_reason"
+      ]) &&
+      ["real_run", "dry_run_retry", "readiness_fixture", "live_smoke"].includes(item.run_type) &&
+      !containsUnsafeAuditReference(item)
+    ) &&
+    isRecord(workbench.roundConclusion) &&
+    keysAreSubset(workbench.roundConclusion, [
+      "status",
+      "summary",
+      "next_action",
+      "run_count",
+      "finding_count"
+    ]) &&
+    !containsUnsafeAuditReference(workbench.roundConclusion) &&
+    sdlcTrendsAreSafe(workbench.historicalTrends) &&
+    Array.isArray(workbench.topFindings) &&
+    workbench.topFindings.every(sdlcFindingIsSafe) &&
+    Array.isArray(workbench.sdlcRecommendations) &&
+    workbench.sdlcRecommendations.every((item) => typeof item === "string" && item && !containsUnsafeAuditReference(item));
+
   const guardrailsText = workbench.guardrails.join(" ");
   return summaryOk &&
     reporterOk &&
@@ -2928,6 +3008,7 @@ export function sdlcRunWorkbenchIsComplete(consoleData) {
     receiptsOk &&
     readinessOk &&
     adapterDiagnosticsOk &&
+    conclusionOk &&
     workbench.guardrails.every((item) => typeof item === "string" && item) &&
     /Reporter active/.test(guardrailsText) &&
     /Outbox delivered/.test(guardrailsText) &&
@@ -2939,6 +3020,135 @@ export function sdlcRunWorkbenchIsComplete(consoleData) {
     /failed_conditions/.test(guardrailsText) &&
     /原始载荷/.test(guardrailsText) &&
     !containsUnsafeLifecycleText(guardrailsText);
+}
+
+export function sdlcAnalysisIsComplete(consoleData) {
+  return Array.isArray(consoleData.sdlcFindings) &&
+    consoleData.sdlcFindings.every(sdlcFindingIsSafe) &&
+    sdlcTrendsAreSafe(consoleData.sdlcTrends) &&
+    Array.isArray(consoleData.sdlcRecommendations) &&
+    consoleData.sdlcRecommendations.every((item) => typeof item === "string" && item && !containsUnsafeAuditReference(item));
+}
+
+function sdlcFindingIsSafe(item) {
+  return isRecord(item) &&
+    keysAreExactly(item, [
+      "schema_version",
+      "finding_id",
+      "severity",
+      "category",
+      "run_id",
+      "workitem",
+      "summary",
+      "evidence_summary",
+      "recommendation",
+      "created_at"
+    ]) &&
+    item.schema_version === "agentops_sdlc_finding.v1" &&
+    ["P0", "P1", "P2", "P3"].includes(item.severity) &&
+    [
+      "close_gate_failure",
+      "missing_failure_reason",
+      "task_guard_blocked",
+      "missing_executable_task",
+      "insufficient_evidence",
+      "repeated_retry",
+      "reporter_delivery_issue",
+      "stage_coverage_gap"
+    ].includes(item.category) &&
+    item.finding_id &&
+    item.run_id &&
+    item.summary &&
+    item.evidence_summary &&
+    item.recommendation &&
+    !containsUnsafeAuditReference(item);
+}
+
+function sdlcTrendsAreSafe(trends) {
+  return isRecord(trends) &&
+    keysAreExactly(trends, [
+      "schema_version",
+      "summary",
+      "by_workitem",
+      "by_stage",
+      "by_run_type",
+      "raw_access_state",
+      "automatic_fix_performed",
+      "outbox_replay_performed"
+    ]) &&
+    trends.schema_version === "agentops_sdlc_trends.v1" &&
+    trends.raw_access_state === "summary_only" &&
+    trends.automatic_fix_performed === false &&
+    trends.outbox_replay_performed === false &&
+    sdlcTrendEntryIsSafe(trends.summary) &&
+    Array.isArray(trends.by_workitem) &&
+    Array.isArray(trends.by_stage) &&
+    Array.isArray(trends.by_run_type) &&
+    trends.by_workitem.every(sdlcTrendEntryIsSafe) &&
+    trends.by_stage.every(sdlcTrendEntryIsSafe) &&
+    trends.by_run_type.every(sdlcTrendEntryIsSafe) &&
+    !containsUnsafeAuditReference(trends);
+}
+
+function sdlcTrendEntryIsSafe(item) {
+  return isRecord(item) &&
+    keysAreSubset(item, [
+      "scope",
+      "workitem",
+      "stage",
+      "run_type",
+      "run_count",
+      "success_count",
+      "failed_count",
+      "close_failure_rate",
+      "execute_failure_rate",
+      "task_guard_blocked_count",
+      "missing_executable_task_count",
+      "rejected_count",
+      "dlq_count",
+      "average_span_count",
+      "average_retry_count",
+      "latest_failure_at"
+    ]) &&
+    Number.isFinite(Number(item.run_count)) &&
+    Number.isFinite(Number(item.success_count)) &&
+    Number.isFinite(Number(item.failed_count)) &&
+    Number.isFinite(Number(item.close_failure_rate)) &&
+    Number.isFinite(Number(item.execute_failure_rate)) &&
+    Number.isFinite(Number(item.average_span_count)) &&
+    Number.isFinite(Number(item.average_retry_count));
+}
+
+function sdlcHealthSummaryIsSafe(item) {
+  return isRecord(item) &&
+    keysAreExactly(item, [
+      "schema_version",
+      "run_id",
+      "workitem",
+      "run_type",
+      "overall_status",
+      "delivered_state",
+      "accepted",
+      "deduplicated",
+      "rejected",
+      "stale",
+      "dlq",
+      "span_count",
+      "failed_span_count",
+      "failed_stage",
+      "failed_operation",
+      "failed_conditions",
+      "blocking_reason",
+      "retryable",
+      "next_action",
+      "evidence_level",
+      "raw_access_state"
+    ]) &&
+    item.schema_version === "agentops_sdlc_run_health_summary.v1" &&
+    ["real_run", "dry_run_retry", "readiness_fixture", "live_smoke"].includes(item.run_type) &&
+    Array.isArray(item.failed_conditions) &&
+    item.raw_access_state === "summary_only" &&
+    !containsUnsafeAuditReference(item);
 }
 
 function sdlcRunWorkbenchWithVNextDefaults(consoleData) {
@@ -2970,9 +3180,55 @@ function sdlcRunWorkbenchWithVNextDefaults(consoleData) {
     outboxReceipts: Array.isArray(workbench.outboxReceipts) ? workbench.outboxReceipts : runs.map((item) => legacySdlcReceiptItem(item)),
     evidenceReadiness: Array.isArray(workbench.evidenceReadiness) ? workbench.evidenceReadiness : runs.map((item) => legacySdlcEvidenceReadinessItem(item)),
     adapterDiagnostics: Array.isArray(workbench.adapterDiagnostics) ? workbench.adapterDiagnostics : runs.map((item) => legacySdlcAdapterDiagnosticItem(item)),
+    latestRealReport: isRecord(workbench.latestRealReport) ? workbench.latestRealReport : emptySdlcHealthSummary(),
+    runTypeTags: Array.isArray(workbench.runTypeTags) ? workbench.runTypeTags : runs.map((item) => ({
+      run_id: sdlcRunRef(item),
+      workitem: item.workitem || "待接收",
+      run_type: item.run_type || "dry_run_retry",
+      overall_status: item.overall_status || "pending",
+      classification_reason: "旧版快照诊断行，不作为真实自迭代运行。"
+    })),
+    roundConclusion: isRecord(workbench.roundConclusion) ? workbench.roundConclusion : {
+      status: "pending",
+      summary: "尚未收到 Ai_AutoSDLC summary-only 运行上报。",
+      next_action: "等待真实运行、readiness fixture、live smoke 或 dry_run_retry 上报后再判断。",
+      run_count: 0,
+      finding_count: 0
+    },
+    historicalTrends: isRecord(workbench.historicalTrends) ? workbench.historicalTrends : emptySdlcTrends(),
+    topFindings: Array.isArray(workbench.topFindings) ? workbench.topFindings : [],
+    sdlcRecommendations: Array.isArray(workbench.sdlcRecommendations) ? workbench.sdlcRecommendations : [
+      "等待 Ai_AutoSDLC summary-only 上报后再输出自迭代质量建议；Console 不执行修复或回放。"
+    ],
     guardrails: vNextGuardrails.every((item) => guardrails.includes(item))
       ? guardrails
       : [...guardrails, ...vNextGuardrails.filter((item) => !guardrails.includes(item))]
+  };
+}
+
+function emptySdlcHealthSummary() {
+  return {
+    schema_version: "agentops_sdlc_run_health_summary.v1",
+    run_id: "",
+    workitem: "",
+    run_type: "real_run",
+    overall_status: "unknown",
+    delivered_state: "not_reported",
+    accepted: 0,
+    deduplicated: 0,
+    rejected: 0,
+    stale: 0,
+    dlq: 0,
+    span_count: 0,
+    failed_span_count: 0,
+    failed_stage: "",
+    failed_operation: "",
+    failed_conditions: [],
+    blocking_reason: "",
+    retryable: false,
+    next_action: "",
+    evidence_level: "L3",
+    raw_access_state: "summary_only"
   };
 }
 

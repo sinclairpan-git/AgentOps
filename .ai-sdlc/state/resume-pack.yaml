@@ -8,12 +8,24 @@ working_set_snapshot:
   spec_path: /Users/sinclairpan/project/AgentOps/specs/057-agentops-production-sdlc-runtime-operations/spec.md
   plan_path: /Users/sinclairpan/project/AgentOps/specs/057-agentops-production-sdlc-runtime-operations/plan.md
   tasks_path: /Users/sinclairpan/project/AgentOps/specs/057-agentops-production-sdlc-runtime-operations/tasks.md
-  active_files: []
-  context_summary: ''
-current_branch: feature/057-agentops-production-sdlc-runtime-operations-docs
+  active_files:
+  - src/agentops/core/sdlc_analysis.py
+  - src/agentops/api/runtime.py
+  - src/agentops/api/server.py
+  - src/agentops/api/console_snapshot.py
+  - src/agentops/api/app.py
+  - apps/agentops-console/src/views/SdlcRunsView.js
+  - apps/agentops-console/src/data/agentOpsApiClient.js
+  - apps/agentops-console/src/data/mockAgentOpsData.js
+  - tests/contract/test_ao65_ct_sdlc_quality_analysis.py
+  - tests/contract/test_ao15_ct_console_sdlc_run_workbench.py
+  - specs/057-agentops-production-sdlc-runtime-operations/development-summary.md
+  - specs/057-agentops-production-sdlc-runtime-operations/task-execution-log.md
+  context_summary: '057 close: SDLC quality analysis implemented. Full pytest, ruff, console tests, constraints, and ai-sdlc dry-run pass. Remaining close-check risk is git_closure until current batch is committed.'
+current_branch: main
 docs_baseline_ref: ''
 docs_baseline_at: ''
-timestamp: '2026-05-26T13:16:18+00:00'
+timestamp: '2026-06-02T06:01:02+00:00'
 checkpoint_path: .ai-sdlc/state/checkpoint.yml
 checkpoint_last_updated: '2026-05-26T13:13:40+00:00'
 checkpoint_fingerprint: 95ce3d5250286644425fe8f135295e515649306d1f31932d1b95bf4e7f8c618e

@@ -2252,6 +2252,14 @@ const allowedEnglishUiTerms = [
   "runtime-v2",
   "runtime_policy",
   "sha256",
+  "close_gate_failure",
+  "missing_failure_reason",
+  "task_guard_blocked",
+  "missing_executable_task",
+  "insufficient_evidence",
+  "repeated_retry",
+  "reporter_delivery_issue",
+  "stage_coverage_gap",
   "SDLC",
   "SD"
 ];

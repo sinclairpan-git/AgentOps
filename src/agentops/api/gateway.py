@@ -94,7 +94,9 @@ def create_gateway_handler(
                     },
                 )
                 return
-            request_id = self.headers.get("X-Request-Id") or f"req_gateway_{uuid4().hex}"
+            request_id = (
+                self.headers.get("X-Request-Id") or f"req_gateway_{uuid4().hex}"
+            )
             audit_id = f"audit_gateway_{uuid4().hex}"
             if not expected_token:
                 self._audit(
@@ -204,7 +206,11 @@ def create_gateway_handler(
             request_id: str | None = None,
             audit_id: str | None = None,
         ) -> None:
-            request_id = request_id or self.headers.get("X-Request-Id") or f"req_gateway_{uuid4().hex}"
+            request_id = (
+                request_id
+                or self.headers.get("X-Request-Id")
+                or f"req_gateway_{uuid4().hex}"
+            )
             audit_id = audit_id or f"audit_gateway_{uuid4().hex}"
             headers = {
                 "Content-Type": self.headers.get("Content-Type", "application/json"),
@@ -229,7 +235,9 @@ def create_gateway_handler(
                         outcome="accepted",
                         status_code=response.status,
                     )
-                    self._send_raw(response.status, response.headers.get("Content-Type"), body)
+                    self._send_raw(
+                        response.status, response.headers.get("Content-Type"), body
+                    )
             except HTTPError as exc:
                 body = exc.read()
                 self._audit(
@@ -301,7 +309,9 @@ def create_gateway_handler(
                 "outcome": outcome,
                 "status_code": status_code,
                 "error_code": error_code or "",
-                "inbound_identity_stripped": _has_agentops_identity_headers(self.headers),
+                "inbound_identity_stripped": _has_agentops_identity_headers(
+                    self.headers
+                ),
                 "content_length": content_length
                 if content_length is not None
                 else _content_length(self.headers),
@@ -319,9 +329,7 @@ def create_gateway_handler(
                 json.dumps(payload, ensure_ascii=False, sort_keys=True).encode("utf-8"),
             )
 
-        def _send_raw(
-            self, status: int, content_type: str | None, body: bytes
-        ) -> None:
+        def _send_raw(self, status: int, content_type: str | None, body: bytes) -> None:
             self.send_response(status)
             self.send_header("Content-Type", content_type or "application/json")
             self.send_header("Content-Length", str(len(body)))
