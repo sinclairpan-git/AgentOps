@@ -193,3 +193,36 @@
   - Compose stack 已在本机运行且健康：PostgreSQL、AgentOps API、Gateway、Console。
   - Live access readiness 通过：`overall=pass`；valid Gateway ingestion 返回 `runtime_outbox_receipt.v1`，`deduplicated_count=2`，`rejected_count=0`，`dlq_count=0`；Trace readback `span_count=2`；Evidence `evidence_level=L4`、`raw_access_state=summary_only`；bad token / raw API bypass / route allowlist 负例均通过。
 - **当前批次 branch disposition 状态**：`codex/064-agentops-access-readiness` 为当前实现分支，计划提交后创建 PR；GitHub checks、Compatibility Gate、`@codex review` 或云端 fallback review 均通过后合入 `main`。
+
+## Batch 2026-06-02-001 | SDLC quality analysis close validation
+
+- **触发原因**：
+  - AgentOps 已从 Ai_AutoSDLC receipts 展示升级为 SDLC 自迭代质量分析器；close 阶段 dry-run 仍因最新执行日志缺少验证画像和统一验证证据，无法把已通过的全量测试识别为 final tests passed。
+- **验证画像**：code-change
+- **改动范围**：`src/agentops/core/sdlc_analysis.py`, `src/agentops/api/runtime.py`, `src/agentops/api/server.py`, `src/agentops/api/console_snapshot.py`, `src/agentops/api/app.py`, `apps/agentops-console/src/data/agentOpsApiClient.js`, `apps/agentops-console/src/data/mockAgentOpsData.js`, `apps/agentops-console/src/views/SdlcRunsView.js`, `apps/agentops-console/tests/console-contract.test.mjs`, `tests/contract/test_ao65_ct_sdlc_quality_analysis.py`, `tests/contract/test_ao15_ct_console_sdlc_run_workbench.py`
+- **改动内容**：
+  1. 新增 AgentOps SDLC run health summary / finding / trends 分析层，基于 summary-only spans、receipt counters、DLQ/rejected 状态和 diagnostic code 输出结论。
+  2. 新增只读 API：`GET /v1/runtime/sdlc/runs/{run_id}/health-summary`、`GET /v1/runtime/sdlc/findings`、`GET /v1/runtime/sdlc/trends`。
+  3. Console snapshot 增加 `sdlcFindings`、`sdlcTrends`、`sdlcRecommendations`，并在 Ai_AutoSDLC 运行工作台展示最新真实上报、上报类型标签、本轮结论、历史趋势、重点发现和给 SDLC 的建议。
+  4. 保持安全边界：不展示 raw payload、raw diff、patch、源码原文、PR 原文、token 或 secret；Console 不执行 outbox replay、不自动修复、不写回 SDLC。
+  5. 修复 close 阶段格式化阻断：按 `ruff format --check` 点名结果格式化 9 个文件，随后复跑全量格式检查通过。
+- **统一验证命令**：
+  - `uv run pytest`
+  - `uv run ruff check`
+  - `uv run ruff format --check`
+  - `npm test --prefix apps/agentops-console`
+  - `uv run ai-sdlc verify constraints`
+- **结果**：
+  - `uv run pytest`：通过，583 passed，1 skipped。
+  - `uv run ruff check`：通过。
+  - `uv run ruff format --check`：通过，130 files already formatted。
+  - `npm test --prefix apps/agentops-console`：通过。
+  - `uv run ai-sdlc verify constraints`：通过，no BLOCKERs。
+- **代码审查**：
+  - 已完成本地自检：新增分析层只消费 summary/ref/hash/count/status/diagnostic code，不读取或暴露 raw payload、diff、patch、PR 原文、token 或 secret。
+  - 新增契约测试覆盖最新真实 run delivered/accepted=4/failed_span_count=0、历史 close gate failure finding、Console snapshot SDLC findings/trends/recommendations 和 HTTP 只读端点。
+- **任务/计划同步状态**：
+  - 057 Task 5.3 收口验证进入最终收口；实现范围与 `spec.md` / `plan.md` / `tasks.md` 的 production runtime operations 和 Ai_AutoSDLC readback/Console 分析目标一致。
+  - 无 related_plan 声明；close-check related_plan_drift 为 skipped/ok。
+- **已完成 git 提交**：是，本批实现、测试和归档将在当前 close-out 提交中一并提交。
+- **提交哈希**：见当前 Git HEAD。

@@ -24,6 +24,7 @@ from agentops.core.operations import (
     build_multi_agent_handoff_evaluation,
     build_quality_center_workbench as build_repository_quality_center_workbench,
 )
+from agentops.core.sdlc_analysis import build_sdlc_analysis_snapshot
 from agentops.storage.repository import InMemoryRepository
 
 SCHEMA_VERSION = "agentops.console.snapshot.v1"
@@ -246,6 +247,9 @@ def _with_workbenches(
     console_data: dict[str, Any], *, repository: InMemoryRepository | None = None
 ) -> dict[str, Any]:
     adoption = _adoption_workbench(console_data)
+    sdlc_analysis = (
+        build_sdlc_analysis_snapshot(repository) if repository is not None else None
+    )
     public_console_data = {
         key: value for key, value in console_data.items() if not key.startswith("_")
     }
@@ -258,7 +262,12 @@ def _with_workbenches(
         "evidenceVault": _evidence_vault_workbench(console_data),
         "approvalWorkbench": _approval_workbench(console_data),
         "connectorWorkbench": _connector_workbench(console_data, repository=repository),
-        "sdlcRunWorkbench": _sdlc_run_workbench(console_data, repository=repository),
+        "sdlcRunWorkbench": _sdlc_run_workbench(
+            console_data, repository=repository, analysis=sdlc_analysis
+        ),
+        "sdlcFindings": _sdlc_console_findings(sdlc_analysis),
+        "sdlcTrends": _sdlc_console_trends(sdlc_analysis),
+        "sdlcRecommendations": _sdlc_console_recommendations(sdlc_analysis),
         "actionWorkbench": _action_workbench(console_data),
     }
     return {
@@ -1080,6 +1089,10 @@ def _display_safe_text(value: str) -> str:
     return value
 
 
+def _safe_display_ref(value: str) -> str:
+    return _display_safe_text(value.replace("://", "_").replace("/", "_"))
+
+
 def _evidence_vault_workbench(console_data: dict[str, Any]) -> dict[str, Any]:
     evidence_items = list(console_data.get("evidence", []))
     return {
@@ -1096,9 +1109,19 @@ def _evidence_vault_workbench(console_data: dict[str, Any]) -> dict[str, Any]:
 
 
 def _sdlc_run_workbench(
-    console_data: dict[str, Any], *, repository: InMemoryRepository | None = None
+    console_data: dict[str, Any],
+    *,
+    repository: InMemoryRepository | None = None,
+    analysis: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     sdlc_runs = list(console_data.get("sdlcRuns", []))
+    analysis = (
+        analysis
+        if analysis is not None
+        else build_sdlc_analysis_snapshot(repository)
+        if repository is not None
+        else None
+    )
     verified_count = sum(1 for item in sdlc_runs if _sdlc_proof_verified(item))
     pending_count = len(sdlc_runs) - verified_count
     task_guard = _sdlc_task_guard_rows(repository, sdlc_runs)
@@ -1143,14 +1166,265 @@ def _sdlc_run_workbench(
         "outboxReceipts": outbox_receipts,
         "evidenceReadiness": evidence_readiness,
         "adapterDiagnostics": adapter_diagnostics,
+        "latestRealReport": _sdlc_latest_real_report(analysis),
+        "runTypeTags": _sdlc_run_type_tags(analysis, sdlc_runs),
+        "roundConclusion": _sdlc_round_conclusion(analysis),
+        "historicalTrends": _sdlc_console_trends(analysis),
+        "topFindings": _sdlc_console_findings(analysis)[:5],
+        "sdlcRecommendations": _sdlc_console_recommendations(analysis),
         "guardrails": [
             "Reporter active 必须有 machine-verifiable proof、签名运行事实与回执证明，不得由 dry-run、AGENTS.md 或 verified_loaded 诊断推导。",
             "Outbox delivered 只表示投递状态，不在 Console 执行 Outbox Replay 或事件重放。",
             "verified_loaded 只展示 adapter 诊断，不作为 L5 主路径或接入准入硬门槛。",
             "可执行任务与代码守卫缺失或 blocked 时，必须阻断 L5 提升并展示下一步动作。",
             "L5 条件缺失必须展示 failed_conditions 和下一步动作，不得显示为 healthy。",
+            "Finding 只引用 summary、hash、ref、count、status 和 diagnostic code；AgentOps 只做观测和建议，不替代 Ai_AutoSDLC 自身治理。",
             "Ai_AutoSDLC 运行工作台不得展示原始载荷、下载链接、PR 原文、diff、patch 或外部 URL。",
         ],
+    }
+
+
+def _sdlc_console_findings(analysis: dict[str, Any] | None) -> list[dict[str, Any]]:
+    if not analysis:
+        return []
+    rows = []
+    for finding in analysis.get("findings", []):
+        if not isinstance(finding, dict):
+            continue
+        rows.append(
+            {
+                "schema_version": "agentops_sdlc_finding.v1",
+                "finding_id": _display_safe_text(str(finding.get("finding_id") or "")),
+                "severity": str(finding.get("severity") or "P3"),
+                "category": str(finding.get("category") or "insufficient_evidence"),
+                "run_id": _display_safe_text(str(finding.get("run_id") or "")),
+                "workitem": _display_safe_text(str(finding.get("workitem") or "")),
+                "summary": _display_safe_text(str(finding.get("summary") or "")),
+                "evidence_summary": _safe_display_ref(
+                    str(finding.get("evidence_summary") or "")
+                ),
+                "recommendation": _display_safe_text(
+                    str(finding.get("recommendation") or "")
+                ),
+                "created_at": _display_safe_text(str(finding.get("created_at") or "")),
+            }
+        )
+    return rows
+
+
+def _sdlc_console_trends(analysis: dict[str, Any] | None) -> dict[str, Any]:
+    if not analysis:
+        return {
+            "schema_version": "agentops_sdlc_trends.v1",
+            "summary": _sdlc_empty_trend_entry("all"),
+            "by_workitem": [],
+            "by_stage": [],
+            "by_run_type": [],
+            "raw_access_state": "summary_only",
+            "automatic_fix_performed": False,
+            "outbox_replay_performed": False,
+        }
+    trends = analysis.get("trends") if isinstance(analysis.get("trends"), dict) else {}
+    return {
+        "schema_version": "agentops_sdlc_trends.v1",
+        "summary": _sdlc_console_trend_entry(
+            trends.get("summary") if isinstance(trends.get("summary"), dict) else {}
+        ),
+        "by_workitem": [
+            _sdlc_console_trend_entry(item)
+            for item in trends.get("by_workitem", [])
+            if isinstance(item, dict)
+        ],
+        "by_stage": [
+            _sdlc_console_trend_entry(item)
+            for item in trends.get("by_stage", [])
+            if isinstance(item, dict)
+        ],
+        "by_run_type": [
+            _sdlc_console_trend_entry(item)
+            for item in trends.get("by_run_type", [])
+            if isinstance(item, dict)
+        ],
+        "raw_access_state": "summary_only",
+        "automatic_fix_performed": False,
+        "outbox_replay_performed": False,
+    }
+
+
+def _sdlc_console_trend_entry(item: dict[str, Any]) -> dict[str, Any]:
+    key = str(
+        item.get("workitem")
+        or item.get("stage")
+        or item.get("run_type")
+        or item.get("scope")
+        or "all"
+    )
+    entry = _sdlc_empty_trend_entry(_display_safe_text(key))
+    for field_name in (
+        "run_count",
+        "success_count",
+        "failed_count",
+        "task_guard_blocked_count",
+        "missing_executable_task_count",
+        "rejected_count",
+        "dlq_count",
+    ):
+        entry[field_name] = _safe_int(item.get(field_name))
+    for field_name in (
+        "close_failure_rate",
+        "execute_failure_rate",
+        "average_span_count",
+        "average_retry_count",
+    ):
+        entry[field_name] = _safe_float(item.get(field_name))
+    entry["latest_failure_at"] = _display_safe_text(
+        str(item.get("latest_failure_at") or "")
+    )
+    for label in ("workitem", "stage", "run_type", "scope"):
+        if item.get(label):
+            entry[label] = _display_safe_text(str(item.get(label)))
+    return entry
+
+
+def _sdlc_empty_trend_entry(scope: str) -> dict[str, Any]:
+    return {
+        "scope": scope,
+        "run_count": 0,
+        "success_count": 0,
+        "failed_count": 0,
+        "close_failure_rate": 0.0,
+        "execute_failure_rate": 0.0,
+        "task_guard_blocked_count": 0,
+        "missing_executable_task_count": 0,
+        "rejected_count": 0,
+        "dlq_count": 0,
+        "average_span_count": 0.0,
+        "average_retry_count": 0.0,
+        "latest_failure_at": "",
+    }
+
+
+def _sdlc_console_recommendations(analysis: dict[str, Any] | None) -> list[str]:
+    if not analysis:
+        return [
+            "等待 Ai_AutoSDLC summary-only 上报后再输出自迭代质量建议；Console 不执行修复或回放。",
+        ]
+    return [
+        _display_safe_text(str(item))
+        for item in analysis.get("recommendations", [])
+        if str(item)
+    ]
+
+
+def _sdlc_latest_real_report(analysis: dict[str, Any] | None) -> dict[str, Any]:
+    latest = (
+        analysis.get("latest_real_report")
+        if analysis and isinstance(analysis.get("latest_real_report"), dict)
+        else {}
+    )
+    return _sdlc_console_health_summary(latest)
+
+
+def _sdlc_console_health_summary(summary: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "schema_version": "agentops_sdlc_run_health_summary.v1",
+        "run_id": _display_safe_text(str(summary.get("run_id") or "")),
+        "workitem": _display_safe_text(str(summary.get("workitem") or "")),
+        "run_type": str(summary.get("run_type") or "real_run"),
+        "overall_status": str(summary.get("overall_status") or "unknown"),
+        "delivered_state": str(summary.get("delivered_state") or "not_reported"),
+        "accepted": _safe_int(summary.get("accepted")),
+        "deduplicated": _safe_int(summary.get("deduplicated")),
+        "rejected": _safe_int(summary.get("rejected")),
+        "stale": _safe_int(summary.get("stale")),
+        "dlq": _safe_int(summary.get("dlq")),
+        "span_count": _safe_int(summary.get("span_count")),
+        "failed_span_count": _safe_int(summary.get("failed_span_count")),
+        "failed_stage": _display_safe_text(str(summary.get("failed_stage") or "")),
+        "failed_operation": _display_safe_text(
+            str(summary.get("failed_operation") or "")
+        ),
+        "failed_conditions": [
+            _display_safe_text(str(item))
+            for item in summary.get("failed_conditions", [])
+        ]
+        if isinstance(summary.get("failed_conditions"), list)
+        else [],
+        "blocking_reason": _display_safe_text(
+            str(summary.get("blocking_reason") or "")
+        ),
+        "retryable": bool(summary.get("retryable")),
+        "next_action": _display_safe_text(str(summary.get("next_action") or "")),
+        "evidence_level": str(summary.get("evidence_level") or "L3"),
+        "raw_access_state": "summary_only",
+    }
+
+
+def _sdlc_run_type_tags(
+    analysis: dict[str, Any] | None, sdlc_runs: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    if analysis:
+        summaries = [
+            item
+            for item in analysis.get("health_summaries", [])
+            if isinstance(item, dict)
+        ]
+        if summaries:
+            return [
+                {
+                    "run_id": _display_safe_text(str(item.get("run_id") or "")),
+                    "workitem": _display_safe_text(str(item.get("workitem") or "")),
+                    "run_type": str(item.get("run_type") or "real_run"),
+                    "overall_status": str(item.get("overall_status") or "unknown"),
+                    "classification_reason": _display_safe_text(
+                        str(item.get("run_classification_reason") or "")
+                    ),
+                }
+                for item in summaries
+            ]
+    return [
+        {
+            "run_id": _sdlc_run_ref(item),
+            "workitem": _display_safe_text(str(item.get("workitem") or "待接收")),
+            "run_type": str(item.get("run_type") or "dry_run_retry"),
+            "overall_status": str(item.get("overall_status") or "pending"),
+            "classification_reason": "样例或诊断行，不作为真实自迭代运行。",
+        }
+        for item in sdlc_runs
+    ]
+
+
+def _sdlc_round_conclusion(analysis: dict[str, Any] | None) -> dict[str, Any]:
+    if not analysis:
+        return {
+            "status": "pending",
+            "summary": "尚未收到 Ai_AutoSDLC summary-only 运行上报。",
+            "next_action": "等待真实运行、readiness fixture、live smoke 或 dry_run_retry 上报后再判断。",
+        }
+    summaries = [
+        item for item in analysis.get("health_summaries", []) if isinstance(item, dict)
+    ]
+    latest = analysis.get("latest_real_report")
+    findings = [item for item in analysis.get("findings", []) if isinstance(item, dict)]
+    if latest and latest.get("overall_status") == "succeeded":
+        status = "succeeded" if not findings else "needs_review"
+        summary = (
+            "最新真实自迭代运行已投递，当前轮次通过；历史 finding 仍需回流 SDLC 优化。"
+        )
+    elif latest:
+        status = str(latest.get("overall_status") or "needs_review")
+        summary = "最新真实自迭代运行存在失败或诊断，需要 SDLC 输出更强结论。"
+    else:
+        status = "pending"
+        summary = "尚无真实自迭代运行，仅可观察预演、探活或 fixture 样本。"
+    return {
+        "status": status,
+        "summary": _display_safe_text(summary),
+        "next_action": _display_safe_text(
+            analysis.get("recommendations", ["等待更多上报"])[0]
+        ),
+        "run_count": len(summaries),
+        "finding_count": len(findings),
     }
 
 
@@ -1266,8 +1540,8 @@ def _sdlc_task_guard_rows(
                 "task_title": str(span.get("task_title") or "未声明"),
                 "task_guard_state": str(span.get("task_guard_state") or "pending"),
                 "guard_result": str(span.get("guard_result") or "pending"),
-                "evidence_ref": str(
-                    span.get("evidence_ref") or span.get("payload_ref") or ""
+                "evidence_ref": _safe_display_ref(
+                    str(span.get("evidence_ref") or span.get("payload_ref") or "")
                 ),
                 "raw_payload_state": "summary_only",
                 "next_action": "等待代码守卫结果",
@@ -1300,7 +1574,7 @@ def _sdlc_task_guard_row_from_run(item: dict[str, Any]) -> dict[str, str]:
         "task_title": str(item.get("task_title") or "待接收"),
         "task_guard_state": str(item.get("task_guard_state") or "pending"),
         "guard_result": str(item.get("guard_result") or "pending"),
-        "evidence_ref": str(item.get("evidence_ref") or "待接收"),
+        "evidence_ref": _safe_display_ref(str(item.get("evidence_ref") or "待接收")),
         "raw_payload_state": "summary_only",
         "next_action": "等待 Ai_AutoSDLC 可执行任务与代码守卫事件",
         "safety_note": "只展示任务守卫摘要，不展示 allowed_paths、diff、patch 或原始载荷。",
@@ -3155,6 +3429,27 @@ def _repository_sdlc_runs(
 ) -> list[dict[str, str]]:
     now = datetime.now(UTC).isoformat()
     event_count = repository.raw_event_count() if event_count is None else event_count
+    analysis = build_sdlc_analysis_snapshot(repository)
+    if analysis["health_summaries"]:
+        return [
+            {
+                "id": str(summary["run_id"]),
+                "run_id": str(summary["run_id"]),
+                "command": f"Ai_AutoSDLC {summary['run_type']}",
+                "adapter_status": "materialized",
+                "dry_run_status": "dry_run_passed"
+                if summary["run_type"] == "dry_run_retry"
+                else "not_asserted",
+                "proof_source": f"summary:{summary['delivered_state']} accepted:{summary['accepted']}",
+                "captured_at": str(summary.get("latest_event_at") or now),
+                "verified_loaded": "unverified",
+                "run_type": str(summary["run_type"]),
+                "workitem": str(summary["workitem"]),
+                "overall_status": str(summary["overall_status"]),
+                "delivered_state": str(summary["delivered_state"]),
+            }
+            for summary in analysis["health_summaries"]
+        ]
     return [
         _sdlc_run(
             "sdlc_repository_snapshot",

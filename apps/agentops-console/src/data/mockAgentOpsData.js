@@ -319,6 +319,115 @@ const sdlcEligibilityItem = (item) => {
   };
 };
 
+consoleData.sdlcFindings = [
+  {
+    schema_version: "agentops_sdlc_finding.v1",
+    finding_id: "sdlc_finding_missing_failure_reason_fixture",
+    severity: "P2",
+    category: "missing_failure_reason",
+    run_id: "run_fixture_close_gate_failed",
+    workitem: "agentops-self-iteration-monitoring",
+    summary: "历史关闭门禁失败缺少明确失败原因。",
+    evidence_summary: "运行引用 sha256:8651；阶段关闭；失败数 1；条件缺少失败原因；原文仅摘要。",
+    recommendation: "让 Ai_AutoSDLC 在 failed 事件中输出 summary 级 blocking_reason 和 diagnostic code。",
+    created_at: "2026-05-05T18:43:00-07:00"
+  }
+];
+
+consoleData.sdlcTrends = {
+  schema_version: "agentops_sdlc_trends.v1",
+  summary: {
+    scope: "all",
+    run_count: 3,
+    success_count: 2,
+    failed_count: 1,
+    close_failure_rate: 0.3333,
+    execute_failure_rate: 0,
+    task_guard_blocked_count: 0,
+    missing_executable_task_count: 0,
+    rejected_count: 0,
+    dlq_count: 0,
+    average_span_count: 4,
+    average_retry_count: 0.3333,
+    latest_failure_at: "2026-05-05T18:43:00-07:00"
+  },
+  by_workitem: [
+    {
+      workitem: "agentops-self-iteration-monitoring",
+      run_count: 3,
+      success_count: 2,
+      failed_count: 1,
+      close_failure_rate: 0.3333,
+      execute_failure_rate: 0,
+      task_guard_blocked_count: 0,
+      missing_executable_task_count: 0,
+      rejected_count: 0,
+      dlq_count: 0,
+      average_span_count: 4,
+      average_retry_count: 0.3333,
+      latest_failure_at: "2026-05-05T18:43:00-07:00"
+    }
+  ],
+  by_stage: [
+    {
+      stage: "close",
+      run_count: 1,
+      success_count: 0,
+      failed_count: 1,
+      close_failure_rate: 1,
+      execute_failure_rate: 0,
+      task_guard_blocked_count: 0,
+      missing_executable_task_count: 0,
+      rejected_count: 0,
+      dlq_count: 0,
+      average_span_count: 4,
+      average_retry_count: 0,
+      latest_failure_at: "2026-05-05T18:43:00-07:00"
+    }
+  ],
+  by_run_type: [
+    {
+      run_type: "real_run",
+      run_count: 1,
+      success_count: 1,
+      failed_count: 0,
+      close_failure_rate: 0,
+      execute_failure_rate: 0,
+      task_guard_blocked_count: 0,
+      missing_executable_task_count: 0,
+      rejected_count: 0,
+      dlq_count: 0,
+      average_span_count: 4,
+      average_retry_count: 0,
+      latest_failure_at: ""
+    },
+    {
+      run_type: "dry_run_retry",
+      run_count: 2,
+      success_count: 1,
+      failed_count: 1,
+      close_failure_rate: 0.5,
+      execute_failure_rate: 0,
+      task_guard_blocked_count: 0,
+      missing_executable_task_count: 0,
+      rejected_count: 0,
+      dlq_count: 0,
+      average_span_count: 4,
+      average_retry_count: 0.5,
+      latest_failure_at: "2026-05-05T18:43:00-07:00"
+    }
+  ],
+  raw_access_state: "summary_only",
+  automatic_fix_performed: false,
+  outbox_replay_performed: false
+};
+
+consoleData.sdlcRecommendations = [
+  "给 SDLC 的建议：在 close gate / verification failed 事件中补齐 summary 级 blocking_reason、diagnostic code 和 retryable。",
+  "按 real_run、readiness_fixture、live_smoke、dry_run_retry 分桶聚合，避免把预演样本误判为真实自迭代健康结论。",
+  "保持 AgentOps 只读观测边界：输出 finding、趋势和建议，不执行 outbox replay、不自动修复、不写回 SDLC。"
+];
+
 consoleData.sdlcRunWorkbench = {
   summary: {
     id: "sdlc_run_summary",
@@ -382,12 +491,62 @@ consoleData.sdlcRunWorkbench = {
     hard_gate: "false",
     next_action: "接入签名运行事实与回执"
   })),
+  latestRealReport: {
+    schema_version: "agentops_sdlc_run_health_summary.v1",
+    run_id: "run_fixture_latest_real",
+    workitem: "agentops-self-iteration-monitoring",
+    run_type: "real_run",
+    overall_status: "succeeded",
+    delivered_state: "delivered",
+    accepted: 4,
+    deduplicated: 0,
+    rejected: 0,
+    stale: 0,
+    dlq: 0,
+    span_count: 4,
+    failed_span_count: 0,
+    failed_stage: "",
+    failed_operation: "",
+    failed_conditions: [],
+    blocking_reason: "",
+    retryable: false,
+    next_action: "保持观测；将该真实自迭代 run 作为健康基线样本。",
+    evidence_level: "L5",
+    raw_access_state: "summary_only"
+  },
+  runTypeTags: [
+    {
+      run_id: "run_fixture_latest_real",
+      workitem: "agentops-self-iteration-monitoring",
+      run_type: "real_run",
+      overall_status: "succeeded",
+      classification_reason: "真实自迭代运行样例，不与预演样本混算。"
+    },
+    {
+      run_id: "run_fixture_dry_retry",
+      workitem: "agentops-self-iteration-monitoring",
+      run_type: "dry_run_retry",
+      overall_status: "failed",
+      classification_reason: "dry-run 重试样例，只进入预演趋势桶。"
+    }
+  ],
+  roundConclusion: {
+    status: "needs_review",
+    summary: "最新真实自迭代运行已投递，历史关闭门禁失败仍需回流 SDLC 优化。",
+    next_action: "在 failed 事件中补齐 summary 级 blocking_reason 和 diagnostic code。",
+    run_count: 3,
+    finding_count: 1
+  },
+  historicalTrends: consoleData.sdlcTrends,
+  topFindings: consoleData.sdlcFindings,
+  sdlcRecommendations: consoleData.sdlcRecommendations,
   guardrails: [
     "Reporter active 必须有 machine-verifiable proof、签名运行事实与回执证明，不得由 dry-run、AGENTS.md 或 verified_loaded 诊断推导。",
     "Outbox delivered 只表示投递状态，不在 Console 执行 Outbox Replay 或事件重放。",
     "verified_loaded 只展示 adapter 诊断，不作为 L5 主路径或接入准入硬门槛。",
     "可执行任务与代码守卫缺失或 blocked 时，必须阻断 L5 提升并展示下一步动作。",
     "L5 条件缺失必须展示 failed_conditions 和下一步动作，不得显示为 healthy。",
+    "Finding 只引用 summary、hash、ref、count、status 和 diagnostic code；AgentOps 只做观测和建议，不替代 Ai_AutoSDLC 自身治理。",
     "Ai_AutoSDLC 运行工作台不得展示原始载荷、下载链接、PR 原文、diff、patch 或外部 URL。"
   ]
 };

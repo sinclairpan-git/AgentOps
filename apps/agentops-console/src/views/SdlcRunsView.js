@@ -77,6 +77,28 @@ export const SdlcRunsView = {
         { key: "hard_gate", label: "硬门槛" },
         { key: "next_action", label: "下一步" }
       ],
+      runTypeColumns: [
+        { key: "run_id", label: "运行" },
+        { key: "workitem", label: "工作项" },
+        { key: "run_type", label: "上报类型", type: "status" },
+        { key: "overall_status", label: "结论", type: "status" },
+        { key: "classification_reason", label: "分类依据" }
+      ],
+      findingColumns: [
+        { key: "severity", label: "级别", type: "status" },
+        { key: "category", label: "类别" },
+        { key: "run_id", label: "运行" },
+        { key: "summary", label: "结论" },
+        { key: "recommendation", label: "建议" }
+      ],
+      trendColumns: [
+        { key: "scope", label: "分组" },
+        { key: "run_count", label: "运行" },
+        { key: "success_count", label: "成功" },
+        { key: "failed_count", label: "失败" },
+        { key: "close_failure_rate", label: "Close 失败率" },
+        { key: "average_span_count", label: "平均片段" }
+      ],
       glossaryTerms: [
         { label: "可执行任务", copy: "Ai_AutoSDLC 输出的明确任务、工作项和允许变更范围。" },
         { label: "任务守卫", copy: "代码变更是否仍在可执行任务范围内的后端判定。" },
@@ -105,8 +127,37 @@ export const SdlcRunsView = {
         outboxReceipts: [],
         evidenceReadiness: [],
         adapterDiagnostics: [],
+        latestRealReport: {
+          run_id: "",
+          run_type: "real_run",
+          overall_status: "unknown",
+          delivered_state: "not_reported",
+          accepted: 0,
+          failed_span_count: 0,
+          next_action: "等待真实上报"
+        },
+        runTypeTags: [],
+        roundConclusion: {
+          status: "pending",
+          summary: "尚未取得本轮结论。",
+          next_action: "等待后端快照"
+        },
+        historicalTrends: { summary: {}, by_workitem: [], by_stage: [], by_run_type: [] },
+        topFindings: [],
+        sdlcRecommendations: [],
         guardrails: []
       };
+    },
+    trendRows() {
+      const trends = this.workbench.historicalTrends || {};
+      const rows = [];
+      if (trends.summary) {
+        rows.push({ ...trends.summary, scope: "全部" });
+      }
+      return rows
+        .concat((trends.by_workitem || []).map((item) => ({ ...item, scope: item.workitem || item.scope || "未声明工作项" })))
+        .concat((trends.by_stage || []).map((item) => ({ ...item, scope: `stage:${item.stage || item.scope || "none"}` })))
+        .concat((trends.by_run_type || []).map((item) => ({ ...item, scope: `type:${item.run_type || item.scope || "unknown"}` })));
     },
     blockedConditions() {
       return this.workbench.eligibility
@@ -124,6 +175,12 @@ export const SdlcRunsView = {
         .replaceAll("materialized/unverified", "已生成配置/未验证")
         .replaceAll("materialized", "已生成配置")
         .replaceAll("unverified", "未验证")
+        .replaceAll("real_run", "真实运行")
+        .replaceAll("dry_run_retry", "预演重试")
+        .replaceAll("readiness_fixture", "就绪样本")
+        .replaceAll("live_smoke", "在线探活")
+        .replaceAll("delivered", "已投递")
+        .replaceAll("not_reported", "未上报")
         .replaceAll("Outbox Replay", "事件重放")
         .replaceAll("Outbox delivered", "事件已投递")
         .replaceAll("Outbox", "事件投递箱")
@@ -171,6 +228,67 @@ export const SdlcRunsView = {
         </div>
         <ul class="guardrail-list">
           <li v-for="item in workbench.guardrails" :key="item">{{ readableText(item) }}</li>
+        </ul>
+      </section>
+      <section class="ent-card">
+        <div class="section-title">
+          <h4>最新真实上报</h4>
+          <span class="muted">本轮结论</span>
+        </div>
+        <dl class="evidence-vault-metrics connector-metrics">
+          <div><dt>运行</dt><dd>{{ workbench.latestRealReport.run_id || "暂无" }}</dd></div>
+          <div><dt>类型</dt><dd>{{ readableText(workbench.latestRealReport.run_type) }}</dd></div>
+          <div><dt>投递</dt><dd><status-badge :status="workbench.latestRealReport.delivered_state" /></dd></div>
+          <div><dt>接收</dt><dd>{{ workbench.latestRealReport.accepted || 0 }}</dd></div>
+          <div><dt>失败片段</dt><dd>{{ workbench.latestRealReport.failed_span_count || 0 }}</dd></div>
+          <div><dt>结论</dt><dd><status-badge :status="workbench.latestRealReport.overall_status" /></dd></div>
+        </dl>
+        <p class="muted">{{ workbench.roundConclusion.summary }}</p>
+        <p class="muted">{{ workbench.roundConclusion.next_action }}</p>
+      </section>
+      <section class="ent-card">
+        <div class="section-title">
+          <h4>上报类型标签</h4>
+          <span class="muted">真实运行、就绪样本、在线探活、预演重试分开展示</span>
+        </div>
+        <data-table
+          :columns="runTypeColumns"
+          :rows="workbench.runTypeTags"
+          empty-title="暂无上报类型"
+          empty-detail="收到 Ai_AutoSDLC 运行摘要后会显示 run_type 分类。"
+        />
+      </section>
+      <section class="ent-card">
+        <div class="section-title">
+          <h4>历史趋势</h4>
+          <span class="muted">按工作项、阶段和上报类型聚合</span>
+        </div>
+        <data-table
+          :columns="trendColumns"
+          :rows="trendRows"
+          empty-title="暂无趋势"
+          empty-detail="至少收到一批 Ai_AutoSDLC receipts 后会生成趋势摘要。"
+        />
+      </section>
+      <section class="ent-card">
+        <div class="section-title">
+          <h4>重点发现</h4>
+          <span class="muted">结构化问题结论</span>
+        </div>
+        <data-table
+          :columns="findingColumns"
+          :rows="workbench.topFindings"
+          empty-title="暂无 finding"
+          empty-detail="历史 failed close gate、缺失失败原因或上报诊断会在这里显示。"
+        />
+      </section>
+      <section class="ent-card">
+        <div class="section-title">
+          <h4>给 SDLC 的建议</h4>
+          <span class="muted">只读建议，不自动写回</span>
+        </div>
+        <ul class="guardrail-list">
+          <li v-for="item in workbench.sdlcRecommendations" :key="item">{{ item }}</li>
         </ul>
       </section>
       <section class="ent-card">

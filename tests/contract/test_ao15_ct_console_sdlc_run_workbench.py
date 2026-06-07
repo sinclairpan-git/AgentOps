@@ -36,6 +36,12 @@ def test_ao15_ct_001_snapshot_includes_sdlc_run_workbench_sections():
         "outboxReceipts",
         "evidenceReadiness",
         "adapterDiagnostics",
+        "latestRealReport",
+        "runTypeTags",
+        "roundConclusion",
+        "historicalTrends",
+        "topFindings",
+        "sdlcRecommendations",
         "guardrails",
     }
     assert workbench["summary"]["proof_state"] == "unverified"

@@ -30,4 +30,3 @@ def repository_from_env(*, require_auth: bool = False) -> InMemoryRepository:
 
 def _env_flag(name: str) -> bool:
     return os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on"}
-

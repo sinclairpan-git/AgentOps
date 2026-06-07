@@ -28,6 +28,9 @@ from agentops.api.operations import (
     ingest_quality_scorer_external_execution,
 )
 from agentops.api.runtime import (
+    get_sdlc_findings,
+    get_sdlc_run_health_summary,
+    get_sdlc_trends,
     get_runtime_evidence_summary,
     get_runtime_health_summary,
     get_runtime_run_detail,
@@ -378,6 +381,88 @@ def create_http_handler(
                     return
                 self._append_audit_record(
                     action="runtime.audit.export",
+                    outcome="accepted",
+                    resource=request_path,
+                )
+                self._send_json(HTTPStatus.OK, response)
+                return
+
+            sdlc_run_health_prefix = "/v1/runtime/sdlc/runs/"
+            sdlc_run_health_suffix = "/health-summary"
+            if request_path.startswith(
+                sdlc_run_health_prefix
+            ) and request_path.endswith(sdlc_run_health_suffix):
+                run_id = (
+                    request_path.removeprefix(sdlc_run_health_prefix)
+                    .removesuffix(sdlc_run_health_suffix)
+                    .strip("/")
+                )
+                if not run_id or "/" in run_id:
+                    self._send_json(
+                        HTTPStatus.NOT_FOUND,
+                        {
+                            "error_code": "NOT_FOUND",
+                            "message": "未找到请求的 AgentOps API 路径。",
+                        },
+                    )
+                    return
+                auth_error = self._require_scope("runtime.health.read")
+                if auth_error:
+                    self._send_auth_error(
+                        auth_error,
+                        action="runtime.sdlc.health.read",
+                        resource=request_path,
+                    )
+                    return
+                try:
+                    response = get_sdlc_run_health_summary(live_repository, run_id)
+                except AgentOpsError as exc:
+                    self._append_audit_record(
+                        action="runtime.sdlc.health.read",
+                        outcome="rejected",
+                        resource=request_path,
+                        error_code=exc.error_code,
+                    )
+                    self._send_json(HTTPStatus.NOT_FOUND, exc.to_response())
+                    return
+                self._append_audit_record(
+                    action="runtime.sdlc.health.read",
+                    outcome="accepted",
+                    resource=request_path,
+                )
+                self._send_json(HTTPStatus.OK, response)
+                return
+
+            if request_path == "/v1/runtime/sdlc/findings":
+                auth_error = self._require_scope("runtime.health.read")
+                if auth_error:
+                    self._send_auth_error(
+                        auth_error,
+                        action="runtime.sdlc.findings.read",
+                        resource=request_path,
+                    )
+                    return
+                response = get_sdlc_findings(live_repository)
+                self._append_audit_record(
+                    action="runtime.sdlc.findings.read",
+                    outcome="accepted",
+                    resource=request_path,
+                )
+                self._send_json(HTTPStatus.OK, response)
+                return
+
+            if request_path == "/v1/runtime/sdlc/trends":
+                auth_error = self._require_scope("runtime.health.read")
+                if auth_error:
+                    self._send_auth_error(
+                        auth_error,
+                        action="runtime.sdlc.trends.read",
+                        resource=request_path,
+                    )
+                    return
+                response = get_sdlc_trends(live_repository)
+                self._append_audit_record(
+                    action="runtime.sdlc.trends.read",
                     outcome="accepted",
                     resource=request_path,
                 )
@@ -2091,11 +2176,7 @@ def _allowed_origins() -> set[str]:
     configured = os.getenv(ALLOWED_ORIGINS_ENV, "")
     if not configured.strip():
         return set(DEFAULT_ALLOWED_ORIGINS)
-    origins = {
-        origin.strip()
-        for origin in configured.split(",")
-        if origin.strip()
-    }
+    origins = {origin.strip() for origin in configured.split(",") if origin.strip()}
     return origins or set(DEFAULT_ALLOWED_ORIGINS)
 
 

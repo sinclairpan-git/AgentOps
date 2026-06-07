@@ -8,6 +8,11 @@ from agentops.core.runtime_summary import (
     build_runtime_evidence_summary,
     build_runtime_health_summary,
 )
+from agentops.core.sdlc_analysis import (
+    build_sdlc_findings,
+    build_sdlc_run_health_summary,
+    build_sdlc_trends,
+)
 from agentops.core.runtime_ingestion import ingest_runtime_batch
 from agentops.api.view_models import (
     build_runtime_run_detail_projection,
@@ -65,3 +70,18 @@ def get_runtime_health_summary(
     version: str,
 ) -> dict[str, Any]:
     return build_runtime_health_summary(repository, agent_id, version)
+
+
+def get_sdlc_run_health_summary(
+    repository: InMemoryRepository,
+    run_id: str,
+) -> dict[str, Any]:
+    return build_sdlc_run_health_summary(repository, run_id)
+
+
+def get_sdlc_findings(repository: InMemoryRepository) -> dict[str, Any]:
+    return build_sdlc_findings(repository)
+
+
+def get_sdlc_trends(repository: InMemoryRepository) -> dict[str, Any]:
+    return build_sdlc_trends(repository)

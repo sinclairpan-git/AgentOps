@@ -180,10 +180,13 @@ class PostgresRepository(InMemoryRepository):
         run_id = str(payload["run_id"])
         attempt_identity = _runtime_attempt_identity(payload.get("attempt_no", 1))
         existing = self.get_runtime_run_fact(run_id)
-        if existing and _runtime_attempt_matches(
-            existing.get("attempt_no"), payload.get("attempt_no", 1)
-        ) and _runtime_number_sort_value(record.get("sequence_no", 0)) <= (
-            _runtime_number_sort_value(existing.get("sequence_no", 0))
+        if (
+            existing
+            and _runtime_attempt_matches(
+                existing.get("attempt_no"), payload.get("attempt_no", 1)
+            )
+            and _runtime_number_sort_value(record.get("sequence_no", 0))
+            <= (_runtime_number_sort_value(existing.get("sequence_no", 0)))
         ):
             return "stale_ignored"
         with self._connection() as connection:
@@ -210,7 +213,9 @@ class PostgresRepository(InMemoryRepository):
                         str(event["event_id"]),
                         str(payload.get("trace_id") or ""),
                         str(payload.get("agent_id") or ""),
-                        str(payload.get("version") or payload.get("agent_version") or ""),
+                        str(
+                            payload.get("version") or payload.get("agent_version") or ""
+                        ),
                         _runtime_number_sort_value(event.get("sequence_no", 0)),
                         _json_dumps(record),
                     ),
@@ -405,7 +410,9 @@ class PostgresRepository(InMemoryRepository):
         status: str = "dlq",
         retryable: bool = True,
     ) -> None:
-        record = self._runtime_dlq_record(event, error_code, message, state, status, retryable)
+        record = self._runtime_dlq_record(
+            event, error_code, message, state, status, retryable
+        )
         with self._connection() as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
